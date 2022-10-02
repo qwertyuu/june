@@ -1074,7 +1074,8 @@ YIELD_ERROR(UOP)
 void june::Analysis::CheckArray(Array* Arr) {
 
 	if (Arr->NumElements == 0) {
-		// TODO
+		Error(Arr, "Arrays must have at least one element");
+		YIELD_ERROR(Arr);
 	}
 
 	Type* ElmTypes = nullptr;

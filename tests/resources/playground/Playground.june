@@ -1,12 +1,4 @@
 
-Data1 :: record {
-	//a :Data2;
-}
-
-Data2 :: record {
-	g :Data1;
-}
-
 main() {
-	
+	a :i32[1] = [];	
 }
