@@ -73,6 +73,7 @@ namespace june {
 		RangeLoopStmt* ParseRangeLoop(Token LoopTok);
 		PredicateLoopStmt* ParsePredicateLoop(Token LoopTok);
 		IfStmt* ParseIf();
+		LoopControlStmt* ParseLoopControl();
 
 		//===-------------------------------===//
 		// Expressions

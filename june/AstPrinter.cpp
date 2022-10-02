@@ -105,6 +105,14 @@ namespace june {
 		}
 	}
 
+	void PrintLoopControl(const JuneContext& Context, const LoopControlStmt* LoopControl, u32 Depth) {
+		if (LoopControl->Kind == AstKind::BREAK) {
+			llvm::outs() << "(break)";
+		} else {
+			llvm::outs() << "(continue)";
+		}
+	}
+
 	void PrintIf(const JuneContext& Context, const IfStmt* If, u32 Depth) {
 		llvm::outs() << "(if)\n";
 		PrintIndent(Depth);
@@ -312,6 +320,10 @@ namespace june {
 			break;
 		case AstKind::IF:
 			PrintIf(Context, ocast<const IfStmt*>(N), Depth);
+			break;
+		case AstKind::BREAK:
+		case AstKind::CONTINUE:
+			PrintLoopControl(Context, ocast<const LoopControlStmt*>(N), Depth);
 			break;
 		case AstKind::IDENT_REF:
 			PrintIdentRef(Context, ocast<const IdentRef*>(N), Depth);

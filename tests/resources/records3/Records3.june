@@ -1,4 +1,6 @@
-
+// -- Test to make sure that records
+//    can contain another record as
+//    a field.
 A :: record {
 	f1 :i32;
 	f2 :i32;

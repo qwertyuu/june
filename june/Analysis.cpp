@@ -92,7 +92,7 @@ void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
 
 	Scope FuncScope;
 	CheckScope(Func->Stmts, FuncScope);
-	if (!FuncScope.AllPathsReturn && Func->RetTy->isNot(Context.VoidType)) {
+	if (!FuncScope.AllPathsTerminate && Func->RetTy->isNot(Context.VoidType)) {
 		Error(Func, "Function missing return statement");
 	}
 }
@@ -101,7 +101,7 @@ void june::Analysis::CheckScope(const ScopeStmts& Stmts, Scope& NewScope) {
 	NewScope.Parent = LocScope;
 	LocScope = &NewScope;
 	for (AstNode* Stmt : Stmts) {
-		if (LocScope->AllPathsReturn) {
+		if (LocScope->AllPathsTerminate) {
 			Error(Stmt, "Unreachable code");
 			break;
 		}
@@ -121,6 +121,8 @@ void june::Analysis::CheckScope(const ScopeStmts& Stmts, Scope& NewScope) {
 		case AstKind::PREDICATE_LOOP:
 		case AstKind::IF:
 		case AstKind::FUNC_CALL:
+		case AstKind::BREAK:
+		case AstKind::CONTINUE:
 			break;
 		case AstKind::BINARY_OP:
 			switch (ocast<BinaryOp*>(Stmt)->Op) {
@@ -184,6 +186,10 @@ void june::Analysis::CheckNode(AstNode* Node) {
 	case AstKind::IF:
 		CheckIf(ocast<IfStmt*>(Node));
 		break;
+	case AstKind::CONTINUE:
+	case AstKind::BREAK:
+		CheckLoopControl(ocast<LoopControlStmt*>(Node));
+		break;
 	case AstKind::IDENT_REF:
 		CheckIdentRef(ocast<IdentRef*>(Node), false);
 		break;
@@ -222,11 +228,11 @@ void june::Analysis::CheckNode(AstNode* Node) {
 bool june::Analysis::CheckInnerScope(InnerScopeStmt* InnerScope) {
 	Scope NewScope;
 	CheckScope(InnerScope->Stmts, NewScope);
-	return NewScope.AllPathsReturn;
+	return NewScope.AllPathsTerminate;
 }
 
 void june::Analysis::CheckReturn(ReturnStmt* Ret) {
-	LocScope->AllPathsReturn = true;
+	LocScope->AllPathsTerminate = true;
 
 	if (Ret->Val) {
 		CheckNode(Ret->Val);
@@ -268,8 +274,11 @@ void june::Analysis::CheckRangeLoop(RangeLoopStmt* Loop) {
 	if (Loop->Inc) {
 		CheckNode(Loop->Inc);
 	}
+	
+	++LoopDepth;
 	Scope NewScope;
 	CheckScope(Loop->Stmts, NewScope);
+	--LoopDepth;
 }
 
 void june::Analysis::CheckPredicateLoop(PredicateLoopStmt* Loop) {
@@ -281,8 +290,11 @@ void june::Analysis::CheckPredicateLoop(PredicateLoopStmt* Loop) {
 			}
 		}
 	}
+	
+	++LoopDepth;
 	Scope NewScope;
 	CheckScope(Loop->Stmts, NewScope);
+	--LoopDepth;
 }
 
 bool june::Analysis::CheckIf(IfStmt* If) {
@@ -295,7 +307,7 @@ bool june::Analysis::CheckIf(IfStmt* If) {
 
 	Scope IfBodyScope;
 	CheckScope(If->Stmts, IfBodyScope);
-	bool AllPathsReturn = If->Else && IfBodyScope.AllPathsReturn;
+	bool AllPathsReturn = If->Else && IfBodyScope.AllPathsTerminate;
 
 	if (If->Else) {
 		// TODO: Need a way to check if the else had all it's paths return.
@@ -307,9 +319,32 @@ bool june::Analysis::CheckIf(IfStmt* If) {
 		}
 	}
 
-	LocScope->AllPathsReturn = AllPathsReturn;
+	LocScope->AllPathsTerminate = AllPathsReturn;
 
 	return AllPathsReturn;
+}
+
+void june::Analysis::CheckLoopControl(LoopControlStmt* LoopControl) {
+	
+	LocScope->AllPathsTerminate = true;
+
+	if (LoopDepth == 0) {
+		if (LoopControl->Kind == AstKind::BREAK) {
+			Error(LoopControl, "break statements may only be used inside of loops");
+			return;
+		} else {
+			Error(LoopControl, "continue statements may only be used inside of loops");
+			return;
+		}
+	}
+
+	if (LoopControl->LoopCount > LoopDepth) {
+		if (LoopControl->Kind == AstKind::BREAK) {
+			Error(LoopControl, "number of requested breaks exceeds the loop depth");
+		} else {
+			Error(LoopControl, "number of requested continues exceeds the loop depth");
+		}
+	}
 }
 
 void june::Analysis::CheckIdentRef(IdentRef* IRef, bool GivePrefToFuncs) {
@@ -1225,6 +1260,12 @@ bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr) {
 	}
 	case TypeKind::RECORD:
 		return FromTy->is(ToTy);
+	case TypeKind::VOID:
+		return false;
+	case TypeKind::UNDEFINED:
+		return false;
+	case TypeKind::NULLPTR:
+		return false;
 	default:
 		assert(!"unimplemented IsAssignableTo()");
 		return false;

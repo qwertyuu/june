@@ -40,6 +40,8 @@ namespace june {
 		RANGE_LOOP,
 		PREDICATE_LOOP,
 		IF,
+		BREAK,
+		CONTINUE,
 
 		IDENT_REF,
 		FUNC_CALL,
@@ -231,6 +233,16 @@ namespace june {
 		ScopeStmts Stmts;
 
 		PredicateLoopStmt() : AstNode(AstKind::PREDICATE_LOOP) {}
+
+	};
+
+	struct LoopControlStmt : AstNode {
+
+		// How many loops to break/continue from
+		u32 LoopCount = 1;
+
+		LoopControlStmt()
+			: AstNode(AstKind::ERROR) {}
 
 	};
 

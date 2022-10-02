@@ -1,3 +1,6 @@
+// -- Test to make sure that the compiler
+//    can find the primary record from another
+//    file.
 import Data;
 
 main() -> i32 {

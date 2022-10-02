@@ -39,8 +39,12 @@ namespace june {
 			// as a way of find out
 			// if a function definitatively
 			// returns.
-			bool AllPathsReturn = false;
+			bool AllPathsTerminate = false;
 		} *LocScope = nullptr;
+
+		// Every time a loop is entered this is incremented,
+		// and decremented when existed
+		u32 LoopDepth = 0;
 
 		void CheckScope(const ScopeStmts& Stmts, Scope& NewScope);
 	
@@ -49,6 +53,7 @@ namespace june {
 		void CheckRangeLoop(RangeLoopStmt* Loop);
 		void CheckPredicateLoop(PredicateLoopStmt* Loop);
 		bool CheckIf(IfStmt* If);
+		void CheckLoopControl(LoopControlStmt* LoopControl);
 		void CheckIdentRef(IdentRef* IRef, bool GivePrefToFuncs);
 		void CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, FileUnit* FUToLookup, RecordDecl* RecordToLookup);
 		void CheckFieldAccessor(FieldAccessor* FA, bool GivePrefToFuncs);

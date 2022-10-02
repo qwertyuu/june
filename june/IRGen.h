@@ -39,6 +39,12 @@ namespace june {
 		// The basic block jumped to at the end of the function.
 		llvm::BasicBlock* LLFuncEndBB;
 	
+		// The exit points of loops currently being processed
+		llvm::SmallVector<llvm::BasicBlock*, 4> LoopBreakStack;
+
+		// The restart points of the next loop iteration
+		llvm::SmallVector<llvm::BasicBlock*, 4> LoopContinueStack;
+
 		void GenFuncDecl(FuncDecl* Func);
 		void GenFuncBody(FuncDecl* Func);
 		llvm::Value* GenLocalVarDecl(VarDecl* Var);
@@ -53,6 +59,7 @@ namespace june {
 		llvm::Value* GenPredicateLoop(PredicateLoopStmt* Loop);
 		void GenLoopCondJump(llvm::BasicBlock* LLCondBB, llvm::BasicBlock* LLBodyBB, llvm::BasicBlock* LLEndBB, Expr* Cond);
 		llvm::Value* GenIf(IfStmt* If);
+		llvm::Value* GenLoopControl(LoopControlStmt* LoopControl);
 		llvm::Value* GenIdentRef(IdentRef* IRef);
 		llvm::Value* GenFieldAccessor(FieldAccessor* FA);
 		llvm::Value* GenFuncCall(llvm::Value* LLAddr, FuncCall* Call);

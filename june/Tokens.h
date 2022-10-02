@@ -42,6 +42,8 @@ namespace june {
 			KW_LOOP,
 			KW_IF,
 			KW_ELSE,
+			KW_CONTINUE,
+			KW_BREAK,
 
 		// Other
 			

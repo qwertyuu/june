@@ -132,7 +132,6 @@ void june::Parser::ParseImport() {
 void june::Parser::ParseScopeStmts(ScopeStmts& Stmts) {
 	Match('{');
 	while (CTok.isNot('}') && CTok.isNot(TokenKind::TK_EOF)) {
-		while (CTok.is(';')) NextToken(); // Consume any extra ';'
 		Stmts.push_back(ParseStmt());
 	}
 	Match('}');
@@ -140,10 +139,14 @@ void june::Parser::ParseScopeStmts(ScopeStmts& Stmts) {
 
 june::AstNode* june::Parser::ParseStmt() {
 	AstNode* Stmt;
+	while (CTok.is(';'))
+		NextToken(); // Consume any extra ';'
 	switch (CTok.Kind) {
 	case TokenKind::KW_RETURN: Stmt = ParseReturn(); Match(';'); break;
 	case TokenKind::KW_LOOP:   Stmt = ParseLoop();               break;
 	case TokenKind::KW_IF:     Stmt = ParseIf();                 break;
+	case TokenKind::KW_CONTINUE:
+	case TokenKind::KW_BREAK:  Stmt = ParseLoopControl(); Match(';'); break;
 	case TokenKind::KW_NATIVE: {
 		mods::Mod Mods = ParseModifiers();
 		if (PeekToken(1).is('(')) {
@@ -502,6 +505,21 @@ june::IfStmt* june::Parser::ParseIf() {
 	}
 
 	return If;
+}
+
+june::LoopControlStmt* june::Parser::ParseLoopControl() {
+	
+	LoopControlStmt* LoopControl = NewNode<LoopControlStmt>(CTok);
+	
+	if (CTok.is(TokenKind::KW_CONTINUE)) {
+		LoopControl->Kind = AstKind::CONTINUE;
+	} else {
+		LoopControl->Kind = AstKind::BREAK;
+	}
+		
+	NextToken(); // Consuming 'break' or 'continue' token
+
+	return LoopControl;
 }
 
 //===-------------------------------===//

@@ -263,6 +263,9 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 		return GenPredicateLoop(ocast<PredicateLoopStmt*>(Node));
 	case AstKind::IF:
 		return GenIf(ocast<IfStmt*>(Node));
+	case AstKind::CONTINUE:
+	case AstKind::BREAK:
+		return GenLoopControl(ocast<LoopControlStmt*>(Node));
 	case AstKind::IDENT_REF:
 		return GenIdentRef(ocast<IdentRef*>(Node));
 	case AstKind::FIELD_ACCESSOR:
@@ -362,6 +365,9 @@ llvm::Value* june::IRGen::GenRangeLoop(RangeLoopStmt* Loop) {
 	llvm::BasicBlock* LLCondBB     = llvm::BasicBlock::Create(LLContext, "loop.cond", LLFunc);
 	llvm::BasicBlock* LLContinueBB = LLIncBB ? LLIncBB : LLCondBB;
 
+	LoopBreakStack.push_back(LLEndBB);
+	LoopContinueStack.push_back(LLContinueBB);
+
 	if (Loop->Decl) {
 		GenNode(Loop->Decl);
 	}
@@ -371,6 +377,8 @@ llvm::Value* june::IRGen::GenRangeLoop(RangeLoopStmt* Loop) {
 
 	// Generating the body of the loop
 	GenBlock(LLBodyBB, Loop->Stmts);
+	LoopBreakStack.pop_back();
+	LoopContinueStack.pop_back();
 
 	// Unconditionally branch back to the condition or inc. block
 	// to restart the loop.
@@ -398,11 +406,16 @@ llvm::Value* june::IRGen::GenPredicateLoop(PredicateLoopStmt* Loop) {
 	llvm::BasicBlock* LLBodyBB = llvm::BasicBlock::Create(LLContext, "loop.body", LLFunc);
 	llvm::BasicBlock* LLCondBB = llvm::BasicBlock::Create(LLContext, "loop.cond", LLFunc);
 
+	LoopBreakStack.push_back(LLEndBB);
+	LoopContinueStack.push_back(LLCondBB);
+
 	// Generating the condition block
 	GenLoopCondJump(LLCondBB, LLBodyBB, LLEndBB, Loop->Cond);
 
 	// Generating the body of the loop
 	GenBlock(LLBodyBB, Loop->Stmts);
+	LoopBreakStack.pop_back();
+	LoopContinueStack.pop_back();
 
 	// Unconditionally branch back to the condition block
 	GenBranchIfNotTerm(LLCondBB);
@@ -452,6 +465,17 @@ llvm::Value* june::IRGen::GenIf(IfStmt* If) {
 	// Finally continuing forward into a new block after the if
 	Builder.SetInsertPoint(LLEndBB);
 
+	return nullptr;
+}
+
+llvm::Value* june::IRGen::GenLoopControl(LoopControlStmt* LoopControl) {
+	if (LoopControl->Kind == AstKind::BREAK) {
+		llvm::BasicBlock* LoopExit = LoopBreakStack[LoopControl->LoopCount - 1];
+		Builder.CreateBr(LoopExit);
+	} else {
+		llvm::BasicBlock* LoopRestart = LoopContinueStack[LoopControl->LoopCount - 1];
+		Builder.CreateBr(LoopRestart);
+	}
 	return nullptr;
 }
 

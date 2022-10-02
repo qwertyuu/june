@@ -139,16 +139,18 @@ void june::JuneContext::Init() {
 	TokenKeywordMap.insert({ "bool"  , TokenKind::KW_TYPE_BOOL });
 	TokenKeywordMap.insert({ "void"  , TokenKind::KW_TYPE_VOID });
 
-	TokenKeywordMap.insert({ "if"    , TokenKind::KW_IF        });
-	TokenKeywordMap.insert({ "else"  , TokenKind::KW_ELSE      });
-	TokenKeywordMap.insert({ "import", TokenKind::KW_IMPORT    });
-	TokenKeywordMap.insert({ "true"  , TokenKind::KW_TRUE      });
-	TokenKeywordMap.insert({ "false" , TokenKind::KW_FALSE     });
-	TokenKeywordMap.insert({ "record", TokenKind::KW_RECORD    });
-	TokenKeywordMap.insert({ "null"  , TokenKind::KW_NULL      });
-	TokenKeywordMap.insert({ "native", TokenKind::KW_NATIVE    });
-	TokenKeywordMap.insert({ "return", TokenKind::KW_RETURN    });
-	TokenKeywordMap.insert({ "loop"  , TokenKind::KW_LOOP      });
+	TokenKeywordMap.insert({ "if"      , TokenKind::KW_IF        });
+	TokenKeywordMap.insert({ "else"    , TokenKind::KW_ELSE      });
+	TokenKeywordMap.insert({ "continue", TokenKind::KW_CONTINUE  });
+	TokenKeywordMap.insert({ "break"   , TokenKind::KW_BREAK     });
+	TokenKeywordMap.insert({ "import"  , TokenKind::KW_IMPORT    });
+	TokenKeywordMap.insert({ "true"    , TokenKind::KW_TRUE      });
+	TokenKeywordMap.insert({ "false"   , TokenKind::KW_FALSE     });
+	TokenKeywordMap.insert({ "record"  , TokenKind::KW_RECORD    });
+	TokenKeywordMap.insert({ "null"    , TokenKind::KW_NULL      });
+	TokenKeywordMap.insert({ "native"  , TokenKind::KW_NATIVE    });
+	TokenKeywordMap.insert({ "return"  , TokenKind::KW_RETURN    });
+	TokenKeywordMap.insert({ "loop"    , TokenKind::KW_LOOP      });
 
 	for (const auto& pair : TokenKeywordMap) {
 		TokenKwKindToStringMap.insert({ pair.second, pair.first });

@@ -1,0 +1,15 @@
+// -- Test to make sure that 'break' and
+//    'continue' statements work.
+main() -> i32 {
+	sum :i32 = 0;
+	loop i :i32 = 0; ; i++ {
+		if i > 50 {
+			break;
+		}
+		if i % 2 == 0 {
+			continue;
+		}
+		sum += i;
+	}
+	return sum;
+}
