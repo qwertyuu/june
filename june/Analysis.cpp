@@ -53,7 +53,13 @@ void june::Analysis::ResolveRecordTypes(FileUnit* FU) {
 			URT.RecType->Record = FoundRecord;
 		}
 	}
+}
 
+void june::Analysis::CheckRecords(JuneContext& Context, FileUnit* FU) {
+	for (auto& [_, Record] : FU->Records) {
+		Analysis A(Context, FU->Log);
+		A.CheckRecordDecl(Record);
+	}
 }
 
 void june::Analysis::ReportInvalidFUStmts(FileUnit* FU) {
@@ -63,28 +69,63 @@ void june::Analysis::ReportInvalidFUStmts(FileUnit* FU) {
 }
 
 void june::Analysis::CheckVarDecl(VarDecl* Var) {
+	if (Var->HasBeenChecked) return;
+	
+	Var->HasBeenChecked = true;
+	Var->IsBeingChecked = true;
+
+	if (Var->FieldIdx != -1) {
+		CField = Var;
+	}
+
+#define VAR_YIELD(E)         \
+E;                           \
+Var->IsBeingChecked = false; \
+CField = nullptr;            \
+YIELD_ERROR(Var)
+
+
 	if (Var->Assignment) {
 
 		CheckNode(Var->Assignment);
 
 		if (Var->Assignment->Ty->is(Context.ErrorType)) {
-			return;
+			VAR_YIELD();
 		}
 
 		if (Var->Ty->is(Context.VoidType)) {
-			Error(Var, "Variables cannot have type 'void'");
-			return;
+			VAR_YIELD(Error(Var, "Variables cannot have type 'void'"));
 		}
 
 		if (!IsAssignableTo(Var->Ty, Var->Assignment)) {
-			Error(Var,
+			VAR_YIELD(Error(Var,
 				"Cannot assign value of type '%s' to variable of type '%s'",
-				Var->Assignment->Ty->ToStr(), Var->Ty->ToStr());
-			return;
+				Var->Assignment->Ty->ToStr(), Var->Ty->ToStr()));
 		}
 
 		CreateCast(Var->Assignment, Var->Ty);
 	}
+
+	Var->IsBeingChecked = false;
+	CField = nullptr;
+
+#undef VAR_YIELD
+}
+
+void june::Analysis::CheckRecordDecl(RecordDecl* Record) {
+	if (Record->HasBeenChecked) return;
+
+	FU = Record->FU;
+	CRecord = Record;
+
+	Record->HasBeenChecked = true;
+	Record->IsBeingChecked = true;
+
+	for (auto& [_, Field] : Record->Fields) {
+		CheckVarDecl(Field);
+	}
+
+	Record->IsBeingChecked = false;
 }
 
 void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
@@ -458,6 +499,9 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 	switch (IRef->RefKind) {
 	case IdentRef::VAR: {
 		VarDecl* Var = IRef->VarRef;
+
+		EnsureChecked(IRef->Loc, Var);
+
 		IRef->Ty = Var->Ty;
 		break;
 	}
@@ -470,15 +514,16 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 	case IdentRef::RECORD: {
 		IRef->Ty = GetRecordType(IRef->RecordRef);
 		break;
-	}
 	case IdentRef::NOT_FOUND:
 		if (!GivePrefToFuncs) {
 			Error(IRef, "Could not find symbol for %s: '%s'",
 				(RecordToLookup ? "field" : "identifier"), IRef->Ident);
-		} else {
+		}
+		else {
 			Error(IRef, "Could not find function for identifier '%s'", IRef->Ident);
 		}
 		YIELD_ERROR(IRef);
+	}
 	}
 }
 
@@ -515,11 +560,9 @@ void june::Analysis::CheckFieldAccessor(FieldAccessor* FA, bool GivePrefToFuncs)
 			YIELD_ERROR(FA);
 		}
 
-		if (Site->Ty->GetKind() == TypeKind::RECORD) {
-			CheckIdentRefCommon(FA, GivePrefToFuncs, nullptr, Site->Ty->AsRecordType()->Record);
-		} else {
-			CheckIdentRefCommon(FA, GivePrefToFuncs, nullptr, Site->Ty->AsPointerType()->ElmTy->AsRecordType()->Record);
-		}
+		RecordDecl* Record = Site->Ty->GetKind() == TypeKind::RECORD ? Site->Ty->AsRecordType()->Record
+			                                                         : Site->Ty->AsPointerType()->ElmTy->AsRecordType()->Record;
+		CheckIdentRefCommon(FA, GivePrefToFuncs, nullptr, Record);
 	
 		return;
 	}
@@ -1224,6 +1267,70 @@ bool june::Analysis::IsLValue(Expr* E) {
 
 bool june::Analysis::IsComparable(Type* Ty) {
 	return Ty->is(Context.BoolType) || Ty->GetKind() == TypeKind::POINTER;
+}
+
+void june::Analysis::EnsureChecked(SourceLoc ELoc, VarDecl* Var) {
+	if (Var->IsBeingChecked) {
+		if (CField) {
+			Log.Error(ELoc, "Fields form a circular dependency");
+			DisplayCircularDep(CField);
+		} else {
+			// TODO: global circular dependencies!
+		}
+		Var->Ty = Context.ErrorType;
+		return;
+	}
+
+	Analysis A(Context, Var->FU->Log);
+	if (CField) {
+		Var->DepD = CField; // CField depends on Var.
+	} else {
+		// TODO: globals
+	}
+	A.FU = Var->FU;
+	A.CRecord = Var->Record;
+	A.CheckVarDecl(Var);
+	Var->DepD = nullptr; // Dependency finished.
+}
+
+void june::Analysis::DisplayCircularDep(Decl* StartDep) {
+	Log.Note("Dependency graph: \n");
+	std::vector<Decl*> DepOrder;
+	Decl* DepD = CField;
+	u32 LongestIdentLen = 0;
+	while (DepD) {
+		if (DepD->Name.Text.size() > LongestIdentLen) {
+			LongestIdentLen = DepD->Name.Text.size();
+		}
+		if (std::find(DepOrder.begin(), DepOrder.end(), DepD) != DepOrder.end()) {
+			// TODO: For some strange reason it looks back on itself
+			break;
+		}
+		DepOrder.push_back(DepD);
+		DepD = DepD->DepD;
+	}
+	std::reverse(DepOrder.rbegin(), DepOrder.rend());
+	std::rotate(DepOrder.rbegin(), DepOrder.rbegin() + 1, DepOrder.rend());
+
+	auto it = DepOrder.begin();
+	while (it != DepOrder.end()) {
+		Decl* DepRHS = nullptr;
+		Decl* DepLHS = (*it);
+		if ((it + 1) != DepOrder.end()) {
+			DepRHS = *(it + 1);
+		} else {
+			DepRHS = CField;
+		}
+
+		std::string LPad = std::string(LongestIdentLen - DepLHS->Name.Text.size(), ' ');
+		std::string RPad = std::string(LongestIdentLen - DepRHS->Name.Text.size(), ' ');
+		Log.NoteLn("'%s'%s deps-on '%s'%s   At: %s.june:%s", DepLHS->Name, LPad, DepRHS->Name, RPad,
+			DepLHS->FU->FL.PathKey.c_str(), DepLHS->Loc.LineNumber
+			);
+		++it;
+	}
+			
+	Log.EndNote();
 }
 
 june::RecordType* june::Analysis::GetRecordType(RecordDecl* Record) {

@@ -223,6 +223,7 @@ void june::Compiler::ParseFiles(FileUnit* FU) {
 
 	Analysis::ReportInvalidFUStmts(FU);
 	Analysis::ResolveRecordTypes(FU);
+	Analysis::CheckRecords(Context, FU);
 
 	if (FU->Log.HasError) {
 		FoundCompileError = true;

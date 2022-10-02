@@ -294,7 +294,8 @@ june::VarDecl* june::Parser::ParseVarDecl(mods::Mod Mods) {
 	VarDecl* Var = NewNode<VarDecl>(NameTok);
 	Var->Name = Name;
 	Var->Mods = Mods;
-	Var->FU    = FU;
+	Var->FU     = FU;
+	Var->Record = CRecord;
 
 	if (Name.isNull()) {
 		Var->Kind = AstKind::ERROR;

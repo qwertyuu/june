@@ -40,15 +40,24 @@ namespace june {
 				});
 		}
 
-		[[nodiscard]]
 		Logger& Note(const c8* Msg) {
 			return Note([&]() { OS << Msg; });
 		}
 
 		template<typename... Targs>
-		[[nodiscard]]
 		Logger& Note(const c8* Fmt, Targs&&... Args) {
 			return Note([&]() {
+				ForwardFmt(OS, Fmt, std::forward<Targs>(Args)...);
+				});
+		}
+
+		Logger& NoteLn(const c8* Msg) {
+			return NoteLn([&]() { OS << Msg; });
+		}
+
+		template<typename... Targs>
+		Logger& NoteLn(const c8* Fmt, Targs&&... Args) {
+			return NoteLn([&]() {
 				ForwardFmt(OS, Fmt, std::forward<Targs>(Args)...);
 				});
 		}
@@ -77,6 +86,8 @@ namespace june {
 		static void GlobalError(llvm::raw_ostream& OS, const std::function<void()>& Printer);
 
 		Logger& Note(const std::function<void()>& Printer);
+
+		Logger& NoteLn(const std::function<void()>& Printer);
 
 		static void CompileInfo(llvm::raw_ostream& OS, const std::function<void()>& Printer);
 

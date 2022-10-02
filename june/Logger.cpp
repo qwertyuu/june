@@ -88,6 +88,13 @@ june::Logger& june::Logger::Note(const std::function<void()>& Printer) {
 	return *this;
 }
 
+june::Logger& june::Logger::NoteLn(const std::function<void()>& Printer) {
+	OS << LNPad << "          ";
+	Printer();
+	OS << '\n';
+	return *this;
+}
+
 void june::Logger::EndNote() {
 	OS << '\n';
 	SetTerminalColor(TerminalColorDefault);

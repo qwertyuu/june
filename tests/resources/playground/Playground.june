@@ -1,4 +1,10 @@
 
+Data :: record {
+	a :i32 = c;
+	b :i32 = a;
+	c :i32 = b;
+}
+
 main() {
 	
 }

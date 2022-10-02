@@ -16,11 +16,15 @@ namespace june {
 
 		static void ResolveRecordTypes(FileUnit* FU);
 
+		static void CheckRecords(JuneContext& Context, FileUnit* FU);
+
 		static void ReportInvalidFUStmts(FileUnit* FU);
 
 		void CheckFuncDecl(FuncDecl* Func);
 
 		void CheckVarDecl(VarDecl* Var);
+
+		void CheckRecordDecl(RecordDecl* Record);
 
 		void CheckNode(AstNode* Node);
 
@@ -32,6 +36,7 @@ namespace june {
 		FileUnit*   FU;
 		FuncDecl*   CFunc   = nullptr;
 		RecordDecl* CRecord = nullptr;
+		VarDecl*    CField = nullptr;
 
 		struct Scope {
 			Scope* Parent = nullptr;
@@ -76,6 +81,9 @@ namespace june {
 		bool IsLValue(Expr* E);
 
 		bool IsComparable(Type* Ty);
+
+		void EnsureChecked(SourceLoc ELoc, VarDecl* Var);
+		void DisplayCircularDep(Decl* StartDep);
 	
 		void Error(AstNode* N, const c8* Msg) {
 			Log.Error(N->Loc, Msg);
