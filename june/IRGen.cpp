@@ -1031,7 +1031,7 @@ llvm::Value* june::IRGen::GenNumberLiteral(NumberLiteral* Number) {
 	}
 }
 
-llvm::Value* june::IRGen::GenArray(Array* Arr, llvm::Value* LLArrAddress) {
+llvm::Value* june::IRGen::GenArray(Array* Arr, llvm::Value* LLArrAddr) {
 
 	FixedArrayType* DestTy = Arr->Ty->AsFixedArrayType();
 	if (Arr->CastTy) {
@@ -1045,27 +1045,25 @@ llvm::Value* june::IRGen::GenArray(Array* Arr, llvm::Value* LLArrAddress) {
 		}
 	}
 
-	if (!LLArrAddress) {
-		llvm::BasicBlock* BackupInsertBlock = Builder.GetInsertBlock();
-		// The address does not exist so it needs to be created.
-		if (AllocaInsertPt) {
-			Builder.SetInsertPoint(AllocaInsertPt);
-		} else {
-			Builder.SetInsertPoint(&LLFunc->getEntryBlock());
-		}
-		LLArrAddress = Builder.CreateAlloca(GenType(DestTy));
-		Builder.SetInsertPoint(BackupInsertBlock);
+	if (!LLArrAddr) {
+		LLArrAddr = CreateTempAlloca(GenType(DestTy));
 	}
 
 	if (Arr->CastTy && Arr->CastTy->GetKind() == TypeKind::POINTER) {
-		// TODO:
-		// 
 		// Must generate an array for a pointer
 		// 1. If the array is foldable, create a global array and return
 		//    the global array so that it can be pointed to.
 		// 2. Otherwise create a local array on the heap and
 		//    return the address of that to be pointed to.
-		return MakeGlobalFixedArray(GenType(DestTy), GenConstArrayForFixedArray(Arr, DestTy));
+		if (Arr->IsFoldable) {
+			return MakeGlobalFixedArray(GenType(DestTy), GenConstArrayForFixedArray(Arr, DestTy));
+		} else {
+			// Creating a temporary array that the pointer can point to.
+			LLArrAddr = CreateTempAlloca(GenType(DestTy));
+			// Not foldable so must GEP into the indexes to fill.
+			FillFixedArrayViaGEP(Arr, LLArrAddr, DestTy);
+			return LLArrAddr;
+		}
 	} else {
 		if (Arr->IsFoldable) {
 			llvm::GlobalVariable* LLGVar
@@ -1079,17 +1077,17 @@ llvm::Value* june::IRGen::GenArray(Array* Arr, llvm::Value* LLArrAddress) {
 			// TODO: Not really sure llvm::MaybeAlign() is correct
 			llvm::MaybeAlign LLAlignment = llvm::MaybeAlign();
 			Builder.CreateMemCpy(
-				LLArrAddress, LLAlignment,
+				LLArrAddr, LLAlignment,
 				LLGVar, LLAlignment,
 				TotalLinearLength * SizeOfTypeInBytes(GenType(BaseType))
 			);
 		} else {
 			// Not foldable so must GEP into the indexes to fill.
-			FillFixedArrayViaGEP(Arr, LLArrAddress, DestTy);
+			FillFixedArrayViaGEP(Arr, LLArrAddr, DestTy);
 		}
 	}
 
-	return LLArrAddress;
+	return LLArrAddr;
 }
 
 llvm::Constant* june::IRGen::GenConstArrayForFixedArray(Array* Arr, FixedArrayType* DestTy) {
@@ -1147,6 +1145,9 @@ llvm::Value* june::IRGen::GenArrayAccess(ArrayAccess* AA) {
 
 	if (AA->Site->Ty->GetKind() == TypeKind::FIXED_ARRAY) {
 		return GetArrayIndexAddress(LLSite, LLIndex);
+	} else if (AA->Site->Ty->GetKind() == TypeKind::POINTER) {
+		LLSite = CreateLoad(LLSite);
+		return CreateGEP(LLSite, LLIndex);
 	} else {
 		assert(!"Unreachable!");
 		return nullptr;
@@ -1537,4 +1538,17 @@ llvm::Value* june::IRGen::GenCond(Expr* Cond) {
 	if (Cond->Ty->GetKind() == TypeKind::POINTER)
 		return Builder.CreateIsNotNull(LLVal);
 	return LLVal;
+}
+
+llvm::Value* june::IRGen::CreateTempAlloca(llvm::Type* LLTy) {
+	llvm::BasicBlock* BackupInsertBlock = Builder.GetInsertBlock();
+	// The address does not exist so it needs to be created.
+	if (AllocaInsertPt) {
+		Builder.SetInsertPoint(AllocaInsertPt);
+	} else {
+		Builder.SetInsertPoint(&LLFunc->getEntryBlock());
+	}
+	llvm::Value* LLAddr = Builder.CreateAlloca(LLTy);
+	Builder.SetInsertPoint(BackupInsertBlock);
+	return LLAddr;
 }

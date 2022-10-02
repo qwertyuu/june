@@ -1115,7 +1115,7 @@ void june::Analysis::CheckArrayAccess(ArrayAccess* AA) {
 	YIELD_ERROR_WHEN_M(AA, AA->Site);
 
 	TypeKind K = AA->Site->Ty->GetKind();
-	if (!(K == TypeKind::FIXED_ARRAY)) {
+	if (!(K == TypeKind::FIXED_ARRAY || K == TypeKind::POINTER)) {
 		Error(AA, "Cannot index non-array or pointer type. Type was '%s'",
 			AA->Site->Ty->ToStr());
 		YIELD_ERROR(AA);

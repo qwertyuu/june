@@ -66,7 +66,7 @@ namespace june {
 		llvm::Value* GenBinaryOp(BinaryOp* BinOp);
 		llvm::Value* GenUnaryOp(UnaryOp* UOP);
 		llvm::Value* GenNumberLiteral(NumberLiteral* Number);
-		llvm::Value* GenArray(Array* Arr, llvm::Value* LLArrAddress);
+		llvm::Value* GenArray(Array* Arr, llvm::Value* LLArrAddr);
 		llvm::Constant* GenConstArrayForFixedArray(Array* Arr, FixedArrayType* DestTy);
 		void FillFixedArrayViaGEP(Array* Arr, llvm::Value* LLArr, FixedArrayType* DestTy);
 		llvm::Value* GenArrayAccess(ArrayAccess* AA);
@@ -128,6 +128,8 @@ namespace june {
 		void GenBranchOnCond(Expr* Cond, llvm::BasicBlock* LLTrueBB, llvm::BasicBlock* LLFalseBB);
 		
 		llvm::Value* GenCond(Expr* Cond);
+
+		llvm::Value* CreateTempAlloca(llvm::Type* LLTy);
 
 	};
 }

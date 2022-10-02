@@ -42,6 +42,7 @@ void RunTest(const c8* TestDirectoryPath, int TestErrorCode) {
 	SourceDirectories.push_back(TestDirectoryPath);
 
 	june::Compiler Compiler;
+	//Compiler.DisplayLLVMIR = true;
 	Compiler.Compile(SourceDirectories);
 
 	if (!Compiler.FoundCompileError) {
@@ -134,6 +135,7 @@ int main() {
 	RunTest(SRC("fixedarrays5"), 253 + 23 + 13);
 	RunTest(SRC("fixedarrays6"), 5 * 8);
 	RunTest(SRC("fixedarrays7"), 1 + 2 + 3 + 4 + 5);
+	RunTest(SRC("fixedarrays8"), 12 + 465 + 5437 + 12 + 61);
 	RunTest(SRC("multifiles"), 65 + 4);
 	RunTest(SRC("records1"), 14 + 15);
 	RunTest(SRC("records2"), 1415 + 156 + 76534);
