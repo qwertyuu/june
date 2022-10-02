@@ -749,6 +749,18 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 		Match(')');
 		return SO;
 	}
+	case TokenKind::KW_CAST: {
+		TypeCast* Cast = NewNode<TypeCast>(CTok);
+		NextToken(); // Consuming 'cast' token
+		Match('(');
+		Cast->ToTy = ParseType();
+		if (Cast->ToTy->is(Context.ErrorType)) {
+			return Cast;
+		}
+		Match(')');
+		Cast->Val = ParsePrimaryAndPostExpr();
+		return Cast;
+	}
 	case TokenKind::IDENT: {
 		
 		IdentRef* IRef = NewNode<IdentRef>(CTok);

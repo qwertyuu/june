@@ -292,6 +292,8 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 	case AstKind::SIZEOF_TYPE:
 		return GetLLUInt32(
 			SizeOfTypeInBytes(GenType(ocast<SizeofType*>(Node)->TyToGetSizeof)), LLContext);
+	case AstKind::TYPE_CAST:
+		return GenTypeCast(ocast<TypeCast*>(Node));
 	default:
 		assert(!"Unimplemented generation case!");
 		return nullptr;
@@ -1151,6 +1153,10 @@ llvm::Value* june::IRGen::GenArrayAccess(ArrayAccess* AA) {
 	}
 }
 
+llvm::Value* june::IRGen::GenTypeCast(TypeCast* Cast) {
+	return GenCast(Cast->ToTy, Cast->Val->Ty, GenRValue(Cast->Val));
+}
+
 llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 	if (Val->Kind == AstKind::ARRAY) {
 		llvm::Value* LLArr = GenArray(ocast<Array*>(Val), LLAddr);
@@ -1327,6 +1333,9 @@ llvm::Value* june::IRGen::GenCast(Type* ToType, Type* FromType, llvm::Value* LLV
 			} else {
 				return Builder.CreateUIToFP(LLVal, LLCastType);
 			}
+		} else if (FromType->GetKind() == TypeKind::POINTER) {
+			// Ptr to Int
+			return Builder.CreatePtrToInt(LLVal, LLCastType);
 		}
 		goto missing_cast_case_lab;
 	case TypeKind::F32:
@@ -1356,10 +1365,13 @@ llvm::Value* june::IRGen::GenCast(Type* ToType, Type* FromType, llvm::Value* LLV
 			// Fixed-Array to Pointer
 			return GetArrayAsPtr(LLVal);
 		} else if (FromType->GetKind() == TypeKind::POINTER) {
-			// Pointer to pointer
+			// Pointer to Pointer
 			return Builder.CreateBitCast(LLVal, LLCastType);
 		} else if (FromType->GetKind() == TypeKind::NULLPTR) {
 			return LLVal; // Already handled during generation
+		} else if (FromType->isInt()) {
+			// Int to Ptr
+			return Builder.CreateIntToPtr(LLVal, LLCastType);
 		}
 		goto missing_cast_case_lab;
 	case TypeKind::FIXED_ARRAY:

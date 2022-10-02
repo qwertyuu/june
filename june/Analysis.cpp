@@ -265,6 +265,9 @@ void june::Analysis::CheckNode(AstNode* Node) {
 	case AstKind::ARRAY_ACCESS:
 		CheckArrayAccess(ocast<ArrayAccess*>(Node));
 		break;
+	case AstKind::TYPE_CAST:
+		CheckTypeCast(ocast<TypeCast*>(Node));
+		break;
 	default:
 		assert(!"Unimplemented node check");
 		break;
@@ -1121,6 +1124,19 @@ void june::Analysis::CheckArrayAccess(ArrayAccess* AA) {
 	AA->Ty = AA->Site->Ty->AsContainerType()->ElmTy;
 }
 
+void june::Analysis::CheckTypeCast(TypeCast* Cast) {
+	CheckNode(Cast->Val);
+	YIELD_ERROR_WHEN_M(Cast, Cast->Val);
+
+	if (!IsCastableTo(Cast->ToTy, Cast->Val->Ty)) {
+		Error(Cast, "Cannot cast from type '%s' to type '%s'",
+			Cast->Val->Ty->ToStr(), Cast->ToTy->ToStr());
+		YIELD_ERROR(Cast);
+	}
+
+	Cast->Ty = Cast->ToTy;
+}
+
 bool june::Analysis::IsAssignableTo(Type* ToTy, Expr* FromExpr) {
 	return IsAssignableTo(ToTy, FromExpr->Ty, FromExpr);
 }
@@ -1257,6 +1273,31 @@ bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr) {
 	default:
 		assert(!"unimplemented IsAssignableTo()");
 		return false;
+	}
+}
+
+bool june::Analysis::IsCastableTo(Type* ToTy, Type* FromTy) {
+	switch (ToTy->GetKind()) {
+	case TypeKind::I8:
+	case TypeKind::I16:
+	case TypeKind::I32:
+	case TypeKind::I64:
+	case TypeKind::U8:
+	case TypeKind::U16:
+	case TypeKind::U32:
+	case TypeKind::U64:
+	case TypeKind::C8:
+	case TypeKind::C16:
+	case TypeKind::C32:
+		if (FromTy->isNumber() || FromTy->GetKind() == TypeKind::POINTER)
+			return true; // Allow pointers/numbers to cast to numbers
+		return false;
+	case TypeKind::POINTER:
+		if (FromTy->isNumber() || FromTy->GetKind() == TypeKind::POINTER)
+			return true; // Allow pointers/numbers to cast to pointers
+		return IsAssignableTo(ToTy, FromTy, nullptr);
+	default:
+		return IsAssignableTo(ToTy, FromTy, nullptr);
 	}
 }
 

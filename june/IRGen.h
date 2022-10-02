@@ -70,6 +70,7 @@ namespace june {
 		llvm::Constant* GenConstArrayForFixedArray(Array* Arr, FixedArrayType* DestTy);
 		void FillFixedArrayViaGEP(Array* Arr, llvm::Value* LLArr, FixedArrayType* DestTy);
 		llvm::Value* GenArrayAccess(ArrayAccess* AA);
+		llvm::Value* GenTypeCast(TypeCast* Cast);
 		
 		llvm::Value* GenAssignment(llvm::Value* LLAddr, Expr* Val);
 

@@ -54,6 +54,7 @@ namespace june {
 		FIELD_ACCESSOR,
 		BOOL_LITERAL,
 		SIZEOF_TYPE,
+		TYPE_CAST,
 
 	};
 
@@ -480,6 +481,17 @@ namespace june {
 
 		SizeofType()
 			: Expr(AstKind::SIZEOF_TYPE) {}
+
+	};
+
+	// Ex. cast(i32)
+	struct TypeCast : Expr {
+		
+		Type* ToTy;
+		Expr* Val;
+
+		TypeCast()
+			: Expr(AstKind::TYPE_CAST) {}
 
 	};
 }

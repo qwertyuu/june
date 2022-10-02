@@ -262,6 +262,11 @@ namespace june {
 		llvm::outs() << "(sizeof)";
 	}
 
+	void PrintTypeCast(const JuneContext& Context, const TypeCast* Cast, u32 Depth) {
+		llvm::outs() << "(type-cast)\n";
+		PrintNode(Context, Cast->Val, Depth);
+	}
+
 	void PrintErrorNode() {
 		llvm::outs() << "(error)";
 	}
@@ -329,6 +334,9 @@ namespace june {
 			break;
 		case AstKind::SIZEOF_TYPE:
 			PrintSizeofType(Context, ocast<const SizeofType*>(N), Depth);
+			break;
+		case AstKind::TYPE_CAST:
+			PrintTypeCast(Context, ocast<const TypeCast*>(N), Depth);
 			break;
 		case AstKind::ERROR:
 			PrintErrorNode();
