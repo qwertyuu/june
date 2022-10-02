@@ -1,8 +1,10 @@
 
-Data :: record {
-	a :i32 = c;
-	b :i32 = a;
-	c :i32 = b;
+Data1 :: record {
+	//a :Data2;
+}
+
+Data2 :: record {
+	g :Data1;
 }
 
 main() {

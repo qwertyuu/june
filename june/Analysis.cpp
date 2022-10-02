@@ -34,7 +34,6 @@ void june::Analysis::ResolveRecordTypes(FileUnit* FU) {
 		auto it = FU->Imports.find(std::get<1>(RelLoc).Nesting[0]);
 		if (it != FU->Imports.end()) {
 			FileUnit* ExternalFU = it->second;
-			llvm::outs() << "UHH, HELLO: " << std::get<1>(RelLoc).ToStr() << '\n';
 			auto it2 = ExternalFU->Records.find(std::get<1>(RelLoc));
 			if (it2 != ExternalFU->Records.end()) {
 				FoundRecord = it2->second;
@@ -84,7 +83,6 @@ Var->IsBeingChecked = false; \
 CField = nullptr;            \
 YIELD_ERROR(Var)
 
-
 	if (Var->Assignment) {
 
 		CheckNode(Var->Assignment);
@@ -104,6 +102,10 @@ YIELD_ERROR(Var)
 		}
 
 		CreateCast(Var->Assignment, Var->Ty);
+	}
+
+	if (Var->Ty->GetKind() == TypeKind::RECORD) {
+		EnsureChecked(Var->Loc, Var->Ty->AsRecordType()->Record);
 	}
 
 	Var->IsBeingChecked = false;
@@ -562,6 +564,7 @@ void june::Analysis::CheckFieldAccessor(FieldAccessor* FA, bool GivePrefToFuncs)
 
 		RecordDecl* Record = Site->Ty->GetKind() == TypeKind::RECORD ? Site->Ty->AsRecordType()->Record
 			                                                         : Site->Ty->AsPointerType()->ElmTy->AsRecordType()->Record;
+		EnsureChecked(FA->Loc, Record);
 		CheckIdentRefCommon(FA, GivePrefToFuncs, nullptr, Record);
 	
 		return;
@@ -651,6 +654,10 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 		break;
 	}
 	}
+
+	if (ConstructorRecord) {
+		EnsureChecked(Call->Loc, ConstructorRecord);
+	}
 	
 	if (Call->IsConstructorCall && !Canidates) {
 		// Can still "call" a default generated constructor.
@@ -716,6 +723,10 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	Context.RequestGen(CalledFunc);
 
 	Call->Ty = CalledFunc->RetTy;
+
+	if (Call->Ty->GetKind() == TypeKind::RECORD) {
+		EnsureChecked(Call->Loc, Call->Ty->AsRecordType()->Record);
+	}
 }
 
 june::FuncDecl* june::Analysis::FindBestFuncCallCanidate(FuncsList* Canidates, FuncCall* Call) {
@@ -1293,10 +1304,25 @@ void june::Analysis::EnsureChecked(SourceLoc ELoc, VarDecl* Var) {
 	Var->DepD = nullptr; // Dependency finished.
 }
 
+void june::Analysis::EnsureChecked(SourceLoc ELoc, RecordDecl* Record) {
+	if (!CRecord) return;
+
+	if (Record->IsBeingChecked) {
+		Log.Error(ELoc, "Records form a circular dependency");
+		DisplayCircularDep(CRecord);
+		return;
+	}
+
+	Analysis A(Context, Record->FU->Log);
+	Record->DepD = CRecord;
+	A.CheckRecordDecl(Record);
+	Record->DepD = nullptr;
+}
+
 void june::Analysis::DisplayCircularDep(Decl* StartDep) {
 	Log.Note("Dependency graph: \n");
 	std::vector<Decl*> DepOrder;
-	Decl* DepD = CField;
+	Decl* DepD = StartDep;
 	u32 LongestIdentLen = 0;
 	while (DepD) {
 		if (DepD->Name.Text.size() > LongestIdentLen) {
@@ -1319,7 +1345,7 @@ void june::Analysis::DisplayCircularDep(Decl* StartDep) {
 		if ((it + 1) != DepOrder.end()) {
 			DepRHS = *(it + 1);
 		} else {
-			DepRHS = CField;
+			DepRHS = StartDep;
 		}
 
 		std::string LPad = std::string(LongestIdentLen - DepLHS->Name.Text.size(), ' ');

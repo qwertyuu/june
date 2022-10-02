@@ -83,6 +83,7 @@ namespace june {
 		bool IsComparable(Type* Ty);
 
 		void EnsureChecked(SourceLoc ELoc, VarDecl* Var);
+		void EnsureChecked(SourceLoc ELoc, RecordDecl* Record);
 		void DisplayCircularDep(Decl* StartDep);
 	
 		void Error(AstNode* N, const c8* Msg) {
