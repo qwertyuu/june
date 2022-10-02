@@ -97,7 +97,7 @@ void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
 
 	Scope FuncScope;
 	CheckScope(Func->Stmts, FuncScope);
-	if (!FuncScope.AllPathsTerminate && Func->RetTy->isNot(Context.VoidType)) {
+	if (!FuncScope.AllPathsReturn && Func->RetTy->isNot(Context.VoidType)) {
 		Error(Func, "Function missing return statement");
 	}
 }
@@ -106,7 +106,7 @@ void june::Analysis::CheckScope(const ScopeStmts& Stmts, Scope& NewScope) {
 	NewScope.Parent = LocScope;
 	LocScope = &NewScope;
 	for (AstNode* Stmt : Stmts) {
-		if (LocScope->AllPathsTerminate) {
+		if (LocScope->FoundTerminal) {
 			Error(Stmt, "Unreachable code");
 			break;
 		}
@@ -233,11 +233,12 @@ void june::Analysis::CheckNode(AstNode* Node) {
 bool june::Analysis::CheckInnerScope(InnerScopeStmt* InnerScope) {
 	Scope NewScope;
 	CheckScope(InnerScope->Stmts, NewScope);
-	return NewScope.AllPathsTerminate;
+	return NewScope.AllPathsReturn;
 }
 
 void june::Analysis::CheckReturn(ReturnStmt* Ret) {
-	LocScope->AllPathsTerminate = true;
+	LocScope->FoundTerminal  = true;
+	LocScope->AllPathsReturn = true;
 
 	if (Ret->Val) {
 		CheckNode(Ret->Val);
@@ -312,7 +313,7 @@ bool june::Analysis::CheckIf(IfStmt* If) {
 
 	Scope IfBodyScope;
 	CheckScope(If->Stmts, IfBodyScope);
-	bool AllPathsReturn = If->Else && IfBodyScope.AllPathsTerminate;
+	bool AllPathsReturn = If->Else && IfBodyScope.AllPathsReturn;
 
 	if (If->Else) {
 		// TODO: Need a way to check if the else had all it's paths return.
@@ -324,14 +325,15 @@ bool june::Analysis::CheckIf(IfStmt* If) {
 		}
 	}
 
-	LocScope->AllPathsTerminate = AllPathsReturn;
+	LocScope->AllPathsReturn = AllPathsReturn;
+	LocScope->FoundTerminal |= AllPathsReturn;
 
 	return AllPathsReturn;
 }
 
 void june::Analysis::CheckLoopControl(LoopControlStmt* LoopControl) {
 	
-	LocScope->AllPathsTerminate = true;
+	LocScope->FoundTerminal = true;
 
 	if (LoopDepth == 0) {
 		if (LoopControl->Kind == AstKind::BREAK) {

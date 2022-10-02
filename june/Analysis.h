@@ -35,11 +35,16 @@ namespace june {
 
 		struct Scope {
 			Scope* Parent = nullptr;
+			// This refers to anything that
+			// prevents the usual flow of
+			// execution such as 'break',
+			// 'continue', 'return'
+			bool FoundTerminal = false;
 			// Keeping track of returns
 			// as a way of find out
 			// if a function definitatively
 			// returns.
-			bool AllPathsTerminate = false;
+			bool AllPathsReturn = false;
 		} *LocScope = nullptr;
 
 		// Every time a loop is entered this is incremented,
