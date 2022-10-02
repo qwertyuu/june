@@ -1,0 +1,20 @@
+/*
+ * Counts the number of characters until
+ * it finds a null terminator in the c-string.
+ *
+ * @return  length of the null terminated
+ *          c-string.
+ */
+strlen(str :c8*) -> u32 {
+	len :u32 = 0;
+	ptr :c8* = str;
+	loop *ptr != '\0' {
+		++ptr;
+		++len;
+	}
+	return len;
+}
+
+combine32BitInts(low :i32, high :i32) -> i64 {
+	return 0;
+}

@@ -1,0 +1,6 @@
+import std.Sys;
+
+main() {
+	Sys.println("Hello World!");
+	Sys.println("Omg it works! :D");
+}

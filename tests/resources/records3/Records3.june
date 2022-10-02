@@ -1,0 +1,22 @@
+
+A :: record {
+	f1 :i32;
+	f2 :i32;
+}
+
+Data :: record {
+	a :A;
+	b :i32;
+}
+
+main() -> i32 {
+	d :Data = Data(
+		a = A(
+			f1 = 124,
+			f2 = 66
+		),
+		b = 25
+	);
+
+	return d.a.f1 + d.a.f2 + d.b;
+}

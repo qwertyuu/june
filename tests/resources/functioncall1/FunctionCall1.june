@@ -1,0 +1,8 @@
+// -- Test to make sure that simple function calls work
+main() -> i32 {
+	return func(523);
+}
+
+func(a :i32) -> i32 {
+	return a;
+}

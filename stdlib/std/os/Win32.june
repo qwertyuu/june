@@ -1,0 +1,30 @@
+/*===----------------------------------------===*\
+ *                                              *
+ * Win32: processenv.h                          *
+ *                                              *
+\*===----------------------------------------===*/
+
+native GetStdHandle(nStdHandle :u32) -> void*;
+
+native SetStdHandle(nStdHandle :u32, hHandle :void*) -> i32;
+
+/*===----------------------------------------===*\
+ *                                              *
+ * Win32: fileapi.h                             *
+ *                                              *
+\*===----------------------------------------===*/
+
+native WriteFile(hFile                  :void*,
+                 lpBuffer               :void*,
+                 nNumberOfBytesToWrite  :u32,
+                 lpNumberOfBytesWritten :u32*,
+                 lpOverlapped           :void*   /* Ignored data structure */
+                 ) -> i32;
+
+/*===----------------------------------------===*\
+ *                                              *
+ * Win32: synchapi.h                            *
+ *                                              *
+\*===----------------------------------------===*/
+
+native Sleep(dwMilliseconds :u32) -> void;

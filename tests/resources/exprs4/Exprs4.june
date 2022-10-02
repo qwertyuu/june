@@ -1,0 +1,13 @@
+// -- Test to make sure that pre and post-incrementing
+//    works
+main() -> i32 {
+	g :i32 = 0;
+	++g;
+	--g;
+	++g;
+	g++;
+	g = g--;
+	g = g++;
+	g = g++;
+	return g;
+}

@@ -1,0 +1,20 @@
+// -- Test to make sure that nested
+//    records work.
+OuterRecord :: record {
+	InnerRecord :: record {
+		field1 :i32;
+		field2 :i32;
+		field3 :i32;
+	}
+}
+
+main() -> i32 {
+
+	obj :OuterRecord.InnerRecord = OuterRecord.InnerRecord(
+		field1 = 1415,
+		field2 = 156,
+		field3 = 76534,
+	);
+
+	return obj.field1 + obj.field2 + obj.field3;
+}

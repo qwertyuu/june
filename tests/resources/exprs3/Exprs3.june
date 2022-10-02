@@ -1,0 +1,8 @@
+// -- Test to make sure that binary operaters are
+//    working.
+main() -> i32 {
+	a :i32 = 22;
+	b :i32 = a << 6;
+	c :i32 = b % 20;
+	return c + (312312 >> 3) ^ 7;
+}

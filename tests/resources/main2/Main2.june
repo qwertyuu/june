@@ -1,0 +1,4 @@
+// -- Test to make sure main can return a value
+main() -> i32 {
+	return 55;
+}

@@ -1,0 +1,11 @@
+// -- Test to make sure that declaring
+//    the increment at the end of the
+//    loop works
+main() -> i32 {
+	sum :i32 = 0;
+	loop i :i32 = 0; i < 5; {
+		sum += i;
+		++i;
+	}
+	return sum;
+}

@@ -1,0 +1,20 @@
+// -- Test to make sure that arrays
+//    can be properly passed to functions
+//    with the insurence that they are being
+//    passed by reference.
+
+modifyArray(a :i32[8]) {
+	loop i :i32 = 0; i < 8; i++ {
+		a[i] = 5;
+	}
+}
+
+main() -> i32 {
+	a :i32[8] = [ 1, 2, 3, 4, 5, 6, 7, 8 ];
+	modifyArray(a);
+	sum :i32 = 0;
+	loop i :i32 = 0; i < 8; i++ {
+		sum += a[i];
+	}
+	return sum;
+}

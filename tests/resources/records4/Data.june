@@ -1,0 +1,4 @@
+Data :: record {
+	a :i32;
+	b :i32;
+}

@@ -1,0 +1,15 @@
+// -- Test to make sure that record
+//    instantiation and field accessing
+//    works.
+Data :: record {
+	a :i32;
+	b :i32;
+}
+
+main() -> i32 {
+	data :Data = Data(
+		a = 14,
+		b = 15
+	);
+	return data.a + data.b;
+}

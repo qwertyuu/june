@@ -1,0 +1,10 @@
+// -- Test to make sure that declaring
+//    the iterator index outside the loop works
+main() -> i32 {
+	sum :i32 = 0;
+	i :i32 = 0;
+	loop ; i < 5; i++ {
+		sum += i;
+	}
+	return sum;
+}

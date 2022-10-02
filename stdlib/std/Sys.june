@@ -1,0 +1,25 @@
+import std.os.Win32;
+import std.Mem;
+
+writeToHandle(handle :void*, msg :c8*, length :u32) {
+	numberOfBytesWritten :u32;
+	Win32.WriteFile(handle, msg, length, &numberOfBytesWritten, null);
+}
+
+print(msg :c8*, length :u32) {
+	writeToHandle(Win32.GetStdHandle(-11), msg, length);
+}
+
+println(msg :c8*) {
+	print(msg);
+	println();
+}
+
+println() {
+	ln :c8 = '\n';
+	print(&ln, 1);
+}
+
+print(msg :c8*) {
+	print(msg, Mem.strlen(msg));
+}

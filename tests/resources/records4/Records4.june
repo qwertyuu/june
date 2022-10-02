@@ -1,0 +1,10 @@
+import Data;
+
+main() -> i32 {
+	d :Data = Data(
+		a = 14,
+		b = 56,
+	);
+
+	return d.a + d.b;
+}

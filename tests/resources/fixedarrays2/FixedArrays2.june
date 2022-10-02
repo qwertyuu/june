@@ -1,0 +1,12 @@
+// -- Test to make sure that multi-dimensional
+//    fixed arrays work.
+main() -> i32 {
+	a :i32[3][2] = [ [ 412, 21 ], [ 5, 6 ], [ 4 ] ];
+	sum :i32 = 0;
+	loop i :i32 = 0; i < 3; i++ {
+		loop j :i32 = 0; j < 2; j++ {
+			sum += a[i][j];
+		}
+	}
+	return sum;
+}
