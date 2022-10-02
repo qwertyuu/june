@@ -64,10 +64,15 @@ void june::Analysis::ReportInvalidFUStmts(FileUnit* FU) {
 
 void june::Analysis::CheckVarDecl(VarDecl* Var) {
 	if (Var->Assignment) {
-		
+
 		CheckNode(Var->Assignment);
 
 		if (Var->Assignment->Ty->is(Context.ErrorType)) {
+			return;
+		}
+
+		if (Var->Ty->is(Context.VoidType)) {
+			Error(Var, "Variables cannot have type 'void'");
 			return;
 		}
 
