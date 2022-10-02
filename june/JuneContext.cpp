@@ -144,6 +144,7 @@ void june::JuneContext::Init() {
 	TokenKeywordMap.insert({ "continue", TokenKind::KW_CONTINUE  });
 	TokenKeywordMap.insert({ "break"   , TokenKind::KW_BREAK     });
 	TokenKeywordMap.insert({ "import"  , TokenKind::KW_IMPORT    });
+	TokenKeywordMap.insert({ "sizeof"  , TokenKind::KW_SIZEOF    });
 	TokenKeywordMap.insert({ "true"    , TokenKind::KW_TRUE      });
 	TokenKeywordMap.insert({ "false"   , TokenKind::KW_FALSE     });
 	TokenKeywordMap.insert({ "record"  , TokenKind::KW_RECORD    });

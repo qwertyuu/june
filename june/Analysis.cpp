@@ -213,6 +213,7 @@ void june::Analysis::CheckNode(AstNode* Node) {
 	case AstKind::NUMBER_LITERAL:
 	case AstKind::NULLPTR:
 	case AstKind::BOOL_LITERAL:
+	case AstKind::SIZEOF_TYPE:
 		// Already assigned a type during parsing!
 		break;
 	case AstKind::ARRAY:
@@ -220,9 +221,6 @@ void june::Analysis::CheckNode(AstNode* Node) {
 		break;
 	case AstKind::ARRAY_ACCESS:
 		CheckArrayAccess(ocast<ArrayAccess*>(Node));
-		break;
-	case AstKind::RECORD_INSTANCE:
-		CheckRecordInstance(ocast<RecordInstance*>(Node));
 		break;
 	default:
 		assert(!"Unimplemented node check");
@@ -1066,78 +1064,6 @@ void june::Analysis::CheckArrayAccess(ArrayAccess* AA) {
 	}
 
 	AA->Ty = AA->Site->Ty->AsContainerType()->ElmTy;
-}
-
-void june::Analysis::CheckRecordInstance(RecordInstance* RecordInst) {
-	CheckNode(RecordInst->IRef);
-	YIELD_ERROR_WHEN_M(RecordInst, RecordInst->IRef);
-
-	RecordDecl* Record = nullptr;
-	if (RecordInst->IRef->RefKind == IdentRef::RECORD) {
-		Record = RecordInst->IRef->RecordRef;
-	} else if (RecordInst->IRef->RefKind == IdentRef::FILE_UNIT) {
-		RecordLocation RecLoc = RecordLocation(RecordInst->IRef->Ident);
-		auto it = RecordInst->IRef->FileUnitRef->Records.find(RecLoc);
-		if (it != RecordInst->IRef->FileUnitRef->Records.end()) {
-			Record = it->second;
-		} else {
-			Error(RecordInst, "File '%s' does not have a primary record",
-				RecordInst->IRef->FileUnitRef->FL.PathKey);
-			YIELD_ERROR(RecordInst);
-		}
-	} else {
-		std::string RecordKeyName;
-		if (RecordInst->IRef->is(AstKind::IDENT_REF)) {
-			RecordKeyName = RecordInst->IRef->Ident.Text.str();
-		} else {
-			FieldAccessor* Itr = ocast<FieldAccessor*>(RecordInst->IRef);
-			std::vector<Identifier> Idents;
-			while (true) {
-				Idents.push_back(Itr->Ident);
-				if (Itr->Site->is(AstKind::FIELD_ACCESSOR)) {
-					Itr = ocast<FieldAccessor*>(Itr->Site);
-				} else {
-					break;
-				}
-			}
-			std::reverse(Idents.begin(), Idents.end());
-			RecordKeyName = ocast<IdentRef*>(Itr->Site)->Ident.Text.str();
-			for (const Identifier& Ident : Idents) {
-				RecordKeyName += "." + Ident.Text.str();
-			}
-		}
-
-		Error(RecordInst, "Could not find record for record key '%s'", RecordKeyName);
-		YIELD_ERROR(RecordInst);
-	}
-	
-	for (RecordInstance::FieldValue& FieldValue : RecordInst->FieldValues) {
-		CheckNode(FieldValue.AssignValue);
-		
-		auto it = Record->Fields.find(FieldValue.FieldName);
-		if (it != Record->Fields.end()) {
-			if (FieldValue.AssignValue->Ty->is(Context.ErrorType)) continue;
-
-			FieldValue.Field = it->second;
-
-			if (!IsAssignableTo(FieldValue.Field->Ty, FieldValue.AssignValue)) {
-				Error(FieldValue.AssignValue,
-					"Cannot assign value of type '%s' to field of type '%s'",
-					FieldValue.AssignValue->Ty->ToStr(), FieldValue.Field->Ty->ToStr());
-				continue;
-			}
-
-			CreateCast(FieldValue.AssignValue, FieldValue.Field->Ty);
-		} else {
-			Error(RecordInst, "No field in record by name '%s'", FieldValue.FieldName.Text);
-		}
-	}
-
-	if (RecordInst->IRef->RefKind == IdentRef::RECORD) {
-		RecordInst->Ty = RecordInst->IRef->Ty; // Can just re-use the type since the iref was a record type
-	} else {
-		RecordInst->Ty = GetRecordType(Record);
-	}
 }
 
 bool june::Analysis::IsAssignableTo(Type* ToTy, Expr* FromExpr) {

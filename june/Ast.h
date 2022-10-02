@@ -53,7 +53,7 @@ namespace june {
 		ARRAY_ACCESS,
 		FIELD_ACCESSOR,
 		BOOL_LITERAL,
-		RECORD_INSTANCE
+		SIZEOF_TYPE,
 
 	};
 
@@ -469,22 +469,14 @@ namespace june {
 	
 	};
 
-	// Ex.  'User{ username="john", email="john@site.site" }'
-	struct RecordInstance : Expr {
-	
-		IdentRef* IRef;
+	// Ex. 'sizeof(i32)'
+	struct SizeofType : Expr {
 
-		struct FieldValue {
-			SourceLoc  Loc;
-			VarDecl*   Field = nullptr;
-			Identifier FieldName;
-			Expr*      AssignValue;
-		};
+		Type* TyToGetSizeof;
 
-		llvm::SmallVector<FieldValue, 4> FieldValues;
+		SizeofType()
+			: Expr(AstKind::SIZEOF_TYPE) {}
 
-		RecordInstance()
-			: Expr(AstKind::RECORD_INSTANCE) {}
 	};
 }
 

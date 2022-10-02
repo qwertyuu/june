@@ -258,36 +258,8 @@ namespace june {
 		llvm::outs() << "(bool |val=" << B->tof << ")";
 	}
 
-	void PrintRecordInstance(const JuneContext& Context, const RecordInstance* RecordInst, u32 Depth) {
-		std::string RecordNameKey;
-		if (RecordInst->IRef->is(AstKind::IDENT_REF)) {
-			RecordNameKey = RecordInst->IRef->Ident.Text.str();
-		} else {
-			FieldAccessor* Itr = ocast<FieldAccessor*>(RecordInst->IRef);
-			std::vector<Identifier> Idents;
-			while (true) {
-				Idents.push_back(Itr->Ident);
-				if (Itr->Site->is(AstKind::FIELD_ACCESSOR)) {
-					Itr = ocast<FieldAccessor*>(Itr->Site);
-				} else {
-					break;
-				}
-			}
-			std::reverse(Idents.begin(), Idents.end());
-			RecordNameKey = ocast<IdentRef*>(Itr->Site)->Ident.Text.str();
-			for (const Identifier& Ident : Idents) {
-				RecordNameKey += "." + Ident.Text.str();
-			}
-		}
-		llvm::outs() << "(record-inst| name=\"" << RecordNameKey << "\")";
-		if (!RecordInst->FieldValues.empty()) {
-			for (auto& FieldValue : RecordInst->FieldValues) {
-				llvm::outs() << '\n';
-				PrintIndent(Depth);
-				llvm::outs() << "field=\"" << FieldValue.FieldName << "\":\n";
-				PrintNode(Context, FieldValue.AssignValue, Depth + 1);
-			}
-		}
+	void PrintSizeofType(const JuneContext& Context, const SizeofType* SO, u32 Depth) {
+		llvm::outs() << "(sizeof)";
 	}
 
 	void PrintErrorNode() {
@@ -355,8 +327,8 @@ namespace june {
 		case AstKind::BOOL_LITERAL:
 			PrintBool(Context, ocast<const BoolLiteral*>(N), Depth);
 			break;
-		case AstKind::RECORD_INSTANCE:
-			PrintRecordInstance(Context, ocast<const RecordInstance*>(N), Depth);
+		case AstKind::SIZEOF_TYPE:
+			PrintSizeofType(Context, ocast<const SizeofType*>(N), Depth);
 			break;
 		case AstKind::ERROR:
 			PrintErrorNode();

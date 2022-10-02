@@ -289,6 +289,9 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 		if (B->tof) return llvm::ConstantInt::getTrue(LLContext);
 		else        return llvm::ConstantInt::getFalse(LLContext);
 	}
+	case AstKind::SIZEOF_TYPE:
+		return GetLLUInt32(
+			SizeOfTypeInBytes(GenType(ocast<SizeofType*>(Node)->TyToGetSizeof)), LLContext);
 	default:
 		assert(!"Unimplemented generation case!");
 		return nullptr;
@@ -1146,25 +1149,6 @@ llvm::Value* june::IRGen::GenArrayAccess(ArrayAccess* AA) {
 		assert(!"Unreachable!");
 		return nullptr;
 	}
-}
-
-llvm::Value* june::IRGen::GenRecordInstance(RecordInstance* RecordInst, llvm::Value* LLAddr) {
-	
-	std::unordered_set<u32> FieldIndexesWithVals;
-	for (RecordInstance::FieldValue& FieldValue : RecordInst->FieldValues) {
-		FieldIndexesWithVals.insert(FieldValue.Field->FieldIdx);
-		llvm::Value* LLFieldAddr = CreateStructGEP(LLAddr, FieldValue.Field->FieldIdx);
-		GenAssignment(LLFieldAddr, FieldValue.AssignValue);
-	}
-	RecordDecl* Record = RecordInst->Ty->AsRecordType()->Record;
-	for (auto& [_, Field] : Record->Fields) {
-		if (FieldIndexesWithVals.find(Field->FieldIdx) == FieldIndexesWithVals.end()) {
-			llvm::Value* LLFieldAddr = CreateStructGEP(LLAddr, Field->FieldIdx);
-			GenVarDecl(LLFieldAddr, Field);
-		}
-	}
-
-	return LLAddr;
 }
 
 llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {

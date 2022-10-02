@@ -139,7 +139,8 @@ int main() {
 	//RunTest(SRC("records2"), 1415 + 156 + 76534);
 	//RunTest(SRC("records3"), 124 + 66 + 25);
 	//RunTest(SRC("records4"), 56 + 14);
-	RunTest(SRC("playground"), 0);
+	RunTest(SRC("sizeof"), 4 + 1 + 4 + 4 + 8 + 8);
+	//RunTest(SRC("playground"), 0);
 
 	if (Succeeded + Failed > 0) {
 		llvm::outs() << "Passed/Tested (" << Succeeded << "/" << (Succeeded + Failed) << ")\n";

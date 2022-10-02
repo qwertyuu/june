@@ -47,6 +47,7 @@ namespace june {
 
 		// Other
 			
+			KW_SIZEOF,
 			KW_RECORD,
 			KW_TRUE,
 			KW_FALSE,

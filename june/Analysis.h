@@ -68,8 +68,7 @@ namespace june {
 		void CheckUnaryOp(UnaryOp* UOP);
 		void CheckArray(Array* Arr);
 		void CheckArrayAccess(ArrayAccess* AA);
-		void CheckRecordInstance(RecordInstance* RecordInst);
-
+		
 		bool IsAssignableTo(Type* ToTy, Expr* FromExpr);
 		bool IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr);
 		void CreateCast(Expr* E, Type* ToType);

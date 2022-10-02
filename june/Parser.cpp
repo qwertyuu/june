@@ -736,6 +736,18 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 	}
 	case '[':
 		return ParseArray();
+	case TokenKind::KW_SIZEOF: {
+		SizeofType* SO = NewNode<SizeofType>(CTok);
+		NextToken(); // Consuming 'sizeof' token
+		Match('(');
+		SO->TyToGetSizeof = ParseType();
+		SO->Ty = Context.U32Type;
+		if (SO->TyToGetSizeof->is(Context.ErrorType)) {
+			return SO;
+		}
+		Match(')');
+		return SO;
+	}
 	case TokenKind::IDENT: {
 		
 		IdentRef* IRef = NewNode<IdentRef>(CTok);
@@ -1316,6 +1328,8 @@ void june::Parser::SkipRecovery(bool ParsingImports) {
 		case TokenKind::KW_RETURN:
 		case TokenKind::KW_LOOP:
 		case TokenKind::KW_IF:
+		case TokenKind::KW_BREAK:
+		case TokenKind::KW_CONTINUE:
 			return;
 		case '{':
 			break;
