@@ -83,6 +83,7 @@ namespace june {
 		inline llvm::Value* CreateLoad(llvm::Value* LLAddr, const c8* Name = "");
 		inline llvm::Value* CreateAlloca(Type* Ty, const c8* Name = "");
 
+		void GenDefaultValue(Type* Ty, llvm::Value* LLAddr);
 		llvm::Constant* GenZeroedValue(Type* Ty);
 
 		// This will only unconditionally branch to the given
@@ -130,6 +131,8 @@ namespace june {
 		llvm::Value* GenCond(Expr* Cond);
 
 		llvm::Value* CreateTempAlloca(llvm::Type* LLTy);
+
+		void GenDefaultRecordInitCall(RecordDecl* Record, llvm::Value* LLAddr);
 
 	};
 }

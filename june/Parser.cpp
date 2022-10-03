@@ -366,7 +366,10 @@ june::RecordDecl* june::Parser::ParseRecordDecl(mods::Mod Mods) {
 	Match('{');
 	while (CTok.isNot('}') && CTok.isNot(TokenKind::TK_EOF)) {
 		AstNode* Stmt = ParseStmt();
-		
+		if (Stmt->is(AstKind::VAR_DECL)) {
+			Record->FieldsHaveAssignment |=
+				ocast<VarDecl*>(Stmt)->Assignment != nullptr;
+		}
 	}
 	Match('}');
 

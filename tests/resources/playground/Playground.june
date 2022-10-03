@@ -1,7 +1,13 @@
 
+A :: record {
+	a :i32 = 4;
+	b :i32;
+}
+
 main() {
 	
-	a :void* = cast(c8*) "Hello world";
-	b :i32* = cast(i32*) 0x4512;
+	rec :A;
+
+	//arr :A[5];
 
 }

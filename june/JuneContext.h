@@ -13,12 +13,14 @@
 namespace llvm {
 	class LLVMContext;
 	class Module;
+	class Function;
 }
 
 namespace june {
 
 	struct Decl;
 	struct FuncDecl;
+	struct RecordDecl;
 	struct FileUnit;
 	struct Type;
 	struct PointerType;
@@ -91,6 +93,7 @@ namespace june {
 		llvm::Module&      LLJuneModule;
 		u32                NumGeneratedLLGlobals    = 0;
 		u32                NumGeneratedGlobalArrays = 0;
+		llvm::DenseMap<RecordDecl*, llvm::Function*> DefaultRecordInitFuncs;
 
 	private:
 		friend class Compiler;

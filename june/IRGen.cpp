@@ -227,8 +227,7 @@ llvm::Value* june::IRGen::GenVarDecl(llvm::Value* LLAddr, VarDecl* Var) {
 	if (Var->Assignment) {
 		GenAssignment(LLAddr, Var->Assignment);
 	} else {
-		// Generating default values
-		Builder.CreateStore(GenZeroedValue(Var->Ty), LLAddr);
+		GenDefaultValue(Var->Ty, LLAddr);
 	}
 	return LLAddr;
 }
@@ -1394,6 +1393,19 @@ inline llvm::Value* june::IRGen::CreateAlloca(Type* Ty, const c8* Name) {
 	return Builder.CreateAlloca(GenType(Ty), nullptr, Name);
 }
 
+void june::IRGen::GenDefaultValue(Type* Ty, llvm::Value* LLAddr) {
+	if (Ty->GetKind() == TypeKind::RECORD) {
+		RecordDecl* Record = Ty->AsRecordType()->Record;
+		if (Record->FieldsHaveAssignment) {
+			GenDefaultRecordInitCall(Record, LLAddr);
+		} else {
+			Builder.CreateStore(GenZeroedValue(Ty), LLAddr);
+		}
+	} else {
+		Builder.CreateStore(GenZeroedValue(Ty), LLAddr);
+	}
+}
+
 llvm::Constant* june::IRGen::GenZeroedValue(Type* Ty) {
 	switch (Ty->GetKind()) {
 	case TypeKind::I8:  case TypeKind::C8:  return GetLLInt8(0, LLContext);
@@ -1551,4 +1563,54 @@ llvm::Value* june::IRGen::CreateTempAlloca(llvm::Type* LLTy) {
 	llvm::Value* LLAddr = Builder.CreateAlloca(LLTy);
 	Builder.SetInsertPoint(BackupInsertBlock);
 	return LLAddr;
+}
+
+void june::IRGen::GenDefaultRecordInitCall(RecordDecl* Record, llvm::Value* LLAddr) {
+	auto it = Context.DefaultRecordInitFuncs.find(Record);
+	if (it != Context.DefaultRecordInitFuncs.end()) {
+		Builder.CreateCall(it->second, LLAddr);
+		return;
+	}
+
+	llvm::Type* LLStructPtrTy = llvm::PointerType::get(Record->LLStructTy, 0);
+
+	// Need to create the declaration for the default init func
+	llvm::FunctionType* LLFuncType =
+		llvm::FunctionType::get(llvm::Type::getVoidTy(LLContext),
+			{ LLStructPtrTy }, false);
+
+	llvm::Function* LLFunc = llvm::Function::Create(
+		LLFuncType,
+		llvm::Function::ExternalLinkage, // publically visible
+		"__june.record.init",
+		LLModule
+	);
+
+	llvm::BasicBlock* LLEntryBlock = llvm::BasicBlock::Create(LLContext, "entry.block", LLFunc);
+	llvm::BasicBlock* BackupBasicBlock = Builder.GetInsertBlock();
+	Builder.SetInsertPoint(LLEntryBlock);
+	llvm::Value* LLStructPtrAddr = Builder.CreateAlloca(LLStructPtrTy);
+	Builder.CreateStore(LLFunc->getArg(0), LLStructPtrAddr);
+	llvm::Value* LLStructPtr = CreateLoad(LLStructPtrAddr);
+
+	for (auto& [_, Field] : Record->Fields) {
+		llvm::Value* LLFieldAddr = CreateStructGEP(LLStructPtr, Field->FieldIdx);
+		if (Field->Assignment) {
+			GenAssignment(LLFieldAddr, Field->Assignment);
+		} else {
+			GenDefaultValue(Field->Ty, LLFieldAddr);
+		}
+	}
+	Builder.CreateRetVoid();
+
+	if (DisplayLLVMIR) {
+		LLFunc->print(llvm::outs());
+		llvm::outs() << '\n';
+	}
+
+
+	Builder.SetInsertPoint(BackupBasicBlock);
+	Context.DefaultRecordInitFuncs.insert({ Record, LLFunc });
+	Builder.CreateCall(LLFunc, LLAddr);
+
 }

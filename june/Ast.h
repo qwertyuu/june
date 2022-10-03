@@ -188,6 +188,7 @@ namespace june {
 		llvm::DenseMap<Identifier, FuncsList> Funcs; // member functions
 		
 		llvm::StructType* LLStructTy = nullptr;
+		bool FieldsHaveAssignment    = false;
 
 		RecordDecl() : Decl(AstKind::RECORD_DECL) {}
 
