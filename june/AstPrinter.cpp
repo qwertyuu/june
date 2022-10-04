@@ -271,6 +271,10 @@ namespace june {
 		llvm::outs() << "(heap-alloc-type)";
 	}
 
+	void PrintThisRef(const JuneContext& Context, const ThisRef* This, u32 Depth) {
+		llvm::outs() << "(this)";
+	}
+
 	void PrintErrorNode() {
 		llvm::outs() << "(error)";
 	}
@@ -344,6 +348,9 @@ namespace june {
 			break;
 		case AstKind::HEAP_ALLOC_TYPE:
 			PrintHeapAllocType(Context, ocast<const HeapAllocType*>(N), Depth);
+			break;
+		case AstKind::THIS_REF:
+			PrintThisRef(Context, ocast<const ThisRef*>(N), Depth);
 			break;
 		case AstKind::ERROR:
 			PrintErrorNode();

@@ -1,7 +1,12 @@
 
-main() {
-	j :i32* = new i32;
-	*j = 4;
+A :: record {
+	b :i32;
+	
+	A(j :i32) {
+		b = j;
+	}
+}
 
-	c :i32* = new i32[5][5];
+main() {
+	a :A = A(4);
 }

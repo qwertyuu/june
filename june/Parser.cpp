@@ -770,6 +770,11 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 		HeapAlloc->TypeToAlloc = ParseType();
 		return HeapAlloc;
 	}
+	case TokenKind::KW_THIS: {
+		ThisRef* This = NewNode<ThisRef>(CTok);
+		NextToken(); // Consuming 'this' token
+		return ParseMemoryRefs(This);
+	}
 	case TokenKind::IDENT: {
 		
 		IdentRef* IRef = NewNode<IdentRef>(CTok);

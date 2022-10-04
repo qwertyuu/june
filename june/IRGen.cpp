@@ -296,6 +296,8 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 		return GenTypeCast(ocast<TypeCast*>(Node));
 	case AstKind::HEAP_ALLOC_TYPE:
 		return GenHeapAllocType(ocast<HeapAllocType*>(Node));
+	case AstKind::THIS_REF:
+		return LLThis;
 	default:
 		assert(!"Unimplemented generation case!");
 		return nullptr;
@@ -496,8 +498,9 @@ llvm::Value* june::IRGen::GenFieldAccessor(FieldAccessor* FA) {
 	}
 	
 	Expr* Site = FA->Site;
-	if (Site->Kind == AstKind::FUNC_CALL ||
+	if (Site->Kind == AstKind::FUNC_CALL    ||
 		Site->Kind == AstKind::ARRAY_ACCESS ||
+		Site->Kind == AstKind::THIS_REF     ||
 		((Site->Kind == AstKind::IDENT_REF ||
 			Site->Kind == AstKind::FIELD_ACCESSOR
 			) && ocast<IdentRef*>(Site)->RefKind == IdentRef::VAR)
@@ -505,7 +508,8 @@ llvm::Value* june::IRGen::GenFieldAccessor(FieldAccessor* FA) {
 		
 		llvm::Value* LLSite = GenNode(FA->Site);
 
-		if (Site->Ty->GetKind() == TypeKind::POINTER) {
+		if (Site->Ty->GetKind() == TypeKind::POINTER &&
+			Site->isNot(AstKind::THIS_REF)) {
 			// Auto-dereferencing
 			LLSite = CreateLoad(LLSite, "deref");
 		}

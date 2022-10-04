@@ -55,7 +55,8 @@ namespace june {
 		BOOL_LITERAL,
 		SIZEOF_TYPE,
 		TYPE_CAST,
-		HEAP_ALLOC_TYPE
+		HEAP_ALLOC_TYPE,
+		THIS_REF,
 
 	};
 
@@ -504,6 +505,11 @@ namespace june {
 		HeapAllocType()
 			: Expr(AstKind::HEAP_ALLOC_TYPE) {}
 
+	};
+
+	struct ThisRef : Expr {
+		ThisRef()
+			: Expr(AstKind::THIS_REF) {}
 	};
 }
 

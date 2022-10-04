@@ -272,6 +272,9 @@ void june::Analysis::CheckNode(AstNode* Node) {
 	case AstKind::HEAP_ALLOC_TYPE:
 		CheckHeapAllocType(ocast<HeapAllocType*>(Node));
 		break;
+	case AstKind::THIS_REF:
+		CheckThisRef(ocast<ThisRef*>(Node));
+		break;
 	default:
 		assert(!"Unimplemented node check");
 		break;
@@ -546,6 +549,7 @@ void june::Analysis::CheckFieldAccessor(FieldAccessor* FA, bool GivePrefToFuncs)
 	// Variable cases checked early.
 	if (Site->Kind == AstKind::FUNC_CALL    ||
 		Site->Kind == AstKind::ARRAY_ACCESS ||
+		Site->Kind == AstKind::THIS_REF     ||
 		((Site->Kind == AstKind::IDENT_REF ||
 		  Site->Kind == AstKind::FIELD_ACCESSOR
 			) && ocast<IdentRef*>(Site)->RefKind == IdentRef::VAR)
@@ -578,7 +582,8 @@ void june::Analysis::CheckFieldAccessor(FieldAccessor* FA, bool GivePrefToFuncs)
 	}
 
 	switch (Site->Kind) {
-	case AstKind::IDENT_REF: {
+	case AstKind::IDENT_REF:
+	case AstKind::FIELD_ACCESSOR: {
 		IdentRef* IRef = ocast<IdentRef*>(Site);
 		switch (IRef->RefKind) {
 		case IdentRef::FILE_UNIT:
@@ -1259,6 +1264,15 @@ void june::Analysis::CheckHeapAllocType(HeapAllocType* HeapAlloc) {
 	} else {
 		HeapAlloc->Ty = PointerType::Create(HeapAlloc->TypeToAlloc, Context);
 	}
+}
+
+void june::Analysis::CheckThisRef(ThisRef* This) {
+	if (!CRecord) {
+		Error(This, "Cannot use 'this' in global scope");
+		YIELD_ERROR(This);
+	}
+	auto it = FU->QualifyingRecordTypes.find(std::make_tuple(nullptr, RecordLocation(CRecord)));
+	This->Ty = PointerType::Create(it->second.RecType, Context);
 }
 
 bool june::Analysis::IsAssignableTo(Type* ToTy, Expr* FromExpr) {

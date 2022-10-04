@@ -1,0 +1,12 @@
+A :: record {
+	i :i32 = 252;
+
+	g() -> i32 {
+		return this.i;
+	}
+}
+
+main() -> i32 {
+	a :A;
+	return a.g();
+}
