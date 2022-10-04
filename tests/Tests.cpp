@@ -111,6 +111,7 @@ int main() {
 		return g;
 		}());
 	RunTest(SRC("functioncall1"), 523);
+	RunTest(SRC("functioncall2"), 425 + 22 + 41 + 53);
 	RunTest(SRC("loops1"), 10);
 	RunTest(SRC("loops2"), 10);
 	RunTest(SRC("loops3"), 10);

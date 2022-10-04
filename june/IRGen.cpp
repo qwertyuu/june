@@ -237,7 +237,7 @@ llvm::Value* june::IRGen::GenAlloca(VarDecl* Var) {
 	
 	llvm::Type* LLTy = GenType(Var->Ty);
 
-	if (Var->IsParam && Var->Ty->GetKind() == TypeKind::FIXED_ARRAY)
+	if (Var->ParamIdx != -1 && Var->Ty->GetKind() == TypeKind::FIXED_ARRAY)
 		LLTy = llvm::PointerType::get(LLTy, 0);
 	
 	llvm::Value* LLAlloca = Builder.CreateAlloca(LLTy);
@@ -551,6 +551,8 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 
 	// Adding arguments
 	llvm::SmallVector<llvm::Value*, 2> LLArgs;
+	LLArgs.resize(Call->Args.size() + Call->NamedArgs.size()
+		       + (Call->CalledFunc->ParentRecord ? 1 : 0));
 	if (Call->CalledFunc->ParentRecord) {
 		// Calling a member function so need to pass in the
 		// record pointer.
@@ -559,17 +561,20 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 			// valid explaination is it is a call
 			// to another member function inside
 			// the same record.
-			LLArgs.push_back(LLThis);
+			LLArgs[0] = LLThis;
 		} else {
-			LLArgs.push_back(GenNode(Call->Site));
+			LLArgs[0] = GenNode(Call->Site);
 		}
 	}
 
+
 	for (u32 i = 0; i < Call->Args.size(); i++) {
 		Expr* Arg = Call->Args[i];
-		LLArgs.push_back(GenRValue(Arg));
+		LLArgs[i] = GenRValue(Arg);
 	}
-
+	for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+		LLArgs[NamedArg.VarRef->ParamIdx] = GenRValue(NamedArg.AssignValue);
+	}
 
 	// -- DEBUG
 	//llvm::outs() << "Calling Function with name: " << Call->CalledFunc->Name << '\n';
@@ -599,7 +604,6 @@ llvm::Value* june::IRGen::GenBinaryOp(BinaryOp* BinOp) {
 	case '+': {
 		llvm::Value* LLLHS = GenRValue(BinOp->LHS);
 		llvm::Value* LLRHS = GenRValue(BinOp->RHS);
-		
 		if (BinOp->Ty->isInt()) {
 			return Builder.CreateAdd(LLLHS, LLRHS);
 		}
@@ -654,7 +658,6 @@ llvm::Value* june::IRGen::GenBinaryOp(BinaryOp* BinOp) {
 	case TokenKind::MINUS_EQ: { // -=
 		llvm::Value* LLLHS = GenNode(BinOp->LHS);
 		llvm::Value* LLRHS = GenRValue(BinOp->RHS);
-		
 		llvm::Value* LLLHSRV = CreateLoad(LLLHS);
 		llvm::Value* V = BinOp->Ty->isInt() ? Builder.CreateSub(LLLHSRV, LLRHS)
 											: Builder.CreateFSub(LLLHSRV, LLRHS);
@@ -1549,7 +1552,7 @@ inline llvm::Value* june::IRGen::GetArrayIndexAddress(llvm::Value* LLArr, llvm::
 }
 
 llvm::Value* june::IRGen::GetAddressOfVar(VarDecl* Var) {
-	if (Var->IsParam && Var->Ty->GetKind() == TypeKind::FIXED_ARRAY) {
+	if (Var->ParamIdx != -1 && Var->Ty->GetKind() == TypeKind::FIXED_ARRAY) {
 		return CreateLoad(Var->LLAddress);
 	} else if (Var->FieldIdx != -1) {
 		// LLThis refers to a member

@@ -173,8 +173,7 @@ namespace june {
 
 		RecordDecl* Record = nullptr;
 		u32 FieldIdx = -1;
-
-		bool IsParam        = false;
+		u32 ParamIdx = -1;
 
 		VarDecl() : Decl(AstKind::VAR_DECL) {}
 

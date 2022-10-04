@@ -237,8 +237,8 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 		Func->RetTy = Context.VoidType;
 	}
 
-	for (VarDecl* Param : Func->Params) {
-		Param->IsParam = true;
+	for (u32 i = 0; i < Func->Params.size(); i++) {
+		Func->Params[i]->ParamIdx = i;
 	}
 	
 	if (Func->RetTy->GetKind() == TypeKind::FIXED_ARRAY) {
@@ -835,6 +835,7 @@ june::FuncCall* june::Parser::ParseFuncCall(Expr* Site) {
 
 	if (CTok.isNot(')')) {
 		bool MoreValues = false;
+		bool AlreadyReportedErrAboutNamedArgsOrder = false;
 		do {
 			if (CTok.is(TokenKind::IDENT) && PeekToken(1).is('=')) {
 				FuncCall::NamedArg NamedArg;
@@ -844,7 +845,13 @@ june::FuncCall* june::Parser::ParseFuncCall(Expr* Site) {
 				NamedArg.AssignValue = ParseExpr();
 				FC->NamedArgs.push_back(NamedArg);
 			} else {
-				FC->Args.push_back(ParseExpr());
+				Expr* Arg = ParseExpr();
+				FC->Args.push_back(Arg);
+				if (!FC->NamedArgs.empty() && !AlreadyReportedErrAboutNamedArgsOrder &&
+					Arg->isNot(AstKind::ERROR)) {
+					Error(Arg->Loc, "Non-named arguments should come before named arguments");
+					AlreadyReportedErrAboutNamedArgsOrder = true;
+				}
 			}
 			if (CTok.is(',')) {
 				NextToken(); // Consuming ','

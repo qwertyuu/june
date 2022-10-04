@@ -69,6 +69,7 @@ namespace june {
 		void CheckFieldAccessor(FieldAccessor* FA, bool GivePrefToFuncs);
 		void CheckFuncCall(FuncCall* Call);
 		FuncDecl* FindBestFuncCallCanidate(FuncsList* Canidates, FuncCall* Call);
+		FuncDecl* FindBestFuncCallCanidateWithNamedArgs(FuncsList* Canidates, FuncCall* Call);
 		void CheckBinaryOp(BinaryOp* BinOp);
 		void CheckUnaryOp(UnaryOp* UOP);
 		void CheckArray(Array* Arr);

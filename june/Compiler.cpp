@@ -30,6 +30,7 @@ void june::Compiler::Compile(const llvm::SmallVector<const c8*, 1>& SourceDirect
 
 	Context.Init();
 
+	// Creating FileUnits for the .june files
 	for (const c8* SourceDirectory : SourceDirectories) {
 		std::filesystem::path& DirectoryPath = std::filesystem::path(SourceDirectory);
 		if (!std::filesystem::exists(DirectoryPath)) {
@@ -43,10 +44,12 @@ void june::Compiler::Compile(const llvm::SmallVector<const c8*, 1>& SourceDirect
 		CollectDirectoryFiles(DirectoryPath, Path.length() + (Path.back() == '/' ? 0 : 1));
 	}
 
+	// Parsing all .june files
 	while (!FilesNeedingParsing.empty()) {
 		ParseNextFiles();
 	}
 
+	// Checking to make sure a main entry point was found
 	if (Context.MainEntryFunc) {
 		Context.RequestGen(Context.MainEntryFunc);
 	} else {
@@ -68,6 +71,7 @@ void june::Compiler::Compile(const llvm::SmallVector<const c8*, 1>& SourceDirect
 		}
 	}
 
+	// Checking and generating code
 	while (!Context.QuededFuncsToGen.empty()) {
 		FuncDecl* Func = Context.QuededFuncsToGen.front();
 		Context.QuededFuncsToGen.pop();
@@ -120,6 +124,7 @@ void june::Compiler::Compile(const llvm::SmallVector<const c8*, 1>& SourceDirect
 
 	u64 LinkTimeStart = GetTimeInMilliseconds();
 	
+	// Linking the program
 	std::string Libs = "";
 	for (const c8* Lib : Libraries) {
 		Libs += std::string("-l") + std::string(Lib) + " ";

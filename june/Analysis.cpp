@@ -5,6 +5,7 @@
 #include "Tokens.h"
 
 #include <limits>
+#include <unordered_set>
 
 inline u32 max(u32 a, u32 b) {
 	return a > b ? a : b;
@@ -685,13 +686,21 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 		return;
 	}
 
-	FuncDecl* CalledFunc = FindBestFuncCallCanidate(Canidates, Call);
+	FuncDecl* CalledFunc = nullptr;
+	if (Call->NamedArgs.empty()) {
+		CalledFunc = FindBestFuncCallCanidate(Canidates, Call);
+	} else {
+		CalledFunc = FindBestFuncCallCanidateWithNamedArgs(Canidates, Call);
+	}
 
 	if (!CalledFunc) {
 		std::string FuncDef = "(";
 		for (u32 i = 0; i < Call->Args.size(); i++) {
 			FuncDef += Call->Args[i]->Ty->ToStr();
 			if (i + 1 != Call->Args.size()) FuncDef += ", ";
+		}
+		for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+			FuncDef += ", " + NamedArg.Name.Text.str() + "=" + NamedArg.AssignValue->Ty->ToStr();
 		}
 		FuncDef += ")";
 
@@ -720,6 +729,9 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	// Ensuring that the arguments comply with the function
 	for (u32 i = 0; i < Call->Args.size(); i++) {
 		CreateCast(Call->Args[i], CalledFunc->Params[i]->Ty);
+	}
+	for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+		CreateCast(NamedArg.AssignValue, CalledFunc->Params[NamedArg.VarRef->ParamIdx]->Ty);
 	}
 
 	Call->CalledFunc = CalledFunc;
@@ -769,6 +781,105 @@ june::FuncDecl* june::Analysis::FindBestFuncCallCanidate(FuncsList* Canidates, F
 
 	if (SelectionIndex == -1)
 		return nullptr;
+
+	return (*Canidates)[SelectionIndex];
+}
+
+june::FuncDecl* june::Analysis::FindBestFuncCallCanidateWithNamedArgs(FuncsList* Canidates, FuncCall* Call) {
+	if (!Canidates) return nullptr;
+
+	u32 LeastConflicts = std::numeric_limits<u32>::max();
+	s32 SelectionIndex = -1;
+
+	bool CanidateHasNameSlotTaken = false;
+
+	u32 i = 0;
+	canidate_sel_restart_lab:
+	if (i < Canidates->size()) {
+		++i;
+		FuncDecl* Canidate = (*Canidates)[i - 1];
+		
+
+		CanidateHasNameSlotTaken = false;
+		
+		// Making sure the function actually qualifies as a
+		// canidate
+		if (Canidate->Params.size() != Call->Args.size() + Call->NamedArgs.size())
+			goto canidate_sel_restart_lab;
+		
+		std::unordered_set<u32> ConsumedArgs;
+		for (u32 j = 0; j < Call->Args.size(); j++) {
+			ConsumedArgs.insert(j);
+			if (!IsAssignableTo(Canidate->Params[j]->Ty, Call->Args[j])) {
+				goto canidate_sel_restart_lab;
+			}
+		}
+		
+		for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+			for (u32 j = 0; j < Canidate->Params.size(); j++) {
+				VarDecl* Param = Canidate->Params[j];
+				if (NamedArg.Name == Param->Name) {
+					if (!IsAssignableTo(Param->Ty, NamedArg.AssignValue)) {
+						goto canidate_sel_restart_lab;
+					}
+					
+					if (ConsumedArgs.find(j) != ConsumedArgs.end()) {
+						CanidateHasNameSlotTaken = true;
+					}
+					NamedArg.VarRef = Param;
+					ConsumedArgs.insert(j);
+					break; // Found name no reason to continue searching
+					       // the rest of the arguments.
+				}
+			}
+			if (!NamedArg.VarRef) {
+				// Could not find a variable by the given
+				// name so just moving on to the next canidate.
+				goto canidate_sel_restart_lab;
+			}
+		}
+
+		// Finding the function with the least conflicts
+		u32 NumConflicts = 0;
+		for (u32 j = 0; j < Call->Args.size(); j++) {
+			if (Call->Args[j]->Ty
+				->isNot(Canidate->Params[j]->Ty)) {
+				++NumConflicts;
+			}
+		}
+		for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+			if (NamedArg.AssignValue->Ty
+				->isNot(NamedArg.VarRef->Ty)) {
+				++NumConflicts;
+			}
+		}
+
+		if (NumConflicts < LeastConflicts) {
+			LeastConflicts = NumConflicts;
+			SelectionIndex = i - 1;
+		}
+	}
+
+	if (SelectionIndex == -1)
+		return nullptr;
+
+	if (CanidateHasNameSlotTaken) {
+		// The slot may be taken because there is a duplicate
+		// name or because the name was consumed by the
+		// non-named arguments.
+		for (u32 i = 0; i < Call->NamedArgs.size(); i++) {
+			if (Call->NamedArgs[i].VarRef->ParamIdx < Call->Args.size()) {
+				Error(Call, "Named argument '%s' already consumed by non-named argument",
+					Call->NamedArgs[i].Name);
+			}
+
+			for (u32 j = i+1; j < Call->NamedArgs.size(); j++) {
+				if (Call->NamedArgs[i].Name == Call->NamedArgs[j].Name) {
+					Error(Call, "Duplicate named argument '%s'", Call->NamedArgs[i].Name);
+				}
+			}
+		}
+	}
 
 	return (*Canidates)[SelectionIndex];
 }
