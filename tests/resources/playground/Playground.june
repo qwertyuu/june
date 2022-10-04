@@ -1,24 +1,13 @@
 A :: record {
-	B :: record {
-		//m :i32;	
-
-		func() {
-			u :B;
-		}
-	}
-
-	func() {
-		c :A;
-	}
-
-	j :B;
+	loop i :i32 = 0; i < 44; i++ {
 	
-	func() {
-		m :B;
 	}
 }
 
+if 55 == 33 {
+
+}
+
 main() {
-	//h :A;
-	//h.func();
+
 }

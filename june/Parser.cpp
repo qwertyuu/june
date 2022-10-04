@@ -74,7 +74,7 @@ void june::Parser::Parse() {
 			break;
 		}
 		default:
-			FU->InvalidStmts.push_back(Node);
+			FU->InvalidStmts.push_back(std::make_tuple(FileUnit::StmtScopeKind::GLOBAL, Node));
 			break;
 		}
 	}
@@ -370,6 +370,8 @@ june::RecordDecl* june::Parser::ParseRecordDecl(mods::Mod Mods) {
 		if (Stmt->is(AstKind::VAR_DECL)) {
 			Record->FieldsHaveAssignment |=
 				ocast<VarDecl*>(Stmt)->Assignment != nullptr;
+		} else if (Stmt->isNot(AstKind::FUNC_DECL) && Stmt->isNot(AstKind::RECORD_DECL)) {
+			FU->InvalidStmts.push_back(std::make_tuple(FileUnit::StmtScopeKind::RECORD, Stmt));
 		}
 	}
 	Match('}');

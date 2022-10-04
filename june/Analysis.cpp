@@ -89,8 +89,9 @@ void june::Analysis::CheckRecords(JuneContext& Context, FileUnit* FU) {
 }
 
 void june::Analysis::ReportInvalidFUStmts(FileUnit* FU) {
-	for (AstNode* InvalidStmt : FU->InvalidStmts) {
-		FU->Log.Error(InvalidStmt->Loc, "Invalid statement at global scope");
+	for (auto& [Kind, InvalidStmt] : FU->InvalidStmts) {
+		FU->Log.Error(InvalidStmt->Loc, "Invalid statement at %s scope",
+			Kind == FileUnit::StmtScopeKind::GLOBAL ? "global" : "record");
 	}
 }
 

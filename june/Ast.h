@@ -107,8 +107,13 @@ namespace june {
 		llvm::DenseMap<Identifier, FileUnit*>       Imports;
 		llvm::DenseMap<Identifier, FuncsList>       GlobalFuncs;
 		llvm::DenseMap<RecordLocation, RecordDecl*> Records;
-		ScopeStmts InvalidStmts;
-
+		
+		enum class StmtScopeKind {
+			GLOBAL,
+			RECORD,
+		};
+		llvm::SmallVector<std::tuple<StmtScopeKind, AstNode*>, 8> InvalidStmts;
+		
 		FileUnit(llvm::raw_fd_ostream& ErrOS, const std::string& filePath)
 			: Log(SBuf, ErrOS, filePath) {}
 
