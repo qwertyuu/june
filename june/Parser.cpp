@@ -317,6 +317,7 @@ june::VarDecl* june::Parser::ParseVarDecl(mods::Mod Mods) {
 		} else if (CRecord) {
 			Var->FieldIdx = CRecord->Fields.size();
 			CRecord->Fields.insert({ Name, Var });
+			CRecord->FieldsByIdxOrder.push_back(Var);
 		}
 	}
 

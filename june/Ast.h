@@ -176,7 +176,7 @@ namespace june {
 		RecordDecl* Record = nullptr;
 		u32 FieldIdx = -1;
 		u32 ParamIdx = -1;
-
+		
 		VarDecl() : Decl(AstKind::VAR_DECL) {}
 
 	};
@@ -185,6 +185,7 @@ namespace june {
 
 		RecordDecl* Parent = nullptr;
 
+		llvm::SmallVector<VarDecl*>           FieldsByIdxOrder;
 		llvm::DenseMap<Identifier, VarDecl*>  Fields;
 		llvm::DenseMap<Identifier, FuncsList> Funcs; // member functions
 		

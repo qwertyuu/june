@@ -68,6 +68,8 @@ namespace june {
 		void CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, FileUnit* FUToLookup, RecordDecl* RecordToLookup);
 		void CheckFieldAccessor(FieldAccessor* FA, bool GivePrefToFuncs);
 		void CheckFuncCall(FuncCall* Call);
+		void CheckDefaultRecordInitFuncCall(FuncCall* Call, RecordDecl* Record);
+		void DisplayErrorForNamedArgsSlotTaken(FuncCall* Call, bool UseFieldIdx);
 		FuncDecl* FindBestFuncCallCanidate(FuncsList* Canidates, FuncCall* Call);
 		FuncDecl* FindBestFuncCallCanidateWithNamedArgs(FuncsList* Canidates, FuncCall* Call);
 		void CheckBinaryOp(BinaryOp* BinOp);

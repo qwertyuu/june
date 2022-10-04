@@ -615,6 +615,10 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 		CheckNode(Arg);
 		YIELD_ERROR_WHEN_M(Call, Arg);
 	}
+	for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+		CheckNode(NamedArg.AssignValue);
+		YIELD_ERROR_WHEN_M(Call, NamedArg.AssignValue);
+	}
 
 	switch (Call->Site->Kind) {
 	case AstKind::IDENT_REF:
@@ -672,25 +676,7 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	}
 	
 	if (Call->IsConstructorCall && !Canidates) {
-		// Can still "call" a default generated constructor.
-
-		// TODO: fill in non-named values first.
-		
-		for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
-
-			CheckNode(NamedArg.AssignValue);
-
-			auto it = ConstructorRecord->Fields.find(NamedArg.Name);
-			if (it != ConstructorRecord->Fields.end()) {
-				NamedArg.VarRef = it->second;
-			} else {
-				Log.Error(NamedArg.Loc, "No field in record '%s' by name '%s'",
-					ConstructorRecord->Name, NamedArg.Name.Text);
-				continue;
-			}
-		}
-
-		Call->Ty = GetRecordType(ConstructorRecord);
+		CheckDefaultRecordInitFuncCall(Call, ConstructorRecord);
 		return;
 	}
 
@@ -749,6 +735,74 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 
 	if (Call->Ty->GetKind() == TypeKind::RECORD) {
 		EnsureChecked(Call->Loc, Call->Ty->AsRecordType()->Record);
+	}
+}
+
+void june::Analysis::CheckDefaultRecordInitFuncCall(FuncCall* Call, RecordDecl* Record) {
+	// Can still "call" a default generated constructor.
+
+	if (Call->Args.size() + Call->NamedArgs.size() > Record->Fields.size()) {
+		Error(Call, "Too many arguments to initialize record");
+		YIELD_ERROR(Call);
+	}
+
+	std::unordered_set<u32> ConsumedArgs;
+	bool FieldTypeMismatch = false;
+	for (u32 i = 0; i < Call->Args.size(); i++) {
+		ConsumedArgs.insert(i);
+		if (!IsAssignableTo(Record->FieldsByIdxOrder[i]->Ty, Call->Args[i])) {
+			Error(Call, "Type of Value '%s', expected '%s' for field '%s'",
+				Call->Args[i]->Ty->ToStr(),
+				Record->FieldsByIdxOrder[i]->Ty->ToStr(),
+				Record->FieldsByIdxOrder[i]->Name);
+			FieldTypeMismatch = true;
+		}
+	}
+
+	if (FieldTypeMismatch) {
+		YIELD_ERROR(Call);
+	}
+
+	bool CanidateHasNameSlotTaken = false;
+	for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+		auto it = Record->Fields.find(NamedArg.Name);
+		if (it != Record->Fields.end()) {
+			u32 FieldIdx = it->second->FieldIdx;
+			if (ConsumedArgs.find(FieldIdx) != ConsumedArgs.end()) {
+				CanidateHasNameSlotTaken = true;
+			}
+			NamedArg.VarRef = it->second;
+			ConsumedArgs.insert(FieldIdx);
+		} else {
+			Log.Error(NamedArg.Loc, "No field in record '%s' by name '%s'",
+				Record->Name, NamedArg.Name.Text);
+			continue;
+		}
+	}
+
+	if (CanidateHasNameSlotTaken) {
+		DisplayErrorForNamedArgsSlotTaken(Call, true);
+	}
+
+	Call->Ty = GetRecordType(Record);
+}
+
+void june::Analysis::DisplayErrorForNamedArgsSlotTaken(FuncCall* Call, bool UseFieldIdx) {
+	// The slot may be taken because there is a duplicate
+	// name or because the name was consumed by the
+	// non-named arguments.
+	for (u32 i = 0; i < Call->NamedArgs.size(); i++) {
+		VarDecl* ParamOrField = Call->NamedArgs[i].VarRef;
+		if ((UseFieldIdx ? ParamOrField->FieldIdx : ParamOrField->ParamIdx) < Call->Args.size()) {
+			Error(Call, "Named argument '%s' already consumed by non-named argument",
+				Call->NamedArgs[i].Name);
+		}
+
+		for (u32 j = i+1; j < Call->NamedArgs.size(); j++) {
+			if (Call->NamedArgs[i].Name == Call->NamedArgs[j].Name) {
+				Error(Call, "Duplicate named argument '%s'", Call->NamedArgs[i].Name);
+			}
+		}
 	}
 }
 
@@ -872,21 +926,7 @@ june::FuncDecl* june::Analysis::FindBestFuncCallCanidateWithNamedArgs(FuncsList*
 		return nullptr;
 
 	if (CanidateHasNameSlotTaken) {
-		// The slot may be taken because there is a duplicate
-		// name or because the name was consumed by the
-		// non-named arguments.
-		for (u32 i = 0; i < Call->NamedArgs.size(); i++) {
-			if (Call->NamedArgs[i].VarRef->ParamIdx < Call->Args.size()) {
-				Error(Call, "Named argument '%s' already consumed by non-named argument",
-					Call->NamedArgs[i].Name);
-			}
-
-			for (u32 j = i+1; j < Call->NamedArgs.size(); j++) {
-				if (Call->NamedArgs[i].Name == Call->NamedArgs[j].Name) {
-					Error(Call, "Duplicate named argument '%s'", Call->NamedArgs[i].Name);
-				}
-			}
-		}
+		DisplayErrorForNamedArgsSlotTaken(Call, false);
 	}
 
 	return (*Canidates)[SelectionIndex];

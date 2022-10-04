@@ -548,6 +548,12 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 		// Generating a default constructor "call"!
 
 		std::unordered_set<u32> FieldIndexesWithVals;
+		for (u32 i = 0; i < Call->Args.size(); i++) {
+			FieldIndexesWithVals.insert(i);
+			llvm::Value* LLFieldAddr = CreateStructGEP(LLAddr, i);
+			GenAssignment(LLFieldAddr, Call->Args[i]);
+		}
+
 		for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
 			FieldIndexesWithVals.insert(NamedArg.VarRef->FieldIdx);
 			llvm::Value* LLFieldAddr = CreateStructGEP(LLAddr, NamedArg.VarRef->FieldIdx);
