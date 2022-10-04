@@ -260,7 +260,7 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 		if (!(Func->Mods & mods::NATIVE)) {
 			if (!(Func->RetTy->is(Context.I32Type) || Func->RetTy->is(Context.VoidType))) {
 				Error(Func->Loc, "The 'main' function must return either type 'i32' or 'void'");
-				Log.Note("Declare main as: 'main()' or 'main() :: i32'").EndNote();
+				Log.Note("Declare main as: 'main()' or 'main() -> i32'").EndNote();
 			}
 
 			Func->IsMainFunc = true;
