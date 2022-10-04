@@ -75,6 +75,7 @@ namespace june {
 		void CheckArray(Array* Arr);
 		void CheckArrayAccess(ArrayAccess* AA);
 		void CheckTypeCast(TypeCast* Cast);
+		void CheckHeapAllocType(HeapAllocType* HeapAlloc);
 		
 		bool IsAssignableTo(Type* ToTy, Expr* FromExpr);
 		bool IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr);

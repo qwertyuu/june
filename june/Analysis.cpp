@@ -269,6 +269,9 @@ void june::Analysis::CheckNode(AstNode* Node) {
 	case AstKind::TYPE_CAST:
 		CheckTypeCast(ocast<TypeCast*>(Node));
 		break;
+	case AstKind::HEAP_ALLOC_TYPE:
+		CheckHeapAllocType(ocast<HeapAllocType*>(Node));
+		break;
 	default:
 		assert(!"Unimplemented node check");
 		break;
@@ -1246,6 +1249,16 @@ void june::Analysis::CheckTypeCast(TypeCast* Cast) {
 	}
 
 	Cast->Ty = Cast->ToTy;
+}
+
+void june::Analysis::CheckHeapAllocType(HeapAllocType* HeapAlloc) {
+	HeapAlloc->IsFoldable = false;
+	if (HeapAlloc->TypeToAlloc->GetKind() == TypeKind::FIXED_ARRAY) {
+		HeapAlloc->Ty = PointerType::Create(
+			HeapAlloc->TypeToAlloc->AsFixedArrayType()->GetBaseType(), Context);
+	} else {
+		HeapAlloc->Ty = PointerType::Create(HeapAlloc->TypeToAlloc, Context);
+	}
 }
 
 bool june::Analysis::IsAssignableTo(Type* ToTy, Expr* FromExpr) {

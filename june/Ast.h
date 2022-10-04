@@ -55,6 +55,7 @@ namespace june {
 		BOOL_LITERAL,
 		SIZEOF_TYPE,
 		TYPE_CAST,
+		HEAP_ALLOC_TYPE
 
 	};
 
@@ -492,6 +493,16 @@ namespace june {
 
 		TypeCast()
 			: Expr(AstKind::TYPE_CAST) {}
+
+	};
+
+	// Ex.  'new i32'
+	struct HeapAllocType : Expr {
+		
+		Type* TypeToAlloc;
+
+		HeapAllocType()
+			: Expr(AstKind::HEAP_ALLOC_TYPE) {}
 
 	};
 }

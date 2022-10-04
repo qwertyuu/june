@@ -294,6 +294,8 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 			SizeOfTypeInBytes(GenType(ocast<SizeofType*>(Node)->TyToGetSizeof)), LLContext);
 	case AstKind::TYPE_CAST:
 		return GenTypeCast(ocast<TypeCast*>(Node));
+	case AstKind::HEAP_ALLOC_TYPE:
+		return GenHeapAllocType(ocast<HeapAllocType*>(Node));
 	default:
 		assert(!"Unimplemented generation case!");
 		return nullptr;
@@ -1160,6 +1162,15 @@ llvm::Value* june::IRGen::GenTypeCast(TypeCast* Cast) {
 	return GenCast(Cast->ToTy, Cast->Val->Ty, GenRValue(Cast->Val));
 }
 
+llvm::Value* june::IRGen::GenHeapAllocType(HeapAllocType* HeapAlloc) {
+	if (HeapAlloc->TypeToAlloc->GetKind() == TypeKind::FIXED_ARRAY) {
+		FixedArrayType* ArrTy = HeapAlloc->TypeToAlloc->AsFixedArrayType();
+		return GenMalloc(GenType(ArrTy->GetBaseType()), GetLLUInt32(ArrTy->GetTotalLinearLength(), LLContext));
+	} else {
+		return GenMalloc(GenType(HeapAlloc->TypeToAlloc), nullptr);
+	}
+}
+
 llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 	if (Val->Kind == AstKind::ARRAY) {
 		llvm::Value* LLArr = GenArray(ocast<Array*>(Val), LLAddr);
@@ -1673,4 +1684,20 @@ void june::IRGen::GenDefaultRecordInitCall(RecordDecl* Record, llvm::Value* LLAd
 	Context.DefaultRecordInitFuncs.insert({ Record, LLFunc });
 	Builder.CreateCall(LLFunc, LLAddr);
 
+}
+
+llvm::Value* june::IRGen::GenMalloc(llvm::Type* LLType, llvm::Value* LLArrSize) {
+
+	llvm::Value* LLMalloc = llvm::CallInst::CreateMalloc(
+		Builder.GetInsertBlock(),                              // llvm::BasicBlock *InsertAtEnd
+		llvm::Type::getInt64Ty(LLContext),                     // llvm::Type* IntPtrTy
+		LLType,                                                // llvm::Type* AllocTy
+		GetLLUInt64(SizeOfTypeInBytes(LLType), LLContext),     // llvm::Value* AllocSize
+		LLArrSize,
+		nullptr,
+		""
+	);
+	Builder.Insert(LLMalloc);
+
+	return LLMalloc;
 }

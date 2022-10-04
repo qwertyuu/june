@@ -764,6 +764,12 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 		Cast->Val = ParsePrimaryAndPostExpr();
 		return Cast;
 	}
+	case TokenKind::KW_NEW: {
+		HeapAllocType* HeapAlloc = NewNode<HeapAllocType>(CTok);
+		NextToken(); // Consuming 'new' token
+		HeapAlloc->TypeToAlloc = ParseType();
+		return HeapAlloc;
+	}
 	case TokenKind::IDENT: {
 		
 		IdentRef* IRef = NewNode<IdentRef>(CTok);

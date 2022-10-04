@@ -267,6 +267,10 @@ namespace june {
 		PrintNode(Context, Cast->Val, Depth);
 	}
 
+	void PrintHeapAllocType(const JuneContext& Context, const HeapAllocType* HeapAlloc, u32 Depth) {
+		llvm::outs() << "(heap-alloc-type)";
+	}
+
 	void PrintErrorNode() {
 		llvm::outs() << "(error)";
 	}
@@ -337,6 +341,9 @@ namespace june {
 			break;
 		case AstKind::TYPE_CAST:
 			PrintTypeCast(Context, ocast<const TypeCast*>(N), Depth);
+			break;
+		case AstKind::HEAP_ALLOC_TYPE:
+			PrintHeapAllocType(Context, ocast<const HeapAllocType*>(N), Depth);
 			break;
 		case AstKind::ERROR:
 			PrintErrorNode();

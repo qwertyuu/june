@@ -71,6 +71,7 @@ namespace june {
 		void FillFixedArrayViaGEP(Array* Arr, llvm::Value* LLArr, FixedArrayType* DestTy);
 		llvm::Value* GenArrayAccess(ArrayAccess* AA);
 		llvm::Value* GenTypeCast(TypeCast* Cast);
+		llvm::Value* GenHeapAllocType(HeapAllocType* HeapAlloc);
 		
 		llvm::Value* GenAssignment(llvm::Value* LLAddr, Expr* Val);
 
@@ -134,6 +135,8 @@ namespace june {
 		llvm::Value* CreateTempAlloca(llvm::Type* LLTy);
 
 		void GenDefaultRecordInitCall(RecordDecl* Record, llvm::Value* LLAddr);
+
+		llvm::Value* GenMalloc(llvm::Type* LLType, llvm::Value* LLArrSize);
 
 	};
 }
