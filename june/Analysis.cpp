@@ -32,23 +32,49 @@ void june::Analysis::ResolveRecordTypes(FileUnit* FU) {
 	for (auto& [RelLoc, URT] : FU->QualifyingRecordTypes) {
 
 		RecordDecl* FoundRecord = nullptr;
-		auto it = FU->Imports.find(std::get<1>(RelLoc).Nesting[0]);
-		if (it != FU->Imports.end()) {
-			FileUnit* ExternalFU = it->second;
-			auto it2 = ExternalFU->Records.find(std::get<1>(RelLoc));
-			if (it2 != ExternalFU->Records.end()) {
-				FoundRecord = it2->second;
+
+		RecordLocation RelRecLoc = std::get<1>(RelLoc);
+		// relative search
+		if (URT.RelRecord) {
+			if (URT.RelRecord &&
+				RelRecLoc.Nesting.size() == 1 &&
+				RelRecLoc.Nesting[0] == URT.RelRecord->Name) {
+				RecordLocation RecLoc =
+					RecordLocation::CreateRecLocationByRecord(URT.RelRecord);
+				FoundRecord = FU->Records.find(RecLoc)->second;
+			} else {
+				RecordLocation RecLoc =
+					RecordLocation::CreateRecLocationRelToRec(URT.RelRecord, RelRecLoc);
+				auto RelItr = FU->Records.find(RecLoc);
+				if (RelItr != FU->Records.end()) {
+					FoundRecord = RelItr->second;
+				}
 			}
-		} else {
-			// TODO: This needs to search in a relative manner!
-			auto it2 = FU->Records.find(std::get<1>(RelLoc));
-			if (it2 != FU->Records.end()) {
-				FoundRecord = it2->second;
+		}
+
+		// Absolute search of local file
+		if (!FoundRecord) {
+			// Absolute search
+			auto FUAbsItr = FU->Records.find(RelRecLoc);
+			if (FUAbsItr != FU->Records.end()) {
+				FoundRecord = FUAbsItr->second;
+			}
+		}
+
+		// Absolute search from an import
+		if (!FoundRecord) {
+			auto ImportItr = FU->Imports.find(RelRecLoc.Nesting[0]);
+			if (ImportItr != FU->Imports.end()) {
+				FileUnit* ExternalFU = ImportItr->second;
+				auto ExternalAbsItr = ExternalFU->Records.find(RelRecLoc);
+				if (ExternalAbsItr != ExternalFU->Records.end()) {
+					FoundRecord = ExternalAbsItr->second;
+				}
 			}
 		}
 
 		if (!FoundRecord) {
-			FU->Log.Error(URT.ErrorLoc, "Could not find record type '%s'", std::get<1>(RelLoc).ToStr());
+			FU->Log.Error(URT.ErrorLoc, "Could not find record type '%s'", RelRecLoc.ToStr());
 		} else {
 			URT.RecType->Record = FoundRecord;
 		}
@@ -126,6 +152,10 @@ void june::Analysis::CheckRecordDecl(RecordDecl* Record) {
 
 	for (auto& [_, Field] : Record->Fields) {
 		CheckVarDecl(Field);
+		if (Field->Ty->GetKind() == TypeKind::RECORD) {
+			Record->FieldsHaveAssignment |=
+				Field->Ty->AsRecordType()->Record->FieldsHaveAssignment;
+		}
 	}
 
 	Record->IsBeingChecked = false;
@@ -481,14 +511,14 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 	// Checking if it refers to a record
 	if (IRef->RefKind == IdentRef::NOT_FOUND) {
 		if (FUToLookup /* == FU */) {
-			auto it = FU->Records.find(RecordLocation(IRef->Ident));
+			auto it = FU->Records.find(RecordLocation::CreateRecLocationByRecName(IRef->Ident));
 			if (it != FU->Records.end()) {
 				IRef->RecordRef = it->second;
 				IRef->RefKind   = IdentRef::RECORD;
 			}
 		} else {
 			// Search for a record inside another record.
-			RecordLocation RecLoc = RecordLocation(RecordToLookup);
+			RecordLocation RecLoc = RecordLocation::CreateRecLocationByRecord(RecordToLookup);
 			RecLoc.Nesting.push_back(IRef->Ident);
 			auto it = RecordToLookup->FU->Records.find(RecLoc);
 			if (it != RecordToLookup->FU->Records.end()) {
@@ -645,7 +675,7 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 			Canidates = IRef->FuncsRef;
 			break;
 		case IdentRef::FILE_UNIT: {
-			RecordLocation RecLoc = RecordLocation(IRef->Ident);
+			RecordLocation RecLoc = RecordLocation::CreateRecLocationByRecName(IRef->Ident);
 			auto it = IRef->FileUnitRef->Records.find(RecLoc);
 			if (it != IRef->FileUnitRef->Records.end()) {
 				ConstructorRecord = it->second;
@@ -1311,8 +1341,8 @@ void june::Analysis::CheckThisRef(ThisRef* This) {
 		Error(This, "Cannot use 'this' in global scope");
 		YIELD_ERROR(This);
 	}
-	auto it = FU->QualifyingRecordTypes.find(std::make_tuple(nullptr, RecordLocation(CRecord)));
-	This->Ty = PointerType::Create(it->second.RecType, Context);
+	// Just take the type as absolute.
+	This->Ty = PointerType::Create(GetRecordType(CRecord), Context);
 }
 
 bool june::Analysis::IsAssignableTo(Type* ToTy, Expr* FromExpr) {
@@ -1580,7 +1610,10 @@ void june::Analysis::DisplayCircularDep(Decl* StartDep) {
 }
 
 june::RecordType* june::Analysis::GetRecordType(RecordDecl* Record) {
-	auto RelLoc = std::make_tuple(CRecord, RecordLocation(CRecord, Record));
+	// Using absolute paths at this point since all information about
+	// where records are at is determined from parsing.
+	RecordLocation RecLoc =  RecordLocation::CreateRecLocationByRecord(Record);
+	auto RelLoc = std::make_tuple(nullptr, RecLoc);
 	auto it = FU->QualifyingRecordTypes.find(RelLoc);
 	RecordType* ResTy;
 	if (it != FU->QualifyingRecordTypes.end()) {

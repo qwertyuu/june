@@ -1,11 +1,24 @@
-
 A :: record {
-	a :i32;
-	b :i32;
-	c :i32;
-	d :i32;
+	B :: record {
+		//m :i32;	
+
+		func() {
+			u :B;
+		}
+	}
+
+	func() {
+		c :A;
+	}
+
+	j :B;
+	
+	func() {
+		m :B;
+	}
 }
 
 main() {
-	a :A = A(4, 44, d = 22);
+	//h :A;
+	//h.func();
 }

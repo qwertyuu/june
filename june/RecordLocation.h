@@ -17,11 +17,26 @@ namespace june {
 
 		RecordLocation() {}
 
-		RecordLocation(Identifier SingleRecordName);
+		// Creates a record location by the given name
+		// with an absolute path.
+		static RecordLocation CreateRecLocationByRecName(Identifier SingleRecordName);
 
-		RecordLocation(RecordDecl* Record);
+		// Creates a record location by the given record
+		// with an absolute path. That is if the record is
+		// 'B' where:
+		//
+		// A :: record {
+		//     B :: record {
+		// 
+		//     }
+		// }
+		//
+		// Then the absolute path is: 'A.B
+		static RecordLocation CreateRecLocationByRecord(RecordDecl* Record);
 
-		RecordLocation(RecordDecl* RelRecord, RecordDecl* Record);
+		static RecordLocation CreateRecLocationRelToRec(RecordDecl* RelRecord, RecordDecl* Record);
+	
+		static RecordLocation CreateRecLocationRelToRec(RecordDecl* RelRecord, RecordLocation RelRecLoc);
 
 		bool ExceedsNesting() const { return Nesting.size() > MAX_RECORD_NESTING; }
 

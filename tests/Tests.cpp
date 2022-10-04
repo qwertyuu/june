@@ -145,6 +145,7 @@ int main() {
 	RunTest(SRC("records5"), 325 + 15 + 325 + 15);
 	RunTest(SRC("records6"), 5 * 5 * (25 + 55));
 	RunTest(SRC("records7"), 55);
+	RunTest(SRC("records8"), 138);
 	RunTest(SRC("sizeof"), 4 + 1 + 4 + 4 + 8 + 8);
 	RunTest(SRC("this"), 252);
 	//RunTest(SRC("playground"), 0);

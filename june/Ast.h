@@ -92,10 +92,15 @@ namespace june {
 		// searching for it's reference.
 		struct QualifyingRecordType {
 			RecordType* RecType;
+			RecordDecl* RelRecord = nullptr;
 			// Only used if the record type cannot be found.
 			SourceLoc ErrorLoc;
 		};
 
+		// The reason for the tuple is that during parsing
+		// it cannot be known if a location is relative
+		// or absolute. However, relative to a certain record
+		// scope all declared record types must be the same.
 		llvm::DenseMap<std::tuple<RecordDecl*, RecordLocation>,
 			QualifyingRecordType> QualifyingRecordTypes;
 

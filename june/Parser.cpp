@@ -354,7 +354,7 @@ june::RecordDecl* june::Parser::ParseRecordDecl(mods::Mod Mods) {
 	}
 
 	if (Record->isNot(AstKind::ERROR)) {
-		RecordLocation Loc(Record);
+		RecordLocation Loc = RecordLocation::CreateRecLocationByRecord(Record);
 		auto it = FU->Records.find(Loc);
 		if (it != FU->Records.end()) {
 			Error(Record->Loc, "Redeclaration of record '%s'. First declarated at line: %s",
@@ -1244,6 +1244,7 @@ june::Type* june::Parser::ParseType() {
 			u32 ErrorLocLen = EndTok.GetText().end() - StartTok.GetText().begin();
 			URT.ErrorLoc.Text = llvm::StringRef(StartTok.GetText().begin(), ErrorLocLen);
 			URT.ErrorLoc.LineNumber = StartTok.Loc.LineNumber;
+			URT.RelRecord = CRecord;
 			URT.RecType = new RecordType;
 			FU->QualifyingRecordTypes.insert({ std::make_tuple(CRecord, Loc), URT });
 			Ty = URT.RecType;

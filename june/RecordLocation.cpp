@@ -2,22 +2,27 @@
 
 #include "Ast.h"
 
-june::RecordLocation::RecordLocation(Identifier SingleRecordName) {
-	Nesting.push_back(SingleRecordName);
+june::RecordLocation june::RecordLocation::CreateRecLocationByRecName(Identifier SingleRecordName) {
+	RecordLocation Loc;
+	Loc.Nesting.push_back(SingleRecordName);
+	return Loc;
 }
 
-june::RecordLocation::RecordLocation(RecordDecl* Record) {
+june::RecordLocation june::RecordLocation::CreateRecLocationByRecord(RecordDecl* Record) {
+	RecordLocation Loc;
 	RecordDecl* Itr = Record;
 	while (Itr) {
-		Nesting.push_back(Itr->Name);
+		Loc.Nesting.push_back(Itr->Name);
 		Itr = Itr->Parent;
 	}
-	std::reverse(Nesting.begin(), Nesting.end());
+	std::reverse(Loc.Nesting.begin(), Loc.Nesting.end());
+	return Loc;
 }
 
-june::RecordLocation::RecordLocation(RecordDecl* RelRecord, RecordDecl* Record) {
+june::RecordLocation june::RecordLocation::CreateRecLocationRelToRec(RecordDecl* RelRecord, RecordDecl* Record) {
+	RecordLocation Loc;
 	// Chomp off the Shared part of RelRecord and Record.
-	RecordDecl* Itr    = Record;
+	RecordDecl* Itr = Record;
 	RecordDecl* RelItr = RelRecord;
 	while (RelItr) {
 		assert(Itr->Name == RelItr->Name && "The record was not relative to the relative record");
@@ -25,10 +30,25 @@ june::RecordLocation::RecordLocation(RecordDecl* RelRecord, RecordDecl* Record) 
 		Itr = Itr->Parent;
 	}
 	while (Itr) {
-		Nesting.push_back(Itr->Name);
+		Loc.Nesting.push_back(Itr->Name);
 		Itr = Itr->Parent;
 	}
-	std::reverse(Nesting.begin(), Nesting.end());
+	std::reverse(Loc.Nesting.begin(), Loc.Nesting.end());
+	return Loc;
+}
+
+june::RecordLocation june::RecordLocation::CreateRecLocationRelToRec(RecordDecl* RelRecord, RecordLocation RelRecLoc) {
+	RecordLocation Loc;
+	RecordDecl* RelItr = RelRecord;
+	while (RelItr) {
+		Loc.Nesting.push_back(RelItr->Name);
+		RelItr = RelItr->Parent;
+	}
+	std::reverse(Loc.Nesting.begin(), Loc.Nesting.end());
+	for (Identifier& Ident : RelRecLoc.Nesting) {
+		Loc.Nesting.push_back(Ident);
+	}
+	return Loc;
 }
 
 std::string june::RecordLocation::ToStr() const {

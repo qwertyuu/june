@@ -1,0 +1,13 @@
+A :: record {
+	B :: record {
+		m :i32 = 14;
+		c :i32 = 124;
+	}
+
+	j :B;
+}
+
+main() -> i32 {
+	a :A;
+	return a.j.m + a.j.c;
+}
