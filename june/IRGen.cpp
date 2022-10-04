@@ -188,8 +188,9 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	u32 LLParamIndex = 0;
 	if (Func->ParentRecord) {
 		// Member function pointer
-		LLThis = Builder.CreateAlloca(llvm::PointerType::get(GenRecordType(Func->ParentRecord), 0));
-		Builder.CreateStore(LLFunc->getArg(LLParamIndex++), LLThis);
+		llvm::Value* LLThisAddr = Builder.CreateAlloca(llvm::PointerType::get(GenRecordType(Func->ParentRecord), 0));
+		Builder.CreateStore(LLFunc->getArg(LLParamIndex++), LLThisAddr);
+		LLThis = CreateLoad(LLThisAddr, "this");
 	}
 	
 	for (VarDecl* Param : Func->Params) {
@@ -558,7 +559,7 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 			// valid explaination is it is a call
 			// to another member function inside
 			// the same record.
-			LLArgs.push_back(CreateLoad(LLThis));
+			LLArgs.push_back(LLThis);
 		} else {
 			LLArgs.push_back(GenNode(Call->Site));
 		}
@@ -1131,8 +1132,7 @@ void june::IRGen::FillFixedArrayViaGEP(Array* Arr, llvm::Value* LLArr, FixedArra
 					ocast<Array*>(Elm), LLAddrAtIndex, DestTy->ElmTy->AsFixedArrayType());
 			}
 		} else {
-			Builder.CreateStore(
-				GenZeroedValue(DestTy->ElmTy), LLAddrAtIndex);
+			GenDefaultValue(DestTy->ElmTy, LLAddrAtIndex);
 		}
 	}
 }
@@ -1398,12 +1398,66 @@ void june::IRGen::GenDefaultValue(Type* Ty, llvm::Value* LLAddr) {
 		RecordDecl* Record = Ty->AsRecordType()->Record;
 		if (Record->FieldsHaveAssignment) {
 			GenDefaultRecordInitCall(Record, LLAddr);
-		} else {
-			Builder.CreateStore(GenZeroedValue(Ty), LLAddr);
+			return;
 		}
-	} else {
-		Builder.CreateStore(GenZeroedValue(Ty), LLAddr);
+	} else if (Ty->GetKind() == TypeKind::FIXED_ARRAY) {
+		FixedArrayType* ArrTy = Ty->AsFixedArrayType();
+		Type* ArrBaseTy = ArrTy->GetBaseType();
+		if (ArrBaseTy->GetKind() == TypeKind::RECORD) {
+			RecordDecl* Record = ArrBaseTy->AsRecordType()->Record;
+			if (Record->FieldsHaveAssignment) {
+				GenRecordArrayObjsInitCalls(ArrTy, LLAddr);
+				return;
+			}
+		}
 	}
+	Builder.CreateStore(GenZeroedValue(Ty), LLAddr);
+}
+
+void june::IRGen::GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy, llvm::Value* LLArrAddr) {
+	// Looping through the array and calling the initialization
+	// function for each element.
+
+	bool BaseNestingLevel = ArrTy->ElmTy->GetKind() != TypeKind::FIXED_ARRAY;
+
+	llvm::BasicBlock* BeforeLoopBB = Builder.GetInsertBlock();
+
+	llvm::BasicBlock* LoopBB    = llvm::BasicBlock::Create(LLContext, "arr.objconstr.loop", LLFunc);
+	llvm::BasicBlock* LoopEndBB = llvm::BasicBlock::Create(LLContext, "arr.objconstr.end", LLFunc);
+
+	Builder.CreateBr(LoopBB);
+	Builder.SetInsertPoint(LoopBB);
+
+	llvm::PHINode* LLCount = Builder.CreatePHI(llvm::Type::getInt32Ty(LLContext), 0, "obj.loop.count");
+
+	// Incoming value of zero from the incoming block
+	llvm::Value* LLStartCount = GetLLUInt32(0, LLContext);
+	LLCount->addIncoming(LLStartCount, BeforeLoopBB);
+
+	if (BaseNestingLevel) {
+		RecordType* RecordTy = ArrTy->ElmTy->AsRecordType();
+		llvm::Value* LLRecAddr = GetArrayIndexAddress(LLArrAddr, LLCount);
+		GenDefaultRecordInitCall(RecordTy->Record, LLRecAddr);
+	} else {
+		// Must GEP into the array and loop over the sub-arrays instead
+		llvm::Value* LLSubArrAddr = GetArrayIndexAddress(LLArrAddr, LLCount);
+		GenRecordArrayObjsInitCalls(ArrTy->ElmTy->AsFixedArrayType(), LLSubArrAddr);
+	}
+
+	// Add 1 to the count.
+	llvm::Value* LLNextCount = Builder.CreateAdd(LLCount, GetLLUInt32(1, LLContext));
+
+	// Checking if all objects have been looped over
+	llvm::Value* LLLoopEndCond = Builder.CreateICmpEQ(LLNextCount, GetLLUInt32(ArrTy->Length, LLContext));
+	Builder.CreateCondBr(LLLoopEndCond, LoopEndBB, LoopBB);
+
+	// The value must come from the block that 'LLNextCount' is created
+	// in which would be whatever the current block is.
+	llvm::BasicBlock* LLCurBlock = Builder.GetInsertBlock();
+	LLCount->addIncoming(LLNextCount, LLCurBlock);
+
+	// End of loop
+	Builder.SetInsertPoint(LoopEndBB);
 }
 
 llvm::Constant* june::IRGen::GenZeroedValue(Type* Ty) {
@@ -1502,7 +1556,7 @@ llvm::Value* june::IRGen::GetAddressOfVar(VarDecl* Var) {
 		// pointer within a member function
 		// so it can be used retrieve the field.
 
-		return CreateStructGEP(CreateLoad(LLThis), Var->FieldIdx);
+		return CreateStructGEP(LLThis, Var->FieldIdx);
 	} else {
 		return Var->LLAddress;
 	}
@@ -1591,10 +1645,12 @@ void june::IRGen::GenDefaultRecordInitCall(RecordDecl* Record, llvm::Value* LLAd
 	Builder.SetInsertPoint(LLEntryBlock);
 	llvm::Value* LLStructPtrAddr = Builder.CreateAlloca(LLStructPtrTy);
 	Builder.CreateStore(LLFunc->getArg(0), LLStructPtrAddr);
-	llvm::Value* LLStructPtr = CreateLoad(LLStructPtrAddr);
+	
+	llvm::Value* PrevLLThis = LLThis;
+	LLThis = CreateLoad(LLStructPtrAddr, "this");
 
 	for (auto& [_, Field] : Record->Fields) {
-		llvm::Value* LLFieldAddr = CreateStructGEP(LLStructPtr, Field->FieldIdx);
+		llvm::Value* LLFieldAddr = CreateStructGEP(LLThis, Field->FieldIdx);
 		if (Field->Assignment) {
 			GenAssignment(LLFieldAddr, Field->Assignment);
 		} else {
@@ -1602,6 +1658,7 @@ void june::IRGen::GenDefaultRecordInitCall(RecordDecl* Record, llvm::Value* LLAd
 		}
 	}
 	Builder.CreateRetVoid();
+	LLThis = PrevLLThis;
 
 	if (DisplayLLVMIR) {
 		LLFunc->print(llvm::outs());

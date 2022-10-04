@@ -1,13 +1,12 @@
 
 A :: record {
 	a :i32 = 4;
-	b :i32;
+	b :i32 = a + 66;
 }
 
 main() {
 	
-	rec :A;
+	rec :A[5][5];
 
-	//arr :A[5];
-
+	
 }

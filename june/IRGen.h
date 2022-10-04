@@ -84,6 +84,7 @@ namespace june {
 		inline llvm::Value* CreateAlloca(Type* Ty, const c8* Name = "");
 
 		void GenDefaultValue(Type* Ty, llvm::Value* LLAddr);
+		void GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy, llvm::Value* LLArrAddr);
 		llvm::Constant* GenZeroedValue(Type* Ty);
 
 		// This will only unconditionally branch to the given

@@ -1,0 +1,15 @@
+Data :: record {
+	a :i32 = 25;
+	b :i32 = 55;
+}
+
+main() -> i32 {
+	arr :Data[5][5];
+	sum :i32 = 0;
+	loop i :i32 = 0; i < 5; i++ {
+		loop j :i32 = 0; j < 5; j++ {
+			sum += arr[i][j].a + arr[i][j].b;
+		}
+	}
+	return sum;
+}
