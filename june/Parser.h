@@ -124,6 +124,8 @@ namespace june {
 		void SkipRecovery(bool ParsingImports);
 
 		void AddComptimeGen(ComptimePurpose P, void* Payload);
+
+		void CheckFuncRedeclaration(llvm::DenseMap<Identifier, FuncsList>& Funcs, FuncDecl* Func);
 	
 		void Error(Token Tok, const c8* Msg) {
 			Log.Error(Tok.Loc, Msg);

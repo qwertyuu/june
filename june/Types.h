@@ -150,7 +150,7 @@ namespace june {
 	//===-------------------------------===//
 	struct RecordType : public Type {
 
-		RecordDecl* Record;
+		RecordDecl* Record = nullptr;
 
 		RecordType()
 			: Type(TypeKind::RECORD) {}

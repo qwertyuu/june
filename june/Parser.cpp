@@ -68,7 +68,8 @@ void june::Parser::Parse() {
 			break;
 		case AstKind::FUNC_DECL: {
 			FuncDecl* Func = ocast<FuncDecl*>(Node);
-			if (!Func->Name.isNull()) {
+			if (Func->isNot(AstKind::ERROR)) {
+				CheckFuncRedeclaration(FU->GlobalFuncs, Func);
 				FU->GlobalFuncs[Func->Name].push_back(Func);
 			}
 			break;
@@ -277,7 +278,7 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 	if (Func->isNot(AstKind::ERROR)) {
 		if (CRecord) {
 			Func->ParentRecord = CRecord;
-			// TODO: check for duplicates
+			CheckFuncRedeclaration(CRecord->Funcs, Func);
 			CRecord->Funcs[Name].push_back(Func);
 		}
 	}
@@ -1384,4 +1385,25 @@ void june::Parser::AddComptimeGen(ComptimePurpose P, void* Payload) {
 	CV.P = P;
 	CV.Payload = Payload;
 	Context.RequestComptimeGen(CV);
+}
+
+void june::Parser::CheckFuncRedeclaration(llvm::DenseMap<Identifier, FuncsList>& Funcs, FuncDecl* Func) {
+	auto it = Funcs.find(Func->Name);
+	if (it != Funcs.end()) {
+		for (FuncDecl* OFunc : it->second) {
+			if (OFunc->Params.size() != Func->Params.size()) continue;
+			bool ParamTysMatch = true;
+			for (u32 i = 0; i < OFunc->Params.size(); i++) {
+				if (Func->Params[i]->Ty->isNot(OFunc->Params[i]->Ty)) {
+					ParamTysMatch = false;
+					break;
+				}
+			}
+			if (ParamTysMatch) {
+				Error(Func->Loc, "Redeclaration of function '%s'. First declarated at line: %s",
+					Func->Name, OFunc->Loc.LineNumber);
+				break;
+			}
+		}
+	}
 }

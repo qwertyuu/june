@@ -247,6 +247,7 @@ std::string june::FixedArrayType::ToStr() const {
 
 bool june::RecordType::is(Type* T) const {
 	if (T->GetKind() != TypeKind::RECORD) return false;
+	if (!Record) return this == T;
 	return T->AsRecordType()->Record == Record;
 }
 
