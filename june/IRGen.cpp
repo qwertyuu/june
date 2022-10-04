@@ -242,10 +242,10 @@ llvm::Value* june::IRGen::GenAlloca(VarDecl* Var) {
 	
 	llvm::Value* LLAlloca = Builder.CreateAlloca(LLTy);
 	Var->LLAddress = LLAlloca;
-	//if (Print) {
-	//	// TODO: Hand over to mangler
+	if (DisplayLLVMIR) {
+		// TODO: Hand over to mangler
 		LLAlloca->setName(Var->Name.Text);
-	//}
+	}
 	return LLAlloca;
 }
 
@@ -323,6 +323,12 @@ llvm::Value* june::IRGen::GenRValue(AstNode* Node) {
 		// since arrays should always be taken as
 		// l-values.
 		if (ocast<IdentRef*>(Node)->Ty->GetKind() != TypeKind::FIXED_ARRAY) {
+			LLValue = CreateLoad(LLValue);
+		}
+		break;
+	}
+	case AstKind::FUNC_CALL: {
+		if (ocast<FuncCall*>(Node)->Ty->GetKind() == TypeKind::RECORD) {
 			LLValue = CreateLoad(LLValue);
 		}
 		break;
@@ -532,7 +538,13 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 	if (Call->CalledFunc)
  		GenFuncDecl(Call->CalledFunc); 
 
+	if (Call->IsConstructorCall && !LLAddr) {
+		// Need to create a temporary object
+		LLAddr = CreateTempAlloca(GenType(Call->Ty));
+	}
+
 	if (Call->IsConstructorCall && !Call->CalledFunc) {
+
 		// Generating a default constructor "call"!
 
 		std::unordered_set<u32> FieldIndexesWithVals;

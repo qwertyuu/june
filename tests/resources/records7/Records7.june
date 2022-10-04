@@ -1,0 +1,11 @@
+A :: record {
+	j :i32;
+}
+
+f(a :A) -> i32 {
+	return a.j;
+}
+
+main() -> i32 {
+	return f(A(j = 55));
+}
