@@ -289,6 +289,9 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 				CRecord->Funcs[Name].push_back(Func);
 			}
 		}
+		if (!(Func->Mods & mods::Mods::NATIVE)) {
+			Context.UncheckedDecls.insert(Func);
+		}
 	}
 
 	CFunc = PrevCFunc;
@@ -331,7 +334,11 @@ june::VarDecl* june::Parser::ParseVarDecl(mods::Mod Mods) {
 	}
 
 	Match(':');
-	Var->Ty = ParseType();
+	if (CTok.is('=')) {
+		Var->UsesInferedType = true;
+	} else {
+		Var->Ty = ParseType();
+	}
 
 	if (CTok.is('=')) {
 		NextToken(); // Consuming '='

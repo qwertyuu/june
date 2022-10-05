@@ -35,3 +35,11 @@ native ReadFile(hFile                  :void*,
 \*===----------------------------------------===*/
 
 native Sleep(dwMilliseconds :u32) -> void;
+
+/*===----------------------------------------===*\
+ *                                              *
+ * Win32: libloaderapi.h                        *
+ *                                              *
+\*===----------------------------------------===*/
+
+native ExitProcess(uExitCode :u32);

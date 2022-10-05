@@ -111,12 +111,22 @@ Var->IsBeingChecked = false; \
 CField = nullptr;            \
 YIELD_ERROR(Var)
 
+	if (Var->UsesInferedType) {
+		if (Var->Assignment->is(AstKind::NULLPTR)) {
+			VAR_YIELD(Error(Var, "Cannot infer the type from a null assignment"));
+		}
+	}
+
 	if (Var->Assignment) {
 
 		CheckNode(Var->Assignment);
 
 		if (Var->Assignment->Ty->is(Context.ErrorType)) {
 			VAR_YIELD();
+		}
+
+		if (Var->UsesInferedType) {
+			Var->Ty = Var->Assignment->Ty;
 		}
 
 		if (Var->Ty->is(Context.VoidType)) {
@@ -166,6 +176,8 @@ void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
 	
 	if (Func->Mods & mods::NATIVE) return;
 	
+	Context.UncheckedDecls.erase(Func);
+
 	FU      = Func->FU;
 	CFunc   = Func;
 	CRecord = Func->ParentRecord;

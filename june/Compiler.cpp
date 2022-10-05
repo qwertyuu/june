@@ -94,6 +94,32 @@ void june::Compiler::Compile(const llvm::SmallVector<const c8*, 1>& SourceDirect
 
 	}
 
+	// Checking any code that was not generated
+	while (!Context.UncheckedDecls.empty()) {
+		auto it = Context.UncheckedDecls.begin();
+		Decl* D = *it;
+
+		if (D->FU->Log.HasError) {
+			// TODO: would like to distinguish between parser
+			// generated error vs. non-parser generated error
+			// so that it will still check as long as it was
+			// not a parser error.
+			Context.UncheckedDecls.erase(it);
+			continue;
+		} 
+
+		Analysis A(Context, D->FU->Log);
+		if (D->is(AstKind::FUNC_DECL)) {
+			A.CheckFuncDecl(ocast<FuncDecl*>(D));
+		} else {
+			assert(!"Failed to implement check");
+		}
+
+		if (D->FU->Log.HasError) {
+			FoundCompileError = true;
+		}
+	}
+
 	if (FoundCompileError) {
 		return;
 	}

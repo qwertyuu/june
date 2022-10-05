@@ -13,6 +13,28 @@ String :: record {
 		this.buffer = new c8[length + 1]; // +1 for null terminator
 		Mem.memcpy(this.buffer, buffer, length + 1);
 	}
+
+	String(buffer :c8*, length :u32) {
+		this.length = length;
+		this.buffer = new c8[length + 1]; // +1 for null terminator
+		Mem.memcpy(this.buffer, buffer, length);
+		this.buffer[length] = '\0';
+	}
+
+	parseInt() -> i32 {
+		// TODO: Replace with actual error handling!
+
+		if (empty()) {
+			Sys.println("NumberException: empty string");
+			Sys.exit(1);
+		}
+
+		return 0;
+	}
+
+	empty() -> bool {
+		return length == 0;
+	}
 }
 
 from(i :i32) -> String {

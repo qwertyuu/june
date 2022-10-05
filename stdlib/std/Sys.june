@@ -42,3 +42,10 @@ println(i :i32) {
 	print(i);
 	println();
 }
+
+/*
+ * Stops the current application from running.
+ */
+exit(exitCode :u32) {
+	Win32.ExitProcess(exitCode);
+}

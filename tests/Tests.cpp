@@ -69,7 +69,8 @@ void RunStdLibTest(const c8* TestDirectoryPath) {
 	SourceDirectories.push_back(TestDirectoryPath);
 
 	june::Compiler Compiler;
-	Compiler.DisplayLLVMIR = true;
+	//Compiler.DisplayLLVMIR = true;
+	Compiler.DisplayTimes = true;
 	Compiler.Compile(SourceDirectories);
 
 	if (!Compiler.FoundCompileError) {
@@ -81,7 +82,7 @@ void RunStdLibTest(const c8* TestDirectoryPath) {
 
 int main() {
 
-	//RunStdLibTest(LIB_SRC("fizzbuzz"));
+	//RunStdLibTest(LIB_SRC("addtwo"));
 	
 	RunTest(SRC("main1"), 0);
 	RunTest(SRC("main2"), 55);
@@ -150,6 +151,7 @@ int main() {
 	RunTest(SRC("records8"), 138);
 	RunTest(SRC("sizeof"), 4 + 1 + 4 + 4 + 8 + 8);
 	RunTest(SRC("this"), 252);
+	RunTest(SRC("inferedtypes"), 11 + 11 + 365 + 214 + 14 + 65 + 11);
 	//RunTest(SRC("playground"), 0);
 
 	if (Succeeded + Failed > 0) {

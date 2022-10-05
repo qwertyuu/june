@@ -583,6 +583,8 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 	if (Call->IsConstructorCall && !Call->CalledFunc) {
 
 		// Generating a default constructor "call"!
+		llvm::Value* LLThisBackup = LLThis;
+		LLThis = LLAddr;
 
 		std::unordered_set<u32> FieldIndexesWithVals;
 		for (u32 i = 0; i < Call->Args.size(); i++) {
@@ -597,13 +599,14 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 			GenAssignment(LLFieldAddr, NamedArg.AssignValue);
 		}
 		RecordDecl* Record = Call->Ty->AsRecordType()->Record;
-		for (auto& [_, Field] : Record->Fields) {
+		for (VarDecl* Field : Record->FieldsByIdxOrder) {
 			if (FieldIndexesWithVals.find(Field->FieldIdx) == FieldIndexesWithVals.end()) {
 				llvm::Value* LLFieldAddr = CreateStructGEP(LLAddr, Field->FieldIdx);
 				GenVarDecl(LLFieldAddr, Field);
 			}
 		}
 
+		LLThis = LLThisBackup;
 		return LLAddr;
 	}
 
@@ -1360,7 +1363,7 @@ llvm::Type* june::IRGen::GenRecordType(RecordDecl* Record) {
 	std::vector<llvm::Type*> LLStructFieldTypes;
 	LLStructFieldTypes.resize(Record->Fields.size());
 	if (!Record->Fields.empty()) {
-		for (auto& [_, Field] : Record->Fields) {
+		for (VarDecl* Field : Record->FieldsByIdxOrder) {
 			LLStructFieldTypes[Field->FieldIdx] = GenType(Field->Ty);
 		}
 	} else {
@@ -1739,7 +1742,7 @@ void june::IRGen::GenDefaultRecordInitCall(RecordDecl* Record, llvm::Value* LLAd
 	llvm::Value* PrevLLThis = LLThis;
 	LLThis = CreateLoad(LLStructPtrAddr, "this");
 
-	for (auto& [_, Field] : Record->Fields) {
+	for (VarDecl* Field : Record->FieldsByIdxOrder) {
 		llvm::Value* LLFieldAddr = CreateStructGEP(LLThis, Field->FieldIdx);
 		if (Field->Assignment) {
 			GenAssignment(LLFieldAddr, Field->Assignment);

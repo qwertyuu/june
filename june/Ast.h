@@ -191,7 +191,8 @@ namespace june {
 		RecordDecl* Record = nullptr;
 		u32 FieldIdx = -1;
 		u32 ParamIdx = -1;
-		
+		bool UsesInferedType = false;
+
 		VarDecl() : Decl(AstKind::VAR_DECL) {}
 
 	};

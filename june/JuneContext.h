@@ -9,6 +9,7 @@
 #include <llvm/ADT/StringMap.h>
 #include <llvm/ADT/DenseMap.h>
 #include <tuple>
+#include <unordered_set>
 
 namespace llvm {
 	class LLVMContext;
@@ -90,6 +91,7 @@ namespace june {
 		Identifier LengthIdentifier;
 
 		std::queue<FuncDecl*> QuededFuncsToGen;
+		std::unordered_set<Decl*> UncheckedDecls;
 
 		// ----- LLVM -----
 		llvm::LLVMContext& LLContext;
