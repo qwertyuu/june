@@ -864,6 +864,10 @@ june::FuncCall* june::Parser::ParseFuncCall(Expr* Site) {
 	FC->Site = Site;
 	NextToken(); // Consuming '(' token
 
+	// In case it is a function declaration rather than
+	// a function call it would be best to ignore declarations
+	ErrorSkipVarDecl = true;
+
 	if (CTok.isNot(')')) {
 		bool MoreValues = false;
 		bool AlreadyReportedErrAboutNamedArgsOrder = false;
@@ -887,11 +891,18 @@ june::FuncCall* june::Parser::ParseFuncCall(Expr* Site) {
 			if (CTok.is(',')) {
 				NextToken(); // Consuming ','
 				MoreValues = CTok.isNot(')');
-			} else MoreValues = false;
+			} else if (CTok.is(')')) {
+				MoreValues = false;
+			} else {
+				SkipRecovery(false);
+				MoreValues = false;
+			}
 		} while (MoreValues);
 	}
 
-	Match(')');
+	ErrorSkipVarDecl = false;
+
+	Match(')', "for function call");
 	return FC;
 }
 
@@ -1356,12 +1367,13 @@ june::Token june::Parser::PeekToken(u32 n) {
 	return SavedTokens.back();
 }
 
-void june::Parser::Match(u16 TokenKind) {
+void june::Parser::Match(u16 TokenKind, const c8* Purpose) {
 	if (CTok.is(TokenKind)) {
 		NextToken(); // Consuming the matched token
 		return;
 	}
-	Error(PrevToken, "Expected '%s'", GetTokenKindPresentation(TokenKind, Context));
+	Error(PrevToken, "Expected '%s'%s%s", GetTokenKindPresentation(TokenKind, Context),
+		Purpose ? " " : "", Purpose);
 }
 
 void june::Parser::SkipRecovery(bool ParsingImports) {
@@ -1372,7 +1384,8 @@ void june::Parser::SkipRecovery(bool ParsingImports) {
 			return;
 			// Declaration
 		case TokenKind::IDENT:
-			if (PeekToken(1).is(':') || PeekToken(1).is(TokenKind::COL_COL))
+			if ((PeekToken(1).is(':') && !ErrorSkipVarDecl) ||
+				 PeekToken(1).is(TokenKind::COL_COL))
 				return;
 			NextToken(); // Consuming identifier
 			break;

@@ -55,6 +55,8 @@ namespace june {
 		u32 ArrNestingLevel = 0;
 		u32 ArrNestingLengths[MAX_ARRAY_NESTING_LEVEL];
 
+		bool ErrorSkipVarDecl = false;
+
 		void ParseImport();
 
 		void ParseScopeStmts(ScopeStmts& Stmts);
@@ -117,7 +119,7 @@ namespace june {
 		// if the current token matches the TokenKind
 		// then it is consumed, otherwise an error is
 		// generated
-		void Match(u16 TokenKind);
+		void Match(u16 TokenKind, const c8* Purpose = nullptr);
 
 		// Skips tokens until it can find
 		// a valid place to start parsing again.
