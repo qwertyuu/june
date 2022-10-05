@@ -2,6 +2,9 @@
 
 #include "Util.h"
 
+constexpr u32 TOTAL_ALLOWED_ERRORS = 100;
+u32 june::TOTAL_ACC_ERRORS = 0;
+
 std::string ReplaceTabsWithSpaces(llvm::StringRef sr) {
 	std::string s = sr.str();
 	std::string NoTabs;
@@ -27,7 +30,7 @@ void june::Logger::Error(SourceLoc Loc, const std::function<void()>& Printer) {
 	OS << FilePath.c_str();
 	OS << ":" << LineNumber << ":";
 	SetTerminalColor(TerminalColorRed);
-	OS << " error: ";
+	OS << " Error: ";
 	SetTerminalColor(TerminalColorDefault);
 
 	// Printing the message
@@ -38,6 +41,7 @@ void june::Logger::Error(SourceLoc Loc, const std::function<void()>& Printer) {
 
 	// Displaying where the error occured
 	OS << "\n";
+	OS << LNPad << "  |\n";
 	OS << LNPad << "  |\n";
 	std::string Between   = ReplaceTabsWithSpaces(Loc.Text);
 	std::string Backwards = ReplaceTabsWithSpaces(RangeFromWindow(Loc.Text.begin(), -40));
@@ -66,12 +70,21 @@ void june::Logger::Error(SourceLoc Loc, const std::function<void()>& Printer) {
 	OS << '\n';
 
 	HasError = true;
+
+	++TOTAL_ACC_ERRORS;
+	if (TOTAL_ACC_ERRORS == TOTAL_ALLOWED_ERRORS) {
+		SetTerminalColor(TerminalColorLightBlue);
+		OS << ">>";
+		SetTerminalColor(TerminalColorDefault);
+		OS << " Exceeded the maximum allowed error messages. Exiting.\n";
+		exit(1);
+	}
 }
 
 void june::Logger::GlobalError(llvm::raw_ostream& OS, const std::function<void()>& Printer) {
 	// Forward error message
 	SetTerminalColor(TerminalColorRed);
-	OS << "error: ";
+	OS << "Error: ";
 	SetTerminalColor(TerminalColorDefault);
 
 	// Printing the message
@@ -82,14 +95,15 @@ void june::Logger::GlobalError(llvm::raw_ostream& OS, const std::function<void()
 
 june::Logger& june::Logger::Note(const std::function<void()>& Printer) {
 	SetTerminalColor(TerminalColorYellow);
-	OS << LNPad << "  ^ Note: ";
+	OS << LNPad << "  Note: ";
+	SetTerminalColor(TerminalColorDefault);
 	Printer();
 	OS << '\n';
 	return *this;
 }
 
 june::Logger& june::Logger::NoteLn(const std::function<void()>& Printer) {
-	OS << LNPad << "          ";
+	OS << LNPad << "         ";
 	Printer();
 	OS << '\n';
 	return *this;

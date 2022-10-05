@@ -19,13 +19,16 @@ namespace june {
 		bool DisplayLLVMIR     = false;
 		bool DisplayAST        = false;
 		bool DisplayTimes      = false;
-
+		// When true, it does not compile with
+		// the standard library.
+		bool StandAlone        = false;
+		const c8* PathToStandardLibrary = nullptr;
 
 		Compiler();
 		
 		~Compiler();
 
-		void Compile(const llvm::SmallVector<const c8*, 1>& SourceDirectories);
+		void Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories);
 
 		void AddLib(const c8* LibName) { Libraries.push_back(LibName); }
 		void AddLibPath(const c8* LibPath) { LibarySearchPaths.push_back(LibPath); }
@@ -48,6 +51,8 @@ namespace june {
 		void ParseNextFiles();
 
 		void ParseFiles(FileUnit* FU);
+
+		const c8* GetStdLibPath();
 
 	};
 }

@@ -1,10 +1,8 @@
 
-j(a c8, b :i32, c :i32) {
-
-}
-
-h(a :c8, b i32, c :i32) {
-
+A :: record {
+	a1 :i32 = c1;
+	b1 :i32 = a1;
+	c1 :i32 = b1;
 }
 
 main() {

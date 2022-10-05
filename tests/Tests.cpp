@@ -42,12 +42,13 @@ void RunTest(const c8* TestDirectoryPath, int TestErrorCode) {
 	SourceDirectories.push_back(TestDirectoryPath);
 
 	june::Compiler Compiler;
+	Compiler.StandAlone = true;
 	//Compiler.DisplayLLVMIR = true;
 	//Compiler.DisplayAST = true;
 	Compiler.Compile(SourceDirectories);
 
 	if (!Compiler.FoundCompileError) {
-		int ErrorCode = system("program.exe");
+		int ErrorCode = system("program");
 		if (CheckEQ(TestErrorCode, ErrorCode)) {
 			++Succeeded;
 		} else {
@@ -65,16 +66,16 @@ void RunTest(const c8* TestDirectoryPath, int TestErrorCode) {
 void RunStdLibTest(const c8* TestDirectoryPath) {
 	
 	llvm::SmallVector<const c8*, 1> SourceDirectories;
-	SourceDirectories.push_back(JUNE_COMPILER_STDLIB_SOURCE_DIR);
 	SourceDirectories.push_back(TestDirectoryPath);
 
 	june::Compiler Compiler;
 	//Compiler.DisplayLLVMIR = true;
+	Compiler.PathToStandardLibrary = JUNE_COMPILER_STDLIB_SOURCE_DIR;
 	Compiler.DisplayTimes = true;
 	Compiler.Compile(SourceDirectories);
 
 	if (!Compiler.FoundCompileError) {
-		system("program.exe");
+		system("program");
 	}
 
 	llvm::outs() << "\n\n";

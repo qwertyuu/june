@@ -24,11 +24,22 @@ june::Compiler::~Compiler() {
 	delete &Context;
 }
 
-void june::Compiler::Compile(const llvm::SmallVector<const c8*, 1>& SourceDirectories) {
+void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories) {
 
 	u64 ParseTimeBegin = GetTimeInMilliseconds();
 
 	Context.Init();
+
+	if (!StandAlone) {
+		if (const c8* StdLibPath = GetStdLibPath()) {
+			SourceDirectories.push_back(StdLibPath);
+		} else {
+			Logger::GlobalError(llvm::errs(),
+				"Environment variable missing for june's standard library");
+			FoundCompileError = true;
+			return;
+		}
+	}
 
 	// Creating FileUnits for the .june files
 	for (const c8* SourceDirectory : SourceDirectories) {
@@ -269,6 +280,14 @@ void june::Compiler::ParseFiles(FileUnit* FU) {
 	if (DisplayAST) {
 		PrintFileUnit(Context, FU);
 		llvm::outs() << "\n\n";
+	}
+}
+
+const c8* june::Compiler::GetStdLibPath() {
+	if (PathToStandardLibrary) {
+		return PathToStandardLibrary;
+	} else {
+		return std::getenv("JuneStdLibPath");
 	}
 }
 

@@ -12,6 +12,9 @@ namespace llvm {
 }
 
 namespace june {
+
+	extern u32 TOTAL_ACC_ERRORS;
+
 	class Logger {
 	public:
 		bool HasError = false;
