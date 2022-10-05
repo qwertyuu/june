@@ -90,6 +90,9 @@ june::IRGen::IRGen(JuneContext& context, bool displayLLVMIR)
 
 void june::IRGen::GenFunc(FuncDecl* Func) {
 
+	// -- DEBUG
+	//llvm::outs() << "generating function: " << Func->Name << '\n';
+
 	CFunc = Func;
 
 	GenFuncDecl(Func);
@@ -205,6 +208,16 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	
 	for (VarDecl* Param : Func->Params) {
 		Builder.CreateStore(LLFunc->getArg(LLParamIndex++), Param->LLAddress);
+	}
+
+	// If it is a constructor the fields need to be initialized early
+	if (Func->ParentRecord && Func->Name == Func->ParentRecord->Name) {
+		if (Func->ParentRecord->FieldsHaveAssignment) {
+			GenDefaultRecordInitCall(Func->ParentRecord, LLThis);
+		} else {
+			llvm::Type* LLRecType = GenRecordType(Func->ParentRecord);
+			Builder.CreateStore(llvm::ConstantAggregateZero::get(LLRecType), LLThis);
+		}
 	}
 
 	for (AstNode* Node : Func->Stmts) {
@@ -338,7 +351,7 @@ llvm::Value* june::IRGen::GenRValue(AstNode* Node) {
 		break;
 	}
 	case AstKind::FUNC_CALL: {
-		if (ocast<FuncCall*>(Node)->Ty->GetKind() == TypeKind::RECORD) {
+		if (ocast<FuncCall*>(Node)->IsConstructorCall) {
 			LLValue = CreateLoad(LLValue);
 		}
 		break;
@@ -513,7 +526,7 @@ llvm::Value* june::IRGen::GenFieldAccessor(FieldAccessor* FA) {
 		return GetLLUInt32(FA->Site->Ty->AsFixedArrayType()->Length, LLContext);
 	}
 	
-	Expr* Site = FA->Site;
+ 	Expr* Site = FA->Site;
 	if (Site->Kind == AstKind::FUNC_CALL    ||
 		Site->Kind == AstKind::ARRAY_ACCESS ||
 		Site->Kind == AstKind::THIS_REF     ||
@@ -523,6 +536,16 @@ llvm::Value* june::IRGen::GenFieldAccessor(FieldAccessor* FA) {
 		) {
 		
 		llvm::Value* LLSite = GenNode(FA->Site);
+
+		// Ex.  'a().b'  or  'a().j()'  ect..
+		if (FA->Site->is(AstKind::FUNC_CALL) &&
+			!ocast<FuncCall*>(FA->Site)->IsConstructorCall &&
+			FA->Site->Ty->GetKind() == TypeKind::RECORD
+			) {
+			llvm::Value* LLTempStorage = CreateTempAlloca(LLSite->getType());
+			Builder.CreateStore(LLSite, LLTempStorage);
+			LLSite = LLTempStorage;
+		}
 
 		if (Site->Ty->GetKind() == TypeKind::POINTER &&
 			Site->isNot(AstKind::THIS_REF)) {
@@ -584,18 +607,16 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 		return LLAddr;
 	}
 
-
 	llvm::Function* LLCalledFunc = Call->CalledFunc->LLAddress;
 
 	// Adding arguments
 	llvm::SmallVector<llvm::Value*, 2> LLArgs;
 	u32 MemberObjOffset = (Call->CalledFunc->ParentRecord ? 1 : 0);
-	LLArgs.resize(Call->Args.size() + Call->NamedArgs.size()
-		       + MemberObjOffset);
+	LLArgs.resize(Call->Args.size() + Call->NamedArgs.size() + MemberObjOffset);
+
 	if (Call->CalledFunc->ParentRecord) {
 		
-		if (Call->IsConstructorCall) {
-			llvm::outs() << "constructor LLAddr: " << LLValTypePrinter(LLAddr) << '\n';
+		if (Call->IsConstructorCall) {  // Record(...)
 			LLArgs[0] = LLAddr;
 		}
 		// Calling a member function so need to pass in the

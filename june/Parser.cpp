@@ -730,6 +730,7 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 		}
 
 		UnaryOp* UOP = NewNode<UnaryOp>(CTok);
+		UOP->Val = E;
 		UOP->Op = Op;
 		return UOP;
 	}
@@ -1384,7 +1385,7 @@ void june::Parser::SkipRecovery(bool ParsingImports) {
 		case TokenKind::KW_NATIVE:
 			return;
 		case '{':
-			break;
+			return;
 		default:
 			// Skip and continue
 			NextToken();

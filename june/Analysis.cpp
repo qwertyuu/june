@@ -1259,6 +1259,16 @@ YIELD_ERROR(UOP)
 		UOP->Ty = Context.BoolType;
 		break;
 	}
+	case '-': case '+': {
+		if (!VT->isNumber()) {
+			OPERATOR_CANNOT_APPLY(VT);
+		}
+
+		// TODO: handle casting for unsigned?
+
+		UOP->Ty = VT;
+		break;
+	}
 	default:
 		assert(!"Unhandled unary check");
 		break;
@@ -1533,7 +1543,7 @@ bool june::Analysis::IsLValue(Expr* E) {
 		UnaryOp* UOP = ocast<UnaryOp*>(E);
 		return UOP->Op == '*'; // Can assign to dereferences
 	}
-	if (!(K == AstKind::IDENT_REF)) {
+	if (!(K == AstKind::IDENT_REF || K == AstKind::FIELD_ACCESSOR)) {
 		return false;
 	}
 	return true;

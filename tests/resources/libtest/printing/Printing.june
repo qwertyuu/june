@@ -2,6 +2,9 @@ import std.Sys;
 import std.lang.String;
 
 main() {
-	Sys.println("Hello World!");
-	Sys.println(String("Omg it works! :D"));
+	//Sys.println("Hello World!");
+	//Sys.println(String("Omg it works! :D"));
+
+	numStr :String = String.from(125);
+	Sys.println(numStr);
 }

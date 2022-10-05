@@ -6,9 +6,43 @@ String :: record {
 	length :u32;
 	buffer :c8*;
 
+	String() {}
+
 	String(buffer :c8*) {
 		this.length = Mem.strlen(buffer);
 		this.buffer = new c8[length + 1]; // +1 for null terminator
 		Mem.memcpy(this.buffer, buffer, length + 1);
 	}
+}
+
+from(i :i32) -> String {
+	if i == 0 {
+		return String("0");
+	}
+
+	res :String = String();
+	isNeg :bool = i < 0;
+	
+	if isNeg { ++res.length; }
+	else     { i = -i;       }
+	
+	iCount :i32 = i;
+	loop iCount < 0 {
+		iCount /= 10;
+		++res.length;
+	}
+	
+	res.buffer = new c8[res.length + 1];
+	scan :i32 = res.length - 1;
+	loop i < 0 {
+		res.buffer[scan--] = cast(c8)(-(i % 10)) + '0';
+		i /= 10;
+	}
+	
+	if isNeg {
+		res.buffer[scan] = '-';
+	}
+	
+	res.buffer[res.length] = '\0';
+	return res;
 }

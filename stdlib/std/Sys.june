@@ -33,3 +33,12 @@ println(msg :String) {
 	print(msg);
 	println();
 }
+
+print(i :i32) {
+	print(String.from(i));
+}
+
+println(i :i32) {
+	print(i);
+	println();
+}

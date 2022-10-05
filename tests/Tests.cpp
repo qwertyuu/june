@@ -81,7 +81,7 @@ void RunStdLibTest(const c8* TestDirectoryPath) {
 
 int main() {
 
-	//RunStdLibTest(LIB_SRC("printing"));
+	//RunStdLibTest(LIB_SRC("fizzbuzz"));
 	
 	RunTest(SRC("main1"), 0);
 	RunTest(SRC("main2"), 55);

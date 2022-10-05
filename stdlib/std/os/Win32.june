@@ -21,6 +21,13 @@ native WriteFile(hFile                  :void*,
                  lpOverlapped           :void*   /* Ignored data structure */
                  ) -> i32;
 
+native ReadFile(hFile                  :void*,
+                lpBuffer               :void*,
+                nNumberOfBytesToWrite  :u32,
+                lpNumberOfBytesWritten :u32*,
+                lpOverlapped           :void*   /* Ignored data structure */
+                ) -> i32;
+
 /*===----------------------------------------===*\
  *                                              *
  * Win32: synchapi.h                            *

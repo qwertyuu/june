@@ -1,0 +1,24 @@
+import std.os.Win32;
+import std.lang.String;
+
+InStream :: record {
+	
+	handle :void*;
+
+	InStream(handle :void*) {
+		this.handle = handle;
+	}
+
+	read(buffer :c8*, len :u32) -> u32 {
+		numberOfBytersRead :u32;
+		Win32.ReadFile(handle, buffer, len, &numberOfBytersRead, null);
+		return numberOfBytersRead;
+	}
+
+	readLine() -> String {
+		buffer :c8[1024];
+		amountRead :i32 = read(buffer, buffer.length);
+		// -2 because \r\n
+		return String(buffer, amountRead - 2);
+	}
+}
