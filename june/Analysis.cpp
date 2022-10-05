@@ -398,7 +398,6 @@ bool june::Analysis::CheckIf(IfStmt* If) {
 	bool AllPathsReturn = If->Else && IfBodyScope.AllPathsReturn;
 
 	if (If->Else) {
-		// TODO: Need a way to check if the else had all it's paths return.
 		CheckNode(If->Else);
 		if (If->Else->is(AstKind::IF)) {
 			AllPathsReturn &= CheckIf(ocast<IfStmt*>(If->Else));
@@ -496,7 +495,7 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 	// first.
 	if (GivePrefToFuncs && IRef->RefKind == IdentRef::NOT_FOUND) {
 		SearchForFuncs();
-	} else if (!IRef->VarRef) {
+	} else if (IRef->RefKind == IdentRef::NOT_FOUND) {
 		SearchForVars();
 	}
 
@@ -530,7 +529,7 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 	}
 
 	// Reverse order of the first case.
-	if (!GivePrefToFuncs) {
+	if (!GivePrefToFuncs && IRef->RefKind == IdentRef::NOT_FOUND) {
 		SearchForVars();
 	} else if (IRef->RefKind == IdentRef::NOT_FOUND) {
 		SearchForFuncs();
@@ -664,12 +663,11 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	}
 	YIELD_ERROR_WHEN_M(Call, Call->Site);
 
-	llvm::SmallVector<FuncDecl*, 4>* Canidates = nullptr;
+	FuncsList* Canidates = nullptr;
 	RecordDecl* ConstructorRecord = nullptr;
 	switch (Call->Site->Kind) {
 	case AstKind::IDENT_REF:
 	case AstKind::FIELD_ACCESSOR: {
-		// Call is like:   func(...)
 		IdentRef* IRef = ocast<IdentRef*>(Call->Site);
 		switch (IRef->RefKind) {
 		case IdentRef::FUNCS:
@@ -687,13 +685,13 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 			}
 
 			Call->IsConstructorCall = true;
-			Canidates = nullptr; // TODO: //Record.Constructors;
+			Canidates = &ConstructorRecord->Constructors;
 			break;
 		}
 		case IdentRef::RECORD:
 			Call->IsConstructorCall = true;
-			Canidates = nullptr; // TODO: //IRef->RecordRef.Constructors;
 			ConstructorRecord = ocast<IdentRef*>(Call->Site)->RecordRef;
+			Canidates = &ConstructorRecord->Constructors;
 			break;
 		default:
 			break;
@@ -706,7 +704,7 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 		EnsureChecked(Call->Loc, ConstructorRecord);
 	}
 	
-	if (Call->IsConstructorCall && !Canidates) {
+	if (Call->IsConstructorCall && Canidates->empty()) {
 		CheckDefaultRecordInitFuncCall(Call, ConstructorRecord);
 		return;
 	}
@@ -762,7 +760,11 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	Call->CalledFunc = CalledFunc;
 	Context.RequestGen(CalledFunc);
 
-	Call->Ty = CalledFunc->RetTy;
+	if (!Call->IsConstructorCall) {
+		Call->Ty = CalledFunc->RetTy;
+	} else {
+		Call->Ty = GetRecordType(ConstructorRecord);
+	}
 
 	if (Call->Ty->GetKind() == TypeKind::RECORD) {
 		EnsureChecked(Call->Loc, Call->Ty->AsRecordType()->Record);
@@ -1332,6 +1334,16 @@ void june::Analysis::CheckHeapAllocType(HeapAllocType* HeapAlloc) {
 	if (HeapAlloc->TypeToAlloc->GetKind() == TypeKind::FIXED_ARRAY) {
 		HeapAlloc->Ty = PointerType::Create(
 			HeapAlloc->TypeToAlloc->AsFixedArrayType()->GetBaseType(), Context);
+		FixedArrayType* ArrTyItr = HeapAlloc->TypeToAlloc->AsFixedArrayType();
+		// TODO: Make sure the expressions are integers
+		while (true) {
+			CheckNode(ArrTyItr->LengthAsExpr);
+			if (ArrTyItr->ElmTy->GetKind() == TypeKind::FIXED_ARRAY) {
+				ArrTyItr = ArrTyItr->ElmTy->AsFixedArrayType();
+			} else {
+				break;
+			}
+		}
 	} else {
 		HeapAlloc->Ty = PointerType::Create(HeapAlloc->TypeToAlloc, Context);
 	}

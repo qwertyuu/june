@@ -96,7 +96,7 @@ void june::IRGen::GenFunc(FuncDecl* Func) {
 
 	GenFuncBody(Func);
 
-	if (DisplayLLVMIR) {
+	if (DisplayLLVMIR && !Func->LLVMIntrinsicID) {
 		Func->LLAddress->print(llvm::outs());
 		llvm::outs() << '\n';
 	}
@@ -104,6 +104,16 @@ void june::IRGen::GenFunc(FuncDecl* Func) {
 
 void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	if (Func->LLAddress) return;
+
+	if (Func->Mods & mods::Mods::NATIVE) {
+		// Checking if the function is an intrinsic function.
+		// If it is then there is no reason to create it.
+		auto it = Context.LLVMIntrinsicsTable.find(Func->Name);
+		if (it != Context.LLVMIntrinsicsTable.end()) {
+			Func->LLVMIntrinsicID = it->second;
+			return;
+		}
+	}
 
 	llvm::Type* LLRetTy = Func->IsMainFunc ? llvm::Type::getInt32Ty(LLContext)
 		                                   : GenType(Func->RetTy);
@@ -538,6 +548,10 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 	if (Call->CalledFunc)
  		GenFuncDecl(Call->CalledFunc); 
 
+	if (Call->CalledFunc && Call->CalledFunc->LLVMIntrinsicID) {
+		return GenLLVMIntrinsicCall(Call);
+	}
+
 	if (Call->IsConstructorCall && !LLAddr) {
 		// Need to create a temporary object
 		LLAddr = CreateTempAlloca(GenType(Call->Ty));
@@ -575,12 +589,18 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 
 	// Adding arguments
 	llvm::SmallVector<llvm::Value*, 2> LLArgs;
+	u32 MemberObjOffset = (Call->CalledFunc->ParentRecord ? 1 : 0);
 	LLArgs.resize(Call->Args.size() + Call->NamedArgs.size()
-		       + (Call->CalledFunc->ParentRecord ? 1 : 0));
+		       + MemberObjOffset);
 	if (Call->CalledFunc->ParentRecord) {
+		
+		if (Call->IsConstructorCall) {
+			llvm::outs() << "constructor LLAddr: " << LLValTypePrinter(LLAddr) << '\n';
+			LLArgs[0] = LLAddr;
+		}
 		// Calling a member function so need to pass in the
 		// record pointer.
-		if (Call->Site->is(AstKind::IDENT_REF)) {
+		else if (Call->Site->is(AstKind::IDENT_REF)) {
 			// It is in the form: b(); so the only
 			// valid explaination is it is a call
 			// to another member function inside
@@ -594,7 +614,7 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 
 	for (u32 i = 0; i < Call->Args.size(); i++) {
 		Expr* Arg = Call->Args[i];
-		LLArgs[i] = GenRValue(Arg);
+		LLArgs[i + MemberObjOffset] = GenRValue(Arg);
 	}
 	for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
 		LLArgs[NamedArg.VarRef->ParamIdx] = GenRValue(NamedArg.AssignValue);
@@ -614,7 +634,11 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 
 
 	llvm::Value* CallValue = Builder.CreateCall(LLCalledFunc, LLArgs);
-	return CallValue;
+	if (!Call->IsConstructorCall) {
+		return CallValue;
+	} else {
+		return LLAddr; // Returning the newly generated object
+	}
 }
 
 llvm::Value* june::IRGen::GenBinaryOp(BinaryOp* BinOp) {
@@ -1187,7 +1211,16 @@ llvm::Value* june::IRGen::GenTypeCast(TypeCast* Cast) {
 llvm::Value* june::IRGen::GenHeapAllocType(HeapAllocType* HeapAlloc) {
 	if (HeapAlloc->TypeToAlloc->GetKind() == TypeKind::FIXED_ARRAY) {
 		FixedArrayType* ArrTy = HeapAlloc->TypeToAlloc->AsFixedArrayType();
-		return GenMalloc(GenType(ArrTy->GetBaseType()), GetLLUInt32(ArrTy->GetTotalLinearLength(), LLContext));
+
+		FixedArrayType* ArrTyItr = ArrTy;
+		llvm::Value* LLTotalLinearLength = GenRValue(ArrTyItr->LengthAsExpr);
+		while (ArrTyItr->ElmTy->GetKind() == TypeKind::FIXED_ARRAY) {
+			ArrTyItr = ArrTyItr->ElmTy->AsFixedArrayType();
+			LLTotalLinearLength =
+				Builder.CreateMul(LLTotalLinearLength, GenRValue(ArrTyItr->LengthAsExpr));
+		}
+		
+		return GenMalloc(GenType(ArrTy->GetBaseType()), LLTotalLinearLength);
 	} else {
 		return GenMalloc(GenType(HeapAlloc->TypeToAlloc), nullptr);
 	}
@@ -1722,4 +1755,18 @@ llvm::Value* june::IRGen::GenMalloc(llvm::Type* LLType, llvm::Value* LLArrSize) 
 	Builder.Insert(LLMalloc);
 
 	return LLMalloc;
+}
+
+llvm::Value* june::IRGen::GenLLVMIntrinsicCall(FuncCall* Call) {
+	switch (Call->CalledFunc->LLVMIntrinsicID) {
+	case llvm::Intrinsic::memcpy:
+		return Builder.CreateMemCpy(
+			GenRValue(Call->Args[0]), llvm::Align::Align(),
+			GenRValue(Call->Args[1]), llvm::Align::Align(),
+			GenRValue(Call->Args[2])
+		);
+	default:
+		assert(!"Failed to implement llvm intrinsic call!");
+		break;
+	}
 }

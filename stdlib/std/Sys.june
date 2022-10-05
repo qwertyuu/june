@@ -1,5 +1,6 @@
 import std.os.Win32;
 import std.Mem;
+import std.lang.String;
 
 writeToHandle(handle :void*, msg :c8*, length :u32) {
 	numberOfBytesWritten :u32;
@@ -22,4 +23,13 @@ println() {
 
 print(msg :c8*) {
 	print(msg, Mem.strlen(msg));
+}
+
+print(msg :String) {
+	print(msg.buffer, msg.length);
+}
+
+println(msg :String) {
+	print(msg);
+	println();
 }

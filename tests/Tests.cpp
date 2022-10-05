@@ -43,6 +43,7 @@ void RunTest(const c8* TestDirectoryPath, int TestErrorCode) {
 
 	june::Compiler Compiler;
 	//Compiler.DisplayLLVMIR = true;
+	//Compiler.DisplayAST = true;
 	Compiler.Compile(SourceDirectories);
 
 	if (!Compiler.FoundCompileError) {
@@ -68,6 +69,7 @@ void RunStdLibTest(const c8* TestDirectoryPath) {
 	SourceDirectories.push_back(TestDirectoryPath);
 
 	june::Compiler Compiler;
+	Compiler.DisplayLLVMIR = true;
 	Compiler.Compile(SourceDirectories);
 
 	if (!Compiler.FoundCompileError) {

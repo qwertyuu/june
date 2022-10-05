@@ -14,6 +14,9 @@ namespace llvm {
 	class LLVMContext;
 	class Module;
 	class Function;
+	namespace Intrinsic {
+		typedef unsigned ID;
+	}
 }
 
 namespace june {
@@ -94,6 +97,7 @@ namespace june {
 		u32                NumGeneratedLLGlobals    = 0;
 		u32                NumGeneratedGlobalArrays = 0;
 		llvm::DenseMap<RecordDecl*, llvm::Function*> DefaultRecordInitFuncs;
+		llvm::DenseMap<Identifier, llvm::Intrinsic::ID> LLVMIntrinsicsTable;
 
 	private:
 		friend class Compiler;

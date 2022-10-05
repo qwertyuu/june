@@ -1,3 +1,12 @@
+
+/*
+ * Copies the count amount of bytes from the src
+ * to the dest.
+ *
+ * Warning: This is not a safe function. Use with caution.
+ */
+native memcpy(dest :void*, src :void*, count :i64);
+
 /*
  * Counts the number of characters until
  * it finds a null terminator in the c-string.

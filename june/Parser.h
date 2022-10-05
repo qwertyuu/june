@@ -98,7 +98,7 @@ namespace june {
 		Array* ParseArray();
 		void SetNestingLevelLengths(Array* Arr, u32 CNestingLevel = 0);
 		
-		Type* ParseType();
+		Type* ParseType(bool ReqArrayLengthComptime = true);
 		RecordLocation ParseRecordLocation();
 
 		//===-------------------------------===//
@@ -126,6 +126,7 @@ namespace june {
 		void AddComptimeGen(ComptimePurpose P, void* Payload);
 
 		void CheckFuncRedeclaration(llvm::DenseMap<Identifier, FuncsList>& Funcs, FuncDecl* Func);
+		void CheckFuncRedeclaration(FuncsList& Funcs, FuncDecl* Func);
 	
 		void Error(Token Tok, const c8* Msg) {
 			Log.Error(Tok.Loc, Msg);

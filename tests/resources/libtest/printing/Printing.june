@@ -1,6 +1,7 @@
 import std.Sys;
+import std.lang.String;
 
 main() {
 	Sys.println("Hello World!");
-	Sys.println("Omg it works! :D");
+	Sys.println(String("Omg it works! :D"));
 }

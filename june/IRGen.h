@@ -138,6 +138,8 @@ namespace june {
 
 		llvm::Value* GenMalloc(llvm::Type* LLType, llvm::Value* LLArrSize);
 
+		llvm::Value* GenLLVMIntrinsicCall(FuncCall* Call);
+
 	};
 }
 

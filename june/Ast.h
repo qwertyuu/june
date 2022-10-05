@@ -12,6 +12,9 @@ namespace llvm {
 	class Function;
 	class Value;
 	class StructType;
+	namespace Intrinsic {
+		typedef unsigned ID;
+	}
 }
 
 namespace june {
@@ -163,8 +166,10 @@ namespace june {
 		// will be non-null.
 		RecordDecl* ParentRecord = nullptr;
 
-		bool IsMainFunc   = false;
+		bool IsMainFunc = false;
 		
+		// Zero means it is not a LLVMIntrinsic.
+		llvm::Intrinsic::ID LLVMIntrinsicID = 0;
 		llvm::Function* LLAddress = nullptr;
 
 		ScopeStmts Stmts;
@@ -198,7 +203,8 @@ namespace june {
 		llvm::SmallVector<VarDecl*>           FieldsByIdxOrder;
 		llvm::DenseMap<Identifier, VarDecl*>  Fields;
 		llvm::DenseMap<Identifier, FuncsList> Funcs; // member functions
-		
+		FuncsList                             Constructors;
+
 		llvm::StructType* LLStructTy = nullptr;
 		bool FieldsHaveAssignment    = false;
 

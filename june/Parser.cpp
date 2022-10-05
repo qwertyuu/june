@@ -278,8 +278,16 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 	if (Func->isNot(AstKind::ERROR)) {
 		if (CRecord) {
 			Func->ParentRecord = CRecord;
-			CheckFuncRedeclaration(CRecord->Funcs, Func);
-			CRecord->Funcs[Name].push_back(Func);
+			if (Func->Name == CRecord->Name) {
+				CheckFuncRedeclaration(CRecord->Constructors, Func);
+				CRecord->Constructors.push_back(Func);
+				if (Func->RetTy->isNot(Context.VoidType)) {
+					Error(Func->Loc, "Constructors expected to return void");
+				}
+			} else {
+				CheckFuncRedeclaration(CRecord->Funcs, Func);
+				CRecord->Funcs[Name].push_back(Func);
+			}
 		}
 	}
 
@@ -771,7 +779,7 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 	case TokenKind::KW_NEW: {
 		HeapAllocType* HeapAlloc = NewNode<HeapAllocType>(CTok);
 		NextToken(); // Consuming 'new' token
-		HeapAlloc->TypeToAlloc = ParseType();
+		HeapAlloc->TypeToAlloc = ParseType(false);
 		return HeapAlloc;
 	}
 	case TokenKind::KW_THIS: {
@@ -1215,7 +1223,7 @@ void june::Parser::SetNestingLevelLengths(Array* Arr, u32 CNestingLevel) {
 	}
 }
 
-june::Type* june::Parser::ParseType() {
+june::Type* june::Parser::ParseType(bool ReqArrayLengthComptime) {
 	Type* Ty = nullptr;
 	switch (CTok.Kind) {
 	case TokenKind::KW_TYPE_I8:   NextToken(); Ty = Context.I8Type;   break;
@@ -1291,8 +1299,10 @@ june::Type* june::Parser::ParseType() {
 
 			// Can't generate it until more information is known about
 			// other files. So it is delayed.
-			AddComptimeGen(ComptimePurpose::ARRAY_DIM_SIZE, ArrType);
-
+			if (ReqArrayLengthComptime) {
+				AddComptimeGen(ComptimePurpose::ARRAY_DIM_SIZE, ArrType);
+			}
+			
 			Match(']');
 		}
 
@@ -1369,6 +1379,9 @@ void june::Parser::SkipRecovery(bool ParsingImports) {
 		case TokenKind::KW_IF:
 		case TokenKind::KW_BREAK:
 		case TokenKind::KW_CONTINUE:
+			// Include an modifiers since those come at
+			// the start of a statement.
+		case TokenKind::KW_NATIVE:
 			return;
 		case '{':
 			break;
@@ -1390,7 +1403,12 @@ void june::Parser::AddComptimeGen(ComptimePurpose P, void* Payload) {
 void june::Parser::CheckFuncRedeclaration(llvm::DenseMap<Identifier, FuncsList>& Funcs, FuncDecl* Func) {
 	auto it = Funcs.find(Func->Name);
 	if (it != Funcs.end()) {
-		for (FuncDecl* OFunc : it->second) {
+		CheckFuncRedeclaration(it->second, Func);
+	}
+}
+
+void june::Parser::CheckFuncRedeclaration(FuncsList& Funcs, FuncDecl* Func) {
+	for (FuncDecl* OFunc : Funcs) {
 			if (OFunc->Params.size() != Func->Params.size()) continue;
 			bool ParamTysMatch = true;
 			for (u32 i = 0; i < OFunc->Params.size(); i++) {
@@ -1405,5 +1423,4 @@ void june::Parser::CheckFuncRedeclaration(llvm::DenseMap<Identifier, FuncsList>&
 				break;
 			}
 		}
-	}
 }

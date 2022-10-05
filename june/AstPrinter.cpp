@@ -33,6 +33,35 @@ namespace june {
 
 	void PrintRecordDecl(const JuneContext& Context, const RecordDecl* Record, u32 Depth) {
 		llvm::outs() << "(record| name=\"" << Record->Name << "\")";
+		if (!Record->Fields.empty()) {
+			llvm::outs() << '\n';
+			PrintIndent(Depth);
+			llvm::outs() << "fields:";
+			for (VarDecl* Field : Record->FieldsByIdxOrder) {
+				llvm::outs() << '\n';
+				PrintNode(Context, Field, Depth + 1);
+			}
+		}
+		if (!Record->Constructors.empty()) {
+			llvm::outs() << '\n';
+			PrintIndent(Depth);
+			llvm::outs() << "constructors:";
+			for (FuncDecl* Constructor : Record->Constructors) {
+				llvm::outs() << '\n';
+				PrintNode(Context, Constructor, Depth + 1);
+			}
+		}
+		if (!Record->Funcs.empty()) {
+			llvm::outs() << '\n';
+			PrintIndent(Depth);
+			llvm::outs() << "functions:";
+			for (auto& [_, Funcs] : Record->Funcs) {
+				for (FuncDecl* Func : Funcs) {
+					llvm::outs() << '\n';
+					PrintNode(Context, Func, Depth + 1);
+				}
+			}
+		}
 	}
 
 	void PrintInnerScope(const JuneContext& Context, const InnerScopeStmt* InnerScope, u32 Depth) {
@@ -363,12 +392,21 @@ namespace june {
 }
 
 void june::PrintFileUnit(const JuneContext& Context, const FileUnit* FU) {
-	llvm::outs() << "- (File Unit | file=\"" << FU->FL.PathKey << "\")\n";
-	llvm::outs() << "Global Functions:";
-	for (const auto& [_, Funcs] : FU->GlobalFuncs) {
-		for (const FuncDecl* Func : Funcs) {
+	llvm::outs() << "- (File Unit | file=\"" << FU->FL.PathKey << "\")";
+	if (!FU->GlobalFuncs.empty()) {
+		llvm::outs() << "\nGlobal Functions:";
+		for (const auto& [_, Funcs] : FU->GlobalFuncs) {
+			for (const FuncDecl* Func : Funcs) {
+				llvm::outs() << "\n";
+				PrintNode(Context, Func, 1);
+			}
+		}
+	}
+	if (!FU->Records.empty()) {
+		llvm::outs() << "\nRecords:";
+		for (const auto& [_, Record] : FU->Records) {
 			llvm::outs() << "\n";
-			PrintNode(Context, Func, 1);
+			PrintNode(Context, Record, 1);
 		}
 	}
 }

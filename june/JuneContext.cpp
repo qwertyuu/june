@@ -1,6 +1,7 @@
 #include "JuneContext.h"
 
 #include <llvm/IR/Module.h>
+#include <llvm/IR/Intrinsics.h>
 
 #include "Types.h"
 #include "Tokens.h"
@@ -90,6 +91,10 @@ june::JuneContext::JuneContext()
 
 	MainIdentifier(Identifier("main")),
 	LengthIdentifier(Identifier("length")),
+
+	LLVMIntrinsicsTable({
+		{ Identifier("memcpy"), llvm::Intrinsic::IndependentIntrinsics::memcpy },
+		}),
 
 	TokenKeywordMap(*new llvm::DenseMap<llvm::StringRef, u16>
 		(__TK_KEYWORD_END__ - __TK_KEYWORD_START__)),

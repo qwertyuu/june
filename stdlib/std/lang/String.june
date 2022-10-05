@@ -1,0 +1,14 @@
+import std.Mem;
+import std.Sys;
+
+String :: record {
+
+	length :u32;
+	buffer :c8*;
+
+	String(buffer :c8*) {
+		this.length = Mem.strlen(buffer);
+		this.buffer = new c8[length + 1]; // +1 for null terminator
+		Mem.memcpy(this.buffer, buffer, length + 1);
+	}
+}
