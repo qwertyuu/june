@@ -29,6 +29,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 	u64 ParseTimeBegin = GetTimeInMilliseconds();
 
 	Context.Init();
+	Context.CompileAsStandAlone = StandAlone;
 
 	if (!StandAlone) {
 		if (const c8* StdLibPath = GetStdLibPath()) {
@@ -53,6 +54,19 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		// TODO: Check permissions?
 		std::string& Path = DirectoryPath.generic_string();
 		CollectDirectoryFiles(DirectoryPath, Path.length() + (Path.back() == '/' ? 0 : 1));
+	}
+
+	if (!StandAlone) {
+
+		// Ensuring that the standard library isn't missing any essential dependencies
+		if (!Context.StringFU) {
+			Logger::GlobalError(llvm::errs(), "Standard library missing 'String' class");
+			return;
+		}
+
+		// Parsing the String class early since it has a high dependency
+		auto it = FilesNeedingParsing.find(Context.StringFU->FL.PathKey);
+		ParseFiles(it->second);
 	}
 
 	// Parsing all .june files
@@ -224,6 +238,13 @@ void june::Compiler::CollectDirectoryFiles(const std::filesystem::path& Director
 					llvm::outs() << "Found path key: " << FU->FL.PathKey << '\n';
 				}
 
+				if (!StandAlone) {
+					// TODO: make more efficient
+					if (FU->FL.PathKey == "std.lang.String") {
+						Context.StringFU = FU;
+					}
+				}
+
 				if (FilesNeedingParsing.find(FU->FL.PathKey) != FilesNeedingParsing.end()) {
 					// TODO: Need to report an error about conflicting paths.
 				}
@@ -274,7 +295,7 @@ void june::Compiler::ParseFiles(FileUnit* FU) {
 	}
 
 	Analysis::ReportInvalidFUStmts(FU);
-	Analysis::ResolveRecordTypes(FU);
+	Analysis::ResolveRecordTypes(Context, FU);
 	if (FU->Log.HasError) {
 		FoundCompileError = true;
 		return;

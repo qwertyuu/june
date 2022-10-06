@@ -1,16 +1,11 @@
-import std.os.Win32;
-import std.io.InStream;
 import std.Sys;
-import std.lang.String;
 
 main() {
-	in :InStream = InStream(Win32.GetStdHandle(-10));
-
 	Sys.println("Input two numbers on two seperate lines:");
 
-	numStr1 :String = in.readLine();
-	numStr2 :String = in.readLine();
-
+	numStr1 := Sys.in.readLine();
+	numStr2 := Sys.in.readLine();
+	
 	Sys.println();
 	Sys.println("Read in numbers:");
 	Sys.println(numStr1);

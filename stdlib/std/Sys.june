@@ -1,6 +1,12 @@
 import std.os.Win32;
 import std.Mem;
 import std.lang.String;
+import std.io.InStream;
+
+/*
+ * Stream to read from standard input.
+ */
+in := InStream(Win32.GetStdHandle(-10));
 
 writeToHandle(handle :void*, msg :c8*, length :u32) {
 	numberOfBytesWritten :u32;

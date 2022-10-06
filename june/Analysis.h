@@ -14,7 +14,7 @@ namespace june {
 
 		explicit Analysis(JuneContext& context, Logger& log);
 
-		static void ResolveRecordTypes(FileUnit* FU);
+		static void ResolveRecordTypes(JuneContext& Context, FileUnit* FU);
 
 		static void CheckRecords(JuneContext& Context, FileUnit* FU);
 

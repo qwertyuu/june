@@ -77,10 +77,13 @@ namespace june {
 		Type* NullType;
 		Type* UndefinedType;
 
+		bool CompileAsStandAlone = false;
+
 		// Caching some pointer types to converse memory.
 		llvm::DenseMap<Type*, PointerType*> StandardPointerCache;
 
 		llvm::StringMap<FileUnit*> FileUnits;
+		FileUnit* StringFU = nullptr;
 		FuncDecl* MainEntryFunc = nullptr;
 
 		// Maps TokenKinds to Precedence of a binary operator

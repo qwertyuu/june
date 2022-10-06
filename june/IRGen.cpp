@@ -630,6 +630,12 @@ llvm::Value* june::IRGen::GenFieldAccessor(FieldAccessor* FA) {
 		return GetLLUInt32(FA->Site->Ty->AsFixedArrayType()->Length, LLContext);
 	}
 	
+	if (FA->Site->is(AstKind::IDENT_REF) &&
+		ocast<IdentRef*>(FA->Site)->RefKind == IdentRef::FILE_UNIT
+		) {
+		return GenIdentRef(FA);
+	}
+
  	Expr* Site = FA->Site;
 	if (Site->Kind == AstKind::FUNC_CALL    ||
 		Site->Kind == AstKind::ARRAY_ACCESS ||

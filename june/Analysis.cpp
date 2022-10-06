@@ -27,7 +27,12 @@ june::Analysis::Analysis(JuneContext& context, Logger& log)
 	: Context(context), Log(log) {
 }
 
-void june::Analysis::ResolveRecordTypes(FileUnit* FU) {
+void june::Analysis::ResolveRecordTypes(JuneContext& Context, FileUnit* FU) {
+
+	if (!Context.CompileAsStandAlone) {
+		// Auto import the string class.
+		FU->Imports.insert({ Identifier("String"), Context.StringFU });
+	}
 
 	for (auto& [RelLoc, URT] : FU->QualifyingRecordTypes) {
 
