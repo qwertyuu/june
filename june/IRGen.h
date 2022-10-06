@@ -18,6 +18,8 @@ namespace june {
 
 		void GenFunc(FuncDecl* Func);
 
+		void GenGlobalVar(VarDecl* Global);
+
 		llvm::Value* GenNode(AstNode* Node);
 
 	private:
@@ -47,6 +49,7 @@ namespace june {
 
 		void GenFuncDecl(FuncDecl* Func);
 		void GenFuncBody(FuncDecl* Func);
+		void GenGlobalVarDecl(VarDecl* Global);
 		llvm::Value* GenLocalVarDecl(VarDecl* Var);
 		llvm::Value* GenVarDecl(llvm::Value* LLAddr, VarDecl* Var);
 		llvm::Value* GenAlloca(VarDecl* Var);
@@ -142,6 +145,8 @@ namespace june {
 		llvm::Value* GenMalloc(llvm::Type* LLType, llvm::Value* LLArrSize);
 
 		llvm::Value* GenLLVMIntrinsicCall(FuncCall* Call);
+
+		llvm::Constant* GenGlobalConstVal(VarDecl* Global);
 
 	};
 }

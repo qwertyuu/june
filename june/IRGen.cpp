@@ -105,6 +105,21 @@ void june::IRGen::GenFunc(FuncDecl* Func) {
 	}
 }
 
+void june::IRGen::GenGlobalVar(VarDecl* Global) {
+	
+	GenGlobalVarDecl(Global);
+
+	llvm::GlobalVariable* LLGVar =
+		llvm::cast<llvm::GlobalVariable>(Global->LLAddress);
+
+	LLGVar->setInitializer(GenGlobalConstVal(Global));
+
+	if (DisplayLLVMIR) {
+		LLGVar->print(llvm::outs());
+		llvm::outs() << '\n';
+	}
+}
+
 void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	if (Func->LLAddress) return;
 
@@ -240,6 +255,15 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		}
 		Builder.CreateRet(CreateLoad(LLRetAddr));
 	}
+}
+
+void june::IRGen::GenGlobalVarDecl(VarDecl* Global) {
+	if (Global->LLAddress) return; // Do not generate it twice
+
+	// TODO: Hand over to mangler
+	std::string Name = "g_" + Global->Name.Text.str();
+	Name += "." + std::to_string(Context.NumGeneratedGlobalVars++);
+	Global->LLAddress = MakeGlobalVar(Name, GenType(Global->Ty));
 }
 
 llvm::Value* june::IRGen::GenLocalVarDecl(VarDecl* Var) {
@@ -1120,10 +1144,6 @@ llvm::Value* june::IRGen::GenArray(Array* Arr, llvm::Value* LLArrAddr) {
 		}
 	}
 
-	if (!LLArrAddr) {
-		LLArrAddr = CreateTempAlloca(GenType(DestTy));
-	}
-
 	if (Arr->CastTy && Arr->CastTy->GetKind() == TypeKind::POINTER) {
 		// Must generate an array for a pointer
 		// 1. If the array is foldable, create a global array and return
@@ -1140,6 +1160,10 @@ llvm::Value* june::IRGen::GenArray(Array* Arr, llvm::Value* LLArrAddr) {
 			return LLArrAddr;
 		}
 	} else {
+		if (!LLArrAddr) {
+			LLArrAddr = CreateTempAlloca(GenType(DestTy));
+		}
+		
 		if (Arr->IsFoldable) {
 			llvm::GlobalVariable* LLGVar
 				= MakeGlobalFixedArray(GenType(DestTy), GenConstArrayForFixedArray(Arr, DestTy));
@@ -1660,6 +1684,10 @@ llvm::Value* june::IRGen::GetAddressOfVar(VarDecl* Var) {
 
 		return CreateStructGEP(LLThis, Var->FieldIdx);
 	} else {
+		if (Var->IsGlobal) {
+			GenGlobalVarDecl(Var);
+		}
+
 		return Var->LLAddress;
 	}
 }
@@ -1801,5 +1829,36 @@ llvm::Value* june::IRGen::GenLLVMIntrinsicCall(FuncCall* Call) {
 	default:
 		assert(!"Failed to implement llvm intrinsic call!");
 		break;
+	}
+}
+
+llvm::Constant* june::IRGen::GenGlobalConstVal(VarDecl* Global) {
+	Type* Ty = Global->Ty;
+	if (Ty->GetKind() == TypeKind::RECORD) {
+		// TODO: For now im just zero initializing
+		//       the struct but if all the fields are
+		//       foldable then it should create a non-zeroed
+		//       constant struct
+		return GenZeroedValue(Ty);
+	} else if (!Global->Assignment) {
+		return GenZeroedValue(Ty);
+	} else {
+		if (Global->Assignment->IsFoldable) {
+			if (Global->Assignment->is(AstKind::ARRAY)) {
+				
+				if (Global->Ty->GetKind() == TypeKind::POINTER) {
+					// The destination is a pointer so a global array needs
+					// to be created first, then that global array needs
+					// to be pointed to the pointer value of the global.
+					llvm::Value* LLGArr = GenArray(ocast<Array*>(Global->Assignment), nullptr);
+					return llvm::cast<llvm::Constant>(GetArrayAsPtr1Nesting(LLGArr));
+				}
+			}
+			return llvm::cast<llvm::Constant>(GenRValue(Global->Assignment));
+		} else {
+			// Not foldable so it recieves a default value and
+			// it initialized later
+			return GenZeroedValue(Ty);
+		}
 	}
 }

@@ -48,7 +48,7 @@ namespace june {
 		// from it's TokenKind
 		llvm::StringRef GetKwAsString(u32 TokenKind) const;
 
-		void RequestGen(FuncDecl* Func);
+		void RequestGen(Decl* D);
 
 		PointerType* GetCachedPointerType(Type* ElmTy) const;
 
@@ -90,7 +90,7 @@ namespace june {
 		// 'length' identifier (for identifying array lengths)
 		Identifier LengthIdentifier;
 
-		std::queue<FuncDecl*> QuededFuncsToGen;
+		std::queue<Decl*> QuededDeclsToGen;
 		std::unordered_set<Decl*> UncheckedDecls;
 
 		// ----- LLVM -----
@@ -98,6 +98,7 @@ namespace june {
 		llvm::Module&      LLJuneModule;
 		u32                NumGeneratedLLGlobals    = 0;
 		u32                NumGeneratedGlobalArrays = 0;
+		u32                NumGeneratedGlobalVars   = 0;
 		llvm::DenseMap<RecordDecl*, llvm::Function*> DefaultRecordInitFuncs;
 		llvm::DenseMap<Identifier, llvm::Intrinsic::ID> LLVMIntrinsicsTable;
 

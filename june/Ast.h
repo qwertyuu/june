@@ -109,6 +109,7 @@ namespace june {
 
 		llvm::DenseMap<Identifier, FileUnit*>       Imports;
 		llvm::DenseMap<Identifier, FuncsList>       GlobalFuncs;
+		llvm::DenseMap<Identifier, VarDecl*>        GlobalVars;
 		llvm::DenseMap<RecordLocation, RecordDecl*> Records;
 		
 		enum class StmtScopeKind {
@@ -192,6 +193,7 @@ namespace june {
 		u32 FieldIdx = -1;
 		u32 ParamIdx = -1;
 		bool UsesInferedType = false;
+		bool IsGlobal        = false;
 
 		VarDecl() : Decl(AstKind::VAR_DECL) {}
 

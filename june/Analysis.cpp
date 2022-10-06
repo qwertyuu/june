@@ -98,11 +98,21 @@ void june::Analysis::ReportInvalidFUStmts(FileUnit* FU) {
 void june::Analysis::CheckVarDecl(VarDecl* Var) {
 	if (Var->HasBeenChecked) return;
 	
+	Context.UncheckedDecls.erase(Var);
+
+	Var->FU = Var->FU;
+	CRecord = Var->Record;
+
 	Var->HasBeenChecked = true;
 	Var->IsBeingChecked = true;
 
 	if (Var->FieldIdx != -1) {
 		CField = Var;
+	}
+
+	if (Var->IsGlobal) {
+		// Global variable. Need to request generation.
+		Context.RequestGen(Var);
 	}
 
 #define VAR_YIELD(E)         \
@@ -483,11 +493,18 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 
 	auto SearchForVars = [&]() {
 		if (FUToLookup) {
-			// TODO: global field search
-
 			if (CRecord) {
 				auto it = CRecord->Fields.find(IRef->Ident);
 				if (it != CRecord->Fields.end()) {
+					IRef->VarRef  = it->second;
+					IRef->RefKind = IdentRef::VAR;
+				}
+			}
+			if (IRef->RefKind == IdentRef::NOT_FOUND) {
+				// Still not found then searching the global
+				// variables
+				auto it = FUToLookup->GlobalVars.find(IRef->Ident);
+				if (it != FUToLookup->GlobalVars.end()) {
 					IRef->VarRef  = it->second;
 					IRef->RefKind = IdentRef::VAR;
 				}
@@ -1583,8 +1600,6 @@ void june::Analysis::EnsureChecked(SourceLoc ELoc, VarDecl* Var) {
 	} else {
 		// TODO: globals
 	}
-	A.FU = Var->FU;
-	A.CRecord = Var->Record;
 	A.CheckVarDecl(Var);
 	Var->DepD = nullptr; // Dependency finished.
 }

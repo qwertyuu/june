@@ -153,6 +153,7 @@ int main() {
 	RunTest(SRC("sizeof"), 4 + 1 + 4 + 4 + 8 + 8);
 	RunTest(SRC("this"), 252);
 	RunTest(SRC("inferedtypes"), 11 + 11 + 365 + 214 + 14 + 65 + 11);
+	RunTest(SRC("globals1"), 44);
 	//RunTest(SRC("playground"), 0);
 
 	if (Succeeded + Failed > 0) {

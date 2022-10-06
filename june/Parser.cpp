@@ -66,6 +66,20 @@ void june::Parser::Parse() {
 		switch (Node->Kind) {
 		case AstKind::RECORD_DECL:
 			break;
+		case AstKind::VAR_DECL: {
+			VarDecl* Var = ocast<VarDecl*>(Node);
+			if (Var->isNot(AstKind::ERROR)) {
+				Var->IsGlobal = true;
+				Context.UncheckedDecls.insert(Var);
+				auto it = FU->GlobalVars.find(Var->Name);
+				if (it != FU->GlobalVars.end()) {
+					Error(Var->Loc, "Redeclaration of global variable '%s'. First declared at line: %s",
+						Var->Name.Text, it->second->Loc.LineNumber);
+				}
+				FU->GlobalVars.insert({ Var->Name, Var });
+			}
+			break;
+		}
 		case AstKind::FUNC_DECL: {
 			FuncDecl* Func = ocast<FuncDecl*>(Node);
 			if (Func->isNot(AstKind::ERROR)) {

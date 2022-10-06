@@ -201,10 +201,10 @@ llvm::StringRef june::JuneContext::GetKwAsString(u32 TokenKind) const {
 	return TokenKwKindToStringMap[TokenKind];
 }
 
-void june::JuneContext::RequestGen(FuncDecl* Func) {
-	if (Func->GenRequestedAlready) return;
-	QuededFuncsToGen.push(Func);
-	Func->GenRequestedAlready = true;
+void june::JuneContext::RequestGen(Decl* D) {
+	if (D->GenRequestedAlready) return;
+	QuededDeclsToGen.push(D);
+	D->GenRequestedAlready = true;
 }
 
 june::PointerType* june::JuneContext::GetCachedPointerType(Type* ElmTy) const {

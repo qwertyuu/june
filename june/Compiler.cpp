@@ -83,26 +83,31 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 	}
 
 	// Checking and generating code
-	while (!Context.QuededFuncsToGen.empty()) {
-		FuncDecl* Func = Context.QuededFuncsToGen.front();
-		Context.QuededFuncsToGen.pop();
+	while (!Context.QuededDeclsToGen.empty()) {
+		Decl* D = Context.QuededDeclsToGen.front();
+		Context.QuededDeclsToGen.pop();
 
-		if (Func->FU->Log.HasError) {
+		if (D->FU->Log.HasError) {
 			FoundCompileError = true;
 			continue;
 		}
 
-		Analysis A(Context, Func->FU->Log);
-		A.CheckFuncDecl(Func);
+		Analysis A(Context, D->FU->Log);
+		if (D->is(AstKind::FUNC_DECL)) {
+			A.CheckFuncDecl(ocast<FuncDecl*>(D));
+		} // else if VAR_DECL  : should already have been checked.
 		
-		if (Func->FU->Log.HasError) {
+		if (D->FU->Log.HasError) {
 			FoundCompileError = true;
 			continue;
 		}
 
 		IRGen Gen(Context, DisplayLLVMIR | Verbose);
-		Gen.GenFunc(Func);
-
+		if (D->is(AstKind::FUNC_DECL)) {
+			Gen.GenFunc(ocast<FuncDecl*>(D));
+		} else {
+			Gen.GenGlobalVar(ocast<VarDecl*>(D));
+		}
 	}
 
 	// Checking any code that was not generated
@@ -122,6 +127,8 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		Analysis A(Context, D->FU->Log);
 		if (D->is(AstKind::FUNC_DECL)) {
 			A.CheckFuncDecl(ocast<FuncDecl*>(D));
+		} else if (D->is(AstKind::VAR_DECL)) {
+			A.CheckVarDecl(ocast<VarDecl*>(D));
 		} else {
 			assert(!"Failed to implement check");
 		}
