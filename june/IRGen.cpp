@@ -126,6 +126,9 @@ void june::IRGen::GenGlobalVar(VarDecl* Global) {
 			// called.
 			Context.GlobalPostponedAssignments.push_back(Global);
 		}
+	} else if (Global->Ty->GetKind() == TypeKind::RECORD) {
+		// Need to default initialize a record
+		Context.GlobalPostponedAssignments.push_back(Global);
 	}
 
 	if (DisplayLLVMIR) {
@@ -420,6 +423,8 @@ void june::IRGen::GenGlobalPostponedAssignments() {
 					llvm::Value* LLTotalLinearLength = GetLLUInt32(ArrTy->GetTotalLinearLength(), LLContext);
 					GenRecordArrayObjsInitCalls(ArrTy, LLArrStartPtr, LLTotalLinearLength);
 				}
+			} else if (Var->Ty->GetKind() == TypeKind::RECORD) {
+				GenDefaultValue(Var->Ty, Var->LLAddress);
 			}
 		}
 		++it;

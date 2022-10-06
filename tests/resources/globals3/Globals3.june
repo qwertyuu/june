@@ -1,0 +1,11 @@
+Data :: record {
+	a :i32 = 22;
+	b :i32 = 1111;
+}
+
+data1 :Data;
+data2 :Data = Data(a = 34, b = 66);
+
+main() -> i32 {
+	return data1.a + data1.b + data2.a + data2.b;
+}

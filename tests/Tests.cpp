@@ -155,6 +155,8 @@ int main() {
 	RunTest(SRC("inferedtypes"), 11 + 11 + 365 + 214 + 14 + 65 + 11);
 	RunTest(SRC("globals1"), 44);
 	RunTest(SRC("globals2"), 32 + 154 + 32);
+	RunTest(SRC("globals3"), 22 + 1111 + 34 + 66);
+	RunTest(SRC("globals4"), 154 + 154 + 11 + 11 + 11);
 	//RunTest(SRC("playground"), 0);
 
 	if (Succeeded + Failed > 0) {
