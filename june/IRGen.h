@@ -85,7 +85,9 @@ namespace june {
 		inline llvm::Value* CreateAlloca(Type* Ty, const c8* Name = "");
 
 		void GenDefaultValue(Type* Ty, llvm::Value* LLAddr);
-		void GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy, llvm::Value* LLArrAddr);
+		void GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy,
+			                             llvm::Value* LLArrStartPtr,
+			                             llvm::Value* LLTotalLinearLength);
 		llvm::Constant* GenZeroedValue(Type* Ty);
 
 		// This will only unconditionally branch to the given
@@ -119,7 +121,8 @@ namespace june {
 		// alignment of the type
 		u64 SizeOfTypeInBytes(llvm::Type* LLType);
 
-		llvm::Value* GetArrayAsPtr(llvm::Value* LLArr);
+		llvm::Value* GetArrayAsPtr1Nesting(llvm::Value* LLArr);
+		llvm::Value* GetArrayAsPtrGeneral(llvm::Value* LLArr, u32 NestingLevel);
 
 		inline llvm::Value* CreateInBoundsGEP(llvm::Value* LLAddr, llvm::ArrayRef<llvm::Value*> IdxList);
 		inline llvm::Value* CreateStructGEP(llvm::Value* LLAddr, u32 Idx);

@@ -1244,7 +1244,14 @@ llvm::Value* june::IRGen::GenHeapAllocType(HeapAllocType* HeapAlloc) {
 				Builder.CreateMul(LLTotalLinearLength, GenRValue(ArrTyItr->LengthAsExpr));
 		}
 		
-		return GenMalloc(GenType(ArrTy->GetBaseType()), LLTotalLinearLength);
+		llvm::Value* LLArrStartPtr = GenMalloc(GenType(ArrTy->GetBaseType()), LLTotalLinearLength);
+		
+		Type* ArrBaseTy = ArrTy->GetBaseType();
+		if (ArrBaseTy->GetKind() == TypeKind::RECORD) {
+			GenRecordArrayObjsInitCalls(ArrTy, LLArrStartPtr, LLTotalLinearLength);
+		}
+
+		return LLArrStartPtr;
 	} else {
 		return GenMalloc(GenType(HeapAlloc->TypeToAlloc), nullptr);
 	}
@@ -1456,7 +1463,7 @@ llvm::Value* june::IRGen::GenCast(Type* ToType, Type* FromType, llvm::Value* LLV
 		//  --- Pointers ---
 		if (FromType->GetKind() == TypeKind::FIXED_ARRAY) {
 			// Fixed-Array to Pointer
-			return GetArrayAsPtr(LLVal);
+			return GetArrayAsPtr1Nesting(LLVal);
 		} else if (FromType->GetKind() == TypeKind::POINTER) {
 			// Pointer to Pointer
 			return Builder.CreateBitCast(LLVal, LLCastType);
@@ -1497,23 +1504,24 @@ void june::IRGen::GenDefaultValue(Type* Ty, llvm::Value* LLAddr) {
 		FixedArrayType* ArrTy = Ty->AsFixedArrayType();
 		Type* ArrBaseTy = ArrTy->GetBaseType();
 		if (ArrBaseTy->GetKind() == TypeKind::RECORD) {
-			RecordDecl* Record = ArrBaseTy->AsRecordType()->Record;
-			if (Record->FieldsHaveAssignment) {
-				GenRecordArrayObjsInitCalls(ArrTy, LLAddr);
-				return;
-			}
+			llvm::Value* LLArrStartPtr = GetArrayAsPtrGeneral(LLAddr, ArrTy->GetNestingLevel() + 1);
+			llvm::Value* LLTotalLinearLength = GetLLUInt32(ArrTy->GetTotalLinearLength(), LLContext);
+			GenRecordArrayObjsInitCalls(ArrTy, LLArrStartPtr, LLTotalLinearLength);
+			return;
 		}
 	}
 	Builder.CreateStore(GenZeroedValue(Ty), LLAddr);
 }
 
-void june::IRGen::GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy, llvm::Value* LLArrAddr) {
+void june::IRGen::GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy,
+	                                          llvm::Value* LLArrStartPtr,
+	                                          llvm::Value* LLTotalLinearLength) {
+
 	// Looping through the array and calling the initialization
 	// function for each element.
 
-	bool BaseNestingLevel = ArrTy->ElmTy->GetKind() != TypeKind::FIXED_ARRAY;
-
 	llvm::BasicBlock* BeforeLoopBB = Builder.GetInsertBlock();
+	llvm::Value* LLEndOfArrPtr = CreateInBoundsGEP(LLArrStartPtr, { LLTotalLinearLength });
 
 	llvm::BasicBlock* LoopBB    = llvm::BasicBlock::Create(LLContext, "arr.objconstr.loop", LLFunc);
 	llvm::BasicBlock* LoopEndBB = llvm::BasicBlock::Create(LLContext, "arr.objconstr.end", LLFunc);
@@ -1521,33 +1529,26 @@ void june::IRGen::GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy, llvm::Value
 	Builder.CreateBr(LoopBB);
 	Builder.SetInsertPoint(LoopBB);
 
-	llvm::PHINode* LLCount = Builder.CreatePHI(llvm::Type::getInt32Ty(LLContext), 0, "obj.loop.count");
+	RecordType* RecordTy = ArrTy->GetBaseType()->AsRecordType();
+	// Pointer used to traverse through the array
+	llvm::PHINode* LLArrPtr = Builder.CreatePHI(llvm::PointerType::get(GenType(RecordTy), 0), 0, "obj.loop.ptr");
 
-	// Incoming value of zero from the incoming block
-	llvm::Value* LLStartCount = GetLLUInt32(0, LLContext);
-	LLCount->addIncoming(LLStartCount, BeforeLoopBB);
+	// Incoming value to the start of the array from the incoming block
+	LLArrPtr->addIncoming(LLArrStartPtr, BeforeLoopBB);
 
-	if (BaseNestingLevel) {
-		RecordType* RecordTy = ArrTy->ElmTy->AsRecordType();
-		llvm::Value* LLRecAddr = GetArrayIndexAddress(LLArrAddr, LLCount);
-		GenDefaultRecordInitCall(RecordTy->Record, LLRecAddr);
-	} else {
-		// Must GEP into the array and loop over the sub-arrays instead
-		llvm::Value* LLSubArrAddr = GetArrayIndexAddress(LLArrAddr, LLCount);
-		GenRecordArrayObjsInitCalls(ArrTy->ElmTy->AsFixedArrayType(), LLSubArrAddr);
-	}
+	GenDefaultRecordInitCall(RecordTy->Record, LLArrPtr);
 
-	// Add 1 to the count.
-	llvm::Value* LLNextCount = Builder.CreateAdd(LLCount, GetLLUInt32(1, LLContext));
+	// Move to the next element in the array
+	llvm::Value* LLNextElementPtr = CreateInBoundsGEP(LLArrPtr, { GetLLUInt32(1, LLContext) });
 
 	// Checking if all objects have been looped over
-	llvm::Value* LLLoopEndCond = Builder.CreateICmpEQ(LLNextCount, GetLLUInt32(ArrTy->Length, LLContext));
+	llvm::Value* LLLoopEndCond = Builder.CreateICmpEQ(LLNextElementPtr, LLEndOfArrPtr);
 	Builder.CreateCondBr(LLLoopEndCond, LoopEndBB, LoopBB);
 
 	// The value must come from the block that 'LLNextCount' is created
 	// in which would be whatever the current block is.
 	llvm::BasicBlock* LLCurBlock = Builder.GetInsertBlock();
-	LLCount->addIncoming(LLNextCount, LLCurBlock);
+	LLArrPtr->addIncoming(LLNextElementPtr, LLCurBlock);
 
 	// End of loop
 	Builder.SetInsertPoint(LoopEndBB);
@@ -1616,9 +1617,17 @@ u64 june::IRGen::SizeOfTypeInBytes(llvm::Type* LLType) {
 	return LLTypeSize.getFixedSize() / 8;
 }
 
-llvm::Value* june::IRGen::GetArrayAsPtr(llvm::Value* LLArr) {
+llvm::Value* june::IRGen::GetArrayAsPtr1Nesting(llvm::Value* LLArr) {
 	return CreateInBoundsGEP(LLArr,
 		{ GetLLUInt32(0, LLContext), GetLLUInt32(0, LLContext) });
+}
+
+llvm::Value* june::IRGen::GetArrayAsPtrGeneral(llvm::Value* LLArr, u32 NestingLevel) {
+	llvm::SmallVector<llvm::Value*, 3> LLIdxs;
+	for (u32 i = 0; i < NestingLevel + 1; i++) {
+		LLIdxs.push_back(GetLLUInt32(0, LLContext));
+	}
+	return CreateInBoundsGEP(LLArr, LLIdxs);
 }
 
 inline llvm::Value* june::IRGen::CreateInBoundsGEP(llvm::Value* LLAddr, llvm::ArrayRef<llvm::Value*> IdxList) {
