@@ -114,6 +114,20 @@ void june::IRGen::GenGlobalVar(VarDecl* Global) {
 
 	LLGVar->setInitializer(GenGlobalConstVal(Global));
 
+	if (Global->Assignment) {
+		if (!Global->Assignment->IsFoldable) {
+			// Could not be simply folded into a value so it
+			// requires further initialization
+			Context.GlobalPostponedAssignments.push_back(Global);
+		}
+	} else if (Global->Ty->GetKind() == TypeKind::FIXED_ARRAY) {
+		if (Global->Ty->AsFixedArrayType()->GetBaseType()->GetKind() == TypeKind::RECORD) {
+			// The objects of the array need to have their constructors
+			// called.
+			Context.GlobalPostponedAssignments.push_back(Global);
+		}
+	}
+
 	if (DisplayLLVMIR) {
 		LLGVar->print(llvm::outs());
 		llvm::outs() << '\n';
@@ -235,6 +249,11 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		}
 	}
 
+	if (Func->IsMainFunc) {
+		Context.JuneInitGlobalsFuncs = GenGlobalInitFuncDecl();
+		Builder.CreateCall(Context.JuneInitGlobalsFuncs);
+	}
+
 	for (AstNode* Node : Func->Stmts) {
 		GenNode(Node);
 	}
@@ -348,6 +367,62 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 	default:
 		assert(!"Unimplemented generation case!");
 		return nullptr;
+	}
+}
+
+void june::IRGen::GenGlobalInitFunc() {
+	llvm::BasicBlock* LLEntryBlock = llvm::BasicBlock::Create(LLContext, "entry.block", Context.JuneInitGlobalsFuncs);
+
+	LLFunc = Context.JuneInitGlobalsFuncs;
+	Builder.SetInsertPoint(LLEntryBlock);
+
+	// This is still needed because temporary allocations may still
+	// occure and it needs a place to allocate at.
+	if (!LLEntryBlock->getInstList().empty()) {
+		AllocaInsertPt = &LLEntryBlock->getInstList().back();
+	}
+
+	GenGlobalPostponedAssignments();
+
+	Builder.CreateRetVoid();
+
+	if (DisplayLLVMIR) {
+		Context.JuneInitGlobalsFuncs->print(llvm::outs());
+		llvm::outs() << '\n';
+	}
+}
+
+llvm::Function* june::IRGen::GenGlobalInitFuncDecl() {
+	llvm::FunctionType* LLFuncType =
+		llvm::FunctionType::get(llvm::Type::getVoidTy(LLContext), false);
+	llvm::Function* LLInitFunc =
+		llvm::Function::Create(
+			LLFuncType,
+			llvm::Function::ExternalLinkage,
+			"__june.init.globals",
+			LLModule
+		);
+	return LLInitFunc;
+}
+
+void june::IRGen::GenGlobalPostponedAssignments() {
+	// Iterator since it is modifiable during generation
+	auto it = Context.GlobalPostponedAssignments.begin();
+	while (it != Context.GlobalPostponedAssignments.end()) {
+		VarDecl* Var = *it;
+		if (Var->Assignment) {
+			GenAssignment(Var->LLAddress, Var->Assignment);
+		} else {
+			if (Var->Ty->GetKind() == TypeKind::FIXED_ARRAY) {
+				FixedArrayType* ArrTy = Var->Ty->AsFixedArrayType();
+				if (ArrTy->GetBaseType()->GetKind() == TypeKind::RECORD) {
+					llvm::Value* LLArrStartPtr = GetArrayAsPtrGeneral(Var->LLAddress, ArrTy->GetNestingLevel() + 1);
+					llvm::Value* LLTotalLinearLength = GetLLUInt32(ArrTy->GetTotalLinearLength(), LLContext);
+					GenRecordArrayObjsInitCalls(ArrTy, LLArrStartPtr, LLTotalLinearLength);
+				}
+			}
+		}
+		++it;
 	}
 }
 

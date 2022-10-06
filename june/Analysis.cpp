@@ -100,7 +100,7 @@ void june::Analysis::CheckVarDecl(VarDecl* Var) {
 	
 	Context.UncheckedDecls.erase(Var);
 
-	Var->FU = Var->FU;
+	FU      = Var->FU;
 	CRecord = Var->Record;
 
 	Var->HasBeenChecked = true;

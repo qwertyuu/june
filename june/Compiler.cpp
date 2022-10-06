@@ -142,6 +142,9 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		return;
 	}
 
+	IRGen Gen(Context, DisplayLLVMIR | Verbose);
+	Gen.GenGlobalInitFunc();
+
 	u64 ParsedIn = (GetTimeInMilliseconds() - ParseTimeBegin);
 
 	// Emitting code

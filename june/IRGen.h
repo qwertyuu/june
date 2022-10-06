@@ -22,6 +22,8 @@ namespace june {
 
 		llvm::Value* GenNode(AstNode* Node);
 
+		void GenGlobalInitFunc();
+
 	private:
 		JuneContext&       Context;
 		llvm::LLVMContext& LLContext;
@@ -46,6 +48,9 @@ namespace june {
 
 		// The restart points of the next loop iteration
 		llvm::SmallVector<llvm::BasicBlock*, 4> LoopContinueStack;
+
+		llvm::Function* GenGlobalInitFuncDecl();
+		void GenGlobalPostponedAssignments();
 
 		void GenFuncDecl(FuncDecl* Func);
 		void GenFuncBody(FuncDecl* Func);

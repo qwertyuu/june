@@ -24,6 +24,7 @@ namespace june {
 
 	struct Decl;
 	struct FuncDecl;
+	struct VarDecl;
 	struct RecordDecl;
 	struct FileUnit;
 	struct Type;
@@ -99,8 +100,10 @@ namespace june {
 		u32                NumGeneratedLLGlobals    = 0;
 		u32                NumGeneratedGlobalArrays = 0;
 		u32                NumGeneratedGlobalVars   = 0;
-		llvm::DenseMap<RecordDecl*, llvm::Function*> DefaultRecordInitFuncs;
+		llvm::Function*    JuneInitGlobalsFuncs;
+		llvm::DenseMap<RecordDecl*, llvm::Function*>    DefaultRecordInitFuncs;
 		llvm::DenseMap<Identifier, llvm::Intrinsic::ID> LLVMIntrinsicsTable;
+		llvm::SmallVector<VarDecl*, 4>                  GlobalPostponedAssignments;
 
 	private:
 		friend class Compiler;
