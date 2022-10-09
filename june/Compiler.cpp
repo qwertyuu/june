@@ -10,6 +10,7 @@
 
 #include <llvm/Support/raw_ostream.h>
 #include <iostream>
+#include <llvm/IR/Verifier.h>
 
 // Creating a global instance because for some reason LLVM
 // does not clean up target machines properly when deleting
@@ -96,6 +97,19 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		}
 	}
 
+
+	DebugInfoEmitter* DIEmitter = nullptr;
+	if (EmitDebugInfo)
+		DIEmitter = new DebugInfoEmitter(Context);
+	if (DIEmitter) {
+		for (auto FUItr = Context.FileUnits.begin(),
+			FUEnd = Context.FileUnits.end();
+			FUItr != FUEnd; FUItr++
+			) {
+			DIEmitter->EmitCompilationUnit(FUItr->second);
+		}
+	}
+
 	// Checking and generating code
 	while (!Context.QuededDeclsToGen.empty()) {
 		Decl* D = Context.QuededDeclsToGen.front();
@@ -116,7 +130,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			continue;
 		}
 
-		IRGen Gen(Context, DisplayLLVMIR | Verbose);
+		IRGen Gen(Context, DIEmitter, DisplayLLVMIR | Verbose);
 		if (D->is(AstKind::FUNC_DECL)) {
 			Gen.GenFunc(ocast<FuncDecl*>(D));
 		} else {
@@ -156,9 +170,26 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		return;
 	}
 
-	IRGen Gen(Context, DisplayLLVMIR | Verbose);
+	IRGen Gen(Context, DIEmitter, DisplayLLVMIR | Verbose);
 	Gen.GenGlobalInitFunc();
 
+	if (EmitDebugInfo) {
+		Context.LLJuneModule.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
+		Context.LLJuneModule.addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
+		llvm::NamedMDNode* LLVMIdentMD = Context.LLJuneModule.getOrInsertNamedMetadata("llvm.ident");
+		LLVMIdentMD->addOperand(llvm::MDNode::get(Context.LLContext, { llvm::MDString::get(Context.LLContext, "June Compiler") }));
+	}
+	
+	if (DIEmitter)
+		DIEmitter->Finalize();
+
+	// -- DEBUG
+	// llvm::verifyModule(Context.LLJuneModule);
+
+	if (Verbose) {
+		Context.LLJuneModule.dump();
+	}
+	
 	u64 ParsedIn = (GetTimeInMilliseconds() - ParseTimeBegin);
 
 	// Emitting code
@@ -195,10 +226,13 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		Libs += std::string("-L") + std::string(LibPath) + " ";
 	}
 
-	std::string ClangCommand = "clang " + LibPaths + Libs + ObjFileName;
+	std::string ClangCommand = "clang ";
+	if (EmitDebugInfo)
+		ClangCommand += " -g ";
+	ClangCommand += LibPaths + Libs + ObjFileName;
 	ClangCommand += " -o ";
 	ClangCommand += OutputName + ".exe";
-	ClangCommand += " -Xlinker /SUBSYSTEM:CONSOLE";
+	//ClangCommand += " -Xlinker /SUBSYSTEM:CONSOLE";
 
 	llvm::outs() << ClangCommand << "\n";
 	system(ClangCommand.c_str());
@@ -223,7 +257,7 @@ void june::Compiler::CollectDirectoryFiles(const std::filesystem::path& Director
 	namespace fs = std::filesystem;
 	for (const auto& entry : fs::directory_iterator(DirectoryPath)) {
 		if (entry.is_regular_file()) {
-			std::string path = entry.path().generic_string();
+			std::string& path = entry.path().generic_string();
 			if (path.substr(path.find_last_of('.') + 1) == "june") {
 				
 				std::string RelativePath = path.substr(PrimaryPathLen);
@@ -232,10 +266,11 @@ void june::Compiler::CollectDirectoryFiles(const std::filesystem::path& Director
 				std::string& PathKey = FU->FL.PathKey;
 				PathKey = RelativePath.substr(0, RelativePath.size() - 5);
 				std::replace(PathKey.begin(), PathKey.end(), '/', '.');
-				FU->FL.FullPath = std::move(path);
+				FU->FL.FullPath = fs::absolute(entry.path()).generic_string();
 
 				if (Verbose) {
-					llvm::outs() << "Found path key: " << FU->FL.PathKey << '\n';
+					llvm::outs() << "FileUnit Paths: { key=\"" << FU->FL.PathKey << "\"";
+					llvm::outs() << ", full-path=\"" << FU->FL.FullPath << "\"}\n";
 				}
 
 				if (!StandAlone) {

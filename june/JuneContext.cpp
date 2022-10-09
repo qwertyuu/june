@@ -57,7 +57,7 @@ june::JuneContext::JuneContext()
 	UndefinedType(new Type(TypeKind::UNDEFINED)),
 
 	LLContext(*new llvm::LLVMContext),
-	LLJuneModule(*new llvm::Module("Acid Module", LLContext)),
+	LLJuneModule(*new llvm::Module("June Module", LLContext)),
 
 	BinaryOpsPrecedence({
 		{ '*', 9 },

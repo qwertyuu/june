@@ -3,6 +3,7 @@
 
 #include <llvm/IR/IRBuilder.h>
 
+#include "EmitDebugInfo.h"
 #include "Ast.h"
 #include "JuneContext.h"
 
@@ -14,7 +15,7 @@ namespace june {
 	class IRGen {
 	public:
 	
-		IRGen(JuneContext& context, bool displayLLVMIR);
+		IRGen(JuneContext& context, DebugInfoEmitter* DIEmitter, bool displayLLVMIR);
 
 		void GenFunc(FuncDecl* Func);
 
@@ -26,6 +27,7 @@ namespace june {
 
 	private:
 		JuneContext&       Context;
+		DebugInfoEmitter*      DIEmitter;
 		llvm::LLVMContext& LLContext;
 		llvm::Module&      LLModule;
 		llvm::IRBuilder<>  Builder;
@@ -152,6 +154,8 @@ namespace june {
 		llvm::Value* GenLLVMIntrinsicCall(FuncCall* Call);
 
 		llvm::Constant* GenGlobalConstVal(VarDecl* Global);
+
+		void EmitDebugLocation(AstNode* Node);
 
 	};
 }

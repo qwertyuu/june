@@ -41,7 +41,8 @@ llvm::TargetMachine* june::CreateLLVMTargetMache() {
 
 	auto RM = llvm::Optional<llvm::Reloc::Model>();
 	llvm::TargetMachine* TargetMachine =
-		Target->createTargetMachine(TargetTriple, CPU, Features, TargetOpts, RM);
+		Target->createTargetMachine(TargetTriple, CPU, Features, TargetOpts, RM,
+			llvm::NoneType::None, llvm::CodeGenOpt::None);
 
 	return TargetMachine;
 }

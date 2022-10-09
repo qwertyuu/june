@@ -80,8 +80,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& OS, LLTypePrinter& Printer) {
 
 
 
-june::IRGen::IRGen(JuneContext& context, bool displayLLVMIR)
+june::IRGen::IRGen(JuneContext& context, DebugInfoEmitter* DIEmitter, bool displayLLVMIR)
 	: Context(context),
+	  DIEmitter(DIEmitter),
 	  LLContext(context.LLContext),
 	  LLModule(context.LLJuneModule),
 	  Builder(context.LLContext),
@@ -103,6 +104,8 @@ void june::IRGen::GenFunc(FuncDecl* Func) {
 		Func->LLAddress->print(llvm::outs());
 		llvm::outs() << '\n';
 	}
+
+	llvm::verifyFunction(*Func->LLAddress);
 }
 
 void june::IRGen::GenGlobalVar(VarDecl* Global) {
@@ -198,27 +201,32 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	}
 
 	Func->LLAddress = LLFunc;
-
 }
 
 void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	if (Func->Mods & mods::NATIVE) return;
 
 	LLFunc = Func->LLAddress;
+	bool HasVoidRetTy = Func->RetTy->GetKind() == TypeKind::VOID && !Func->IsMainFunc;
 
 	// Entry block for the function.
 	llvm::BasicBlock* LLEntryBlock = llvm::BasicBlock::Create(LLContext, "entry.block", LLFunc);
-	LLFuncEndBB = llvm::BasicBlock::Create(LLContext, "func.end", LLFunc);
 	Builder.SetInsertPoint(LLEntryBlock);
 
-	bool HasVoidRetTy = Func->RetTy->GetKind() == TypeKind::VOID && !Func->IsMainFunc;
-	if (!HasVoidRetTy) {
-		if (Func->IsMainFunc) {
-			LLRetAddr = CreateAlloca(Context.I32Type, "retaddr");
-		} else {
-			LLRetAddr = CreateAlloca(Func->RetTy, "retaddr");
+	if (DIEmitter) {
+		DIEmitter->EmitFunc(Func, Builder);
+	}
+
+	if (Func->NumReturns > 1) {
+		LLFuncEndBB = llvm::BasicBlock::Create(LLContext, "func.end", LLFunc);
+		if (!HasVoidRetTy) {
+			if (Func->IsMainFunc) {
+				LLRetAddr = CreateAlloca(Context.I32Type, "retaddr");
+			} else {
+				LLRetAddr = CreateAlloca(Func->RetTy, "retaddr");
+			}
 		}
-	}	
+	}
 	
 	if (!LLEntryBlock->getInstList().empty()) {
 		AllocaInsertPt = &LLEntryBlock->getInstList().back();
@@ -257,25 +265,39 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		Builder.CreateCall(Context.JuneInitGlobalsFuncs);
 	}
 
-	for (AstNode* Node : Func->Stmts) {
+ 	for (AstNode* Node : Func->Stmts) {
 		GenNode(Node);
 	}
 
-	GenBranchIfNotTerm(LLFuncEndBB);
-	Builder.SetInsertPoint(LLFuncEndBB);
+	if (Func->NumReturns > 1) {
+		GenBranchIfNotTerm(LLFuncEndBB);
+		Builder.SetInsertPoint(LLFuncEndBB);
+	}
 
-	if (HasVoidRetTy) {
-		// TODO: PRetty sure this is not correct needs to make sure it has
-		// not already returned.
-		Builder.CreateRetVoid();
-	} else {
-		if (Func->IsMainFunc &&
-			(Func->Stmts.empty() || Func->Stmts.back()->isNot(AstKind::RETURN))) {
-			// Since main can be declared void it is possible it does not
-			// have a return so storage is nessessary.
-			Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
+	if (Func->NumReturns > 1) {
+		if (HasVoidRetTy) {
+			Builder.CreateRetVoid();
+		} else {
+			if (Func->IsMainFunc &&
+				(Func->Stmts.empty() || Func->Stmts.back()->isNot(AstKind::RETURN))) {
+				// Since main can be declared void it is possible it does not
+				// have a return so storage is nessessary.
+				Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
+			
+			}
+			Builder.CreateRet(CreateLoad(LLRetAddr));
 		}
-		Builder.CreateRet(CreateLoad(LLRetAddr));
+	} else if (Func->NumReturns == 0) {
+		if (HasVoidRetTy) {
+			Builder.CreateRetVoid();
+		} else if (Func->IsMainFunc &&
+				  (Func->Stmts.empty() || Func->Stmts.back()->isNot(AstKind::RETURN))) {
+				Builder.CreateRet(GetLLInt32(0, LLContext));
+		}
+	}
+
+	if (DIEmitter) {
+		DIEmitter->EmitFuncEnd(Func);
 	}
 }
 
@@ -489,12 +511,26 @@ llvm::Value* june::IRGen::GenInnerScope(InnerScopeStmt* InnerScope) {
 }
 
 llvm::Value* june::IRGen::GenReturn(ReturnStmt* Ret) {
+	if (CFunc->NumReturns == 1) {
+		if (Ret->Val) {
+			Builder.CreateRet(GenRValue(Ret->Val));
+		} else if (CFunc->IsMainFunc) {
+			Builder.CreateRet(GetLLInt32(0, LLContext));
+		} else {
+			Builder.CreateRetVoid();
+		}
+		EmitDebugLocation(Ret);
+		return nullptr;
+	}
+
 	if (Ret->Val) {
 		Builder.CreateStore(GenRValue(Ret->Val), LLRetAddr);
 	} else if (CFunc->IsMainFunc) {
 		Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
 	}
+	EmitDebugLocation(Ret); // storage
 	Builder.CreateBr(LLFuncEndBB);
+	EmitDebugLocation(Ret);
 	return nullptr;
 }
 
@@ -1873,7 +1909,9 @@ void june::IRGen::GenDefaultRecordInitCall(RecordDecl* Record, llvm::Value* LLAd
 			GenDefaultValue(Field->Ty, LLFieldAddr);
 		}
 	}
+
 	Builder.CreateRetVoid();
+	
 	LLThis = PrevLLThis;
 
 	if (DisplayLLVMIR) {
@@ -1946,5 +1984,11 @@ llvm::Constant* june::IRGen::GenGlobalConstVal(VarDecl* Global) {
 			// it initialized later
 			return GenZeroedValue(Ty);
 		}
+	}
+}
+
+void june::IRGen::EmitDebugLocation(AstNode* Node) {
+	if (DIEmitter) {
+		DIEmitter->EmitDebugLocation(Builder, Node);
 	}
 }

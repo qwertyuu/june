@@ -12,6 +12,7 @@ namespace llvm {
 	class Function;
 	class Value;
 	class StructType;
+	class DICompileUnit;
 	namespace Intrinsic {
 		typedef unsigned ID;
 	}
@@ -86,6 +87,7 @@ namespace june {
 		FileLocation FL;
 		SourceBuf    SBuf;
 		Logger       Log;
+		llvm::DICompileUnit* DebugUnit = nullptr;
 
 		// When parsing a file record types
 		// cannot be resolved until the file
@@ -167,8 +169,9 @@ namespace june {
 		// will be non-null.
 		RecordDecl* ParentRecord = nullptr;
 
-		bool IsMainFunc = false;
-		
+		bool IsMainFunc         = false;
+		u32 NumReturns = 0;
+
 		// Zero means it is not a LLVMIntrinsic.
 		llvm::Intrinsic::ID LLVMIntrinsicID = 0;
 		llvm::Function* LLAddress = nullptr;

@@ -25,6 +25,8 @@ int main(int argc, char* argv[]) {
 				C.DisplayLLVMIR = true;
 			} else if (Opt == "display.ast") {
 				C.DisplayAST = true;
+			} else if (Opt == "stand.alone") {
+				C.StandAlone = true;
 			} else if (Opt.empty()) {
 				june::Logger::GlobalError(llvm::outs(), "empty option");
 				ErrorFound = true;

@@ -450,6 +450,10 @@ june::ReturnStmt* june::Parser::ParseReturn() {
 	ReturnStmt* Ret = NewNode<ReturnStmt>(CTok);
 	NextToken(); // Consuming 'return'
 
+	if (CFunc) {
+		++CFunc->NumReturns;
+	}
+
 	if (CTok.isNot(';')) {
 		Ret->Val = ParseExpr();
 	}

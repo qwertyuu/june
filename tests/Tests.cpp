@@ -157,7 +157,7 @@ int main() {
 	RunTest(SRC("globals2"), 32 + 154 + 32);
 	RunTest(SRC("globals3"), 22 + 1111 + 34 + 66);
 	RunTest(SRC("globals4"), 154 + 154 + 11 + 11 + 11);
-	//RunTest(SRC("playground"), 0);
+	RunTest(SRC("playground"), 0);
 
 	if (Succeeded + Failed > 0) {
 		llvm::outs() << "Passed/Tested (" << Succeeded << "/" << (Succeeded + Failed) << ")\n";
