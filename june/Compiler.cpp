@@ -53,8 +53,20 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			return;
 		}
 		// TODO: Check permissions?
-		std::string& Path = DirectoryPath.generic_string();
-		CollectDirectoryFiles(DirectoryPath, Path.length() + (Path.back() == '/' ? 0 : 1));
+		
+		if (std::filesystem::is_directory(DirectoryPath)) {
+			std::string& Path = DirectoryPath.generic_string();
+			CollectDirectoryFiles(DirectoryPath, Path.length() + (Path.back() == '/' ? 0 : 1));
+		} else {
+			// The user specified an absolute path to a file.
+			if (DirectoryPath.extension() != ".june") {
+				Logger::GlobalError(llvm::errs(),
+					"Expected source file with extension type .june for file: \"%s\"", SourceDirectory);
+				return;
+			}
+			AddFileUnit(std::string(SourceDirectory),
+				        std::filesystem::absolute(DirectoryPath).generic_string());
+		}
 	}
 
 	if (!StandAlone) {
@@ -260,36 +272,43 @@ void june::Compiler::CollectDirectoryFiles(const std::filesystem::path& Director
 			std::string& path = entry.path().generic_string();
 			if (path.substr(path.find_last_of('.') + 1) == "june") {
 				
-				std::string RelativePath = path.substr(PrimaryPathLen);
-				
-				FileUnit* FU = new FileUnit(llvm::errs(), RelativePath);
-				std::string& PathKey = FU->FL.PathKey;
-				PathKey = RelativePath.substr(0, RelativePath.size() - 5);
-				std::replace(PathKey.begin(), PathKey.end(), '/', '.');
-				FU->FL.FullPath = fs::absolute(entry.path()).generic_string();
+				std::string& RelativePath = path.substr(PrimaryPathLen);
+				std::string& AbsolutePath = fs::absolute(entry.path()).generic_string();
 
-				if (Verbose) {
-					llvm::outs() << "FileUnit Paths: { key=\"" << FU->FL.PathKey << "\"";
-					llvm::outs() << ", full-path=\"" << FU->FL.FullPath << "\"}\n";
-				}
+				AddFileUnit(RelativePath, AbsolutePath);
 
-				if (!StandAlone) {
-					// TODO: make more efficient
-					if (FU->FL.PathKey == "std.lang.String") {
-						Context.StringFU = FU;
-					}
-				}
-
-				if (FilesNeedingParsing.find(FU->FL.PathKey) != FilesNeedingParsing.end()) {
-					// TODO: Need to report an error about conflicting paths.
-				}
-				FilesNeedingParsing.insert({ FU->FL.PathKey, FU });
-				Context.FileUnits.insert({ FU->FL.PathKey, FU });
 			}
 		} else if (entry.is_directory()) {
 			CollectDirectoryFiles(entry.path(), PrimaryPathLen);
 		}
 	}
+}
+
+void june::Compiler::AddFileUnit(std::string& RelativePath, std::string& AbsolutePath) {
+	
+	FileUnit* FU = new FileUnit(llvm::errs(), RelativePath);
+	std::string& PathKey = FU->FL.PathKey;
+	PathKey = std::move(RelativePath.substr(0, RelativePath.size() - 5));
+	std::replace(PathKey.begin(), PathKey.end(), '/', '.');
+	FU->FL.FullPath = std::move(AbsolutePath);
+
+	if (Verbose) {
+		llvm::outs() << "FileUnit Paths: { key=\"" << FU->FL.PathKey << "\"";
+		llvm::outs() << ", full-path=\"" << FU->FL.FullPath << "\" }\n";
+	}
+
+	if (!StandAlone) {
+		// TODO: make more efficient
+		if (FU->FL.PathKey == "std.lang.String") {
+			Context.StringFU = FU;
+		}
+	}
+
+	if (FilesNeedingParsing.find(FU->FL.PathKey) != FilesNeedingParsing.end()) {
+		// TODO: Need to report an error about conflicting paths.
+	}
+	FilesNeedingParsing.insert({ FU->FL.PathKey, FU });
+	Context.FileUnits.insert({ FU->FL.PathKey, FU });
 }
 
 void june::Compiler::ParseNextFiles() {

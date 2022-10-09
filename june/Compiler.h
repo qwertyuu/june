@@ -48,6 +48,7 @@ namespace june {
 		llvm::SmallVector<const c8*, 8> LibarySearchPaths;
 
 		void CollectDirectoryFiles(const std::filesystem::path& DirectoryPath, u64 PrimaryPathLen);
+		void AddFileUnit(std::string& RelativePath, std::string& AbsolutePath);
 
 		void ParseNextFiles();
 
