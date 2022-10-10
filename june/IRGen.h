@@ -12,6 +12,9 @@ namespace june {
 	struct Type;
 	struct FixedArrayType;
 
+	llvm::Type* GenType(JuneContext& Context, Type* Ty);
+	llvm::Type* GenRecordType(JuneContext& Context, RecordDecl* Record);
+
 	class IRGen {
 	public:
 	
@@ -85,10 +88,9 @@ namespace june {
 		
 		llvm::Value* GenAssignment(llvm::Value* LLAddr, Expr* Val);
 
-		void GenBlock(llvm::BasicBlock* LLBB, ScopeStmts& Stmts);
-
+		void GenBlock(llvm::BasicBlock* LLBB, LexScope& Scope);
+		
 		llvm::Type* GenType(Type* Ty);
-		llvm::Type* GenRecordType(RecordDecl* Record);
 		llvm::Value* GenCast(Type* ToType, Type* FromType, llvm::Value* LLVal);
 
 		inline llvm::Value* CreateLoad(llvm::Value* LLAddr, const c8* Name = "");
@@ -121,7 +123,11 @@ namespace june {
 		// the statement is true, so when emitting the body of the loop
 		// it is essential to not branch unconditionally since a conditional
 		// branch was placed right beforehand.
-		void GenBranchIfNotTerm(llvm::BasicBlock* LLBB);
+		void GenBranchIfNotTerm(llvm::BasicBlock* LLBB, LexScope* ScopeBeingEnded = nullptr);
+		// This is needed because it is possible the last block
+		// didn't terminate so the previously block needs to unconditionally
+		// branch before setting the new insert point.
+		void GenSetInsertBlock(llvm::BasicBlock* LLBB, LexScope* ScopeBeingEnded);
 
 		// Make a new global variable based on the given name and type
 		llvm::GlobalVariable* MakeGlobalVar(std::string& Name, llvm::Type* LLTy);

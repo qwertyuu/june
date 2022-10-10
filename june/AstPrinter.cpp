@@ -15,8 +15,8 @@ namespace june {
 
 	void PrintFuncDecl(const JuneContext& Context, const FuncDecl* Func, u32 Depth) {
 		llvm::outs() << "(func| name=\"" << Func->Name << "\")";
-		if (!Func->Stmts.empty()) {
-			for (AstNode* N : Func->Stmts) {
+		if (!Func->Scope.Stmts.empty()) {
+			for (AstNode* N : Func->Scope.Stmts) {
 				llvm::outs() << '\n';
 				PrintNode(Context, N, Depth + 1);
 			}
@@ -66,8 +66,8 @@ namespace june {
 
 	void PrintInnerScope(const JuneContext& Context, const InnerScopeStmt* InnerScope, u32 Depth) {
 		llvm::outs() << "(inner-scope)";
-		if (!InnerScope->Stmts.empty()) {
-			for (AstNode* Stmt : InnerScope->Stmts) {
+		if (!InnerScope->Scope.Stmts.empty()) {
+			for (AstNode* Stmt : InnerScope->Scope.Stmts) {
 				llvm::outs() << '\n';
 				PrintNode(Context, Stmt, Depth + 1);
 			}
@@ -104,11 +104,11 @@ namespace june {
 			llvm::outs() << "inc:\n";
 			PrintNode(Context, Loop->Inc, Depth + 1);
 		}
-		if (!Loop->Stmts.empty()) {
+		if (!Loop->Scope.Stmts.empty()) {
 			llvm::outs() << '\n';
 			PrintIndent(Depth);
 			llvm::outs() << "stmts:";
-			for (AstNode* N : Loop->Stmts) {
+			for (AstNode* N : Loop->Scope.Stmts) {
 				llvm::outs() << '\n';
 				PrintNode(Context, N, Depth + 1);
 			}
@@ -123,11 +123,11 @@ namespace june {
 			llvm::outs() << "cond:\n";
 			PrintNode(Context, Loop->Cond, Depth + 1);
 		}
-		if (!Loop->Stmts.empty()) {
+		if (!Loop->Scope.Stmts.empty()) {
 			llvm::outs() << '\n';
 			PrintIndent(Depth);
 			llvm::outs() << "stmts:";
-			for (AstNode* N : Loop->Stmts) {
+			for (AstNode* N : Loop->Scope.Stmts) {
 				llvm::outs() << '\n';
 				PrintNode(Context, N, Depth + 1);
 			}
@@ -147,11 +147,11 @@ namespace june {
 		PrintIndent(Depth);
 		llvm::outs() << "cond:\n";
 		PrintNode(Context, If->Cond, Depth + 1);
-		if (!If->Stmts.empty()) {
+		if (!If->Scope.Stmts.empty()) {
 			llvm::outs() << '\n';
 			PrintIndent(Depth);
 			llvm::outs() << "body:";
-			for (AstNode* Stmt : If->Stmts) {
+			for (AstNode* Stmt : If->Scope.Stmts) {
 				llvm::outs() << '\n';
 				PrintNode(Context, Stmt, Depth + 1);
 			}

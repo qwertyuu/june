@@ -198,16 +198,16 @@ void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
 	CRecord = Func->ParentRecord;
 
 	Scope FuncScope;
-	CheckScope(Func->Stmts, FuncScope);
+	CheckScope(Func->Scope, FuncScope);
 	if (!FuncScope.AllPathsReturn && Func->RetTy->isNot(Context.VoidType)) {
 		Error(Func, "Function missing return statement");
 	}
 }
 
-void june::Analysis::CheckScope(const ScopeStmts& Stmts, Scope& NewScope) {
+void june::Analysis::CheckScope(const LexScope& LScope, Scope& NewScope) {
 	NewScope.Parent = LocScope;
 	LocScope = &NewScope;
-	for (AstNode* Stmt : Stmts) {
+	for (AstNode* Stmt : LScope.Stmts) {
 		if (LocScope->FoundTerminal) {
 			Error(Stmt, "Unreachable code");
 			break;
@@ -341,7 +341,7 @@ void june::Analysis::CheckNode(AstNode* Node) {
 
 bool june::Analysis::CheckInnerScope(InnerScopeStmt* InnerScope) {
 	Scope NewScope;
-	CheckScope(InnerScope->Stmts, NewScope);
+	CheckScope(InnerScope->Scope, NewScope);
 	return NewScope.AllPathsReturn;
 }
 
@@ -392,7 +392,7 @@ void june::Analysis::CheckRangeLoop(RangeLoopStmt* Loop) {
 	
 	++LoopDepth;
 	Scope NewScope;
-	CheckScope(Loop->Stmts, NewScope);
+	CheckScope(Loop->Scope, NewScope);
 	--LoopDepth;
 }
 
@@ -408,7 +408,7 @@ void june::Analysis::CheckPredicateLoop(PredicateLoopStmt* Loop) {
 	
 	++LoopDepth;
 	Scope NewScope;
-	CheckScope(Loop->Stmts, NewScope);
+	CheckScope(Loop->Scope, NewScope);
 	--LoopDepth;
 }
 
@@ -421,7 +421,7 @@ bool june::Analysis::CheckIf(IfStmt* If) {
 	}
 
 	Scope IfBodyScope;
-	CheckScope(If->Stmts, IfBodyScope);
+	CheckScope(If->Scope, IfBodyScope);
 	bool AllPathsReturn = If->Else && IfBodyScope.AllPathsReturn;
 
 	if (If->Else) {

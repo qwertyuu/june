@@ -3,6 +3,7 @@
 #include "JuneContext.h"
 #include "Ast.h"
 #include "Types.h"
+#include "IRGen.h"
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Support/SHA1.h>
@@ -141,13 +142,21 @@ void june::DebugInfoEmitter::EmitFuncEnd(FuncDecl* Func) {
 	DBuilder->finalizeSubprogram(Func->LLAddress->getSubprogram());
 }
 
+void june::DebugInfoEmitter::EmitScopeStart(FileUnit* FU, SourceLoc Loc) {
+	llvm::DILexicalBlock* DILexBlock = DBuilder->createLexicalBlock(DILexicalScopes.back(),
+		FU->DebugUnit->getFile(), Loc.LineNumber, 0);
+	DILexicalScopes.push_back(DILexBlock);
+}
+
+void june::DebugInfoEmitter::EmitScopeEnd() {
+	DILexicalScopes.pop_back();
+}
+
 void june::DebugInfoEmitter::Finalize() {
 	DBuilder->finalize();
 }
 
 void june::DebugInfoEmitter::EmitDebugLocation(llvm::IRBuilder<>& IRBuilder, AstNode* Stmt) {
-	llvm::DIScope* DIScope = DILexicalScopes.back();
-
 	llvm::Instruction* LLLastInst = &IRBuilder.GetInsertBlock()->back();
 	EmitDebugLocation(LLLastInst, Stmt->Loc);
 }
@@ -184,11 +193,43 @@ llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 	case TypeKind::BOOL: return Context.DITyBool;
 	case TypeKind::F32:  return Context.DITyF32;
 	case TypeKind::F64:  return Context.DITyF64;
+	case TypeKind::FIXED_ARRAY: {
+		FixedArrayType* ArrTy = Ty->AsFixedArrayType();
+		llvm::DIType* DIBaseTy = EmitType(ArrTy->GetBaseType());
+
+		FixedArrayType* ArrTyPtr = ArrTy;
+		bool MoreSubscripts = false;
+		llvm::SmallVector<llvm::Metadata*> DISubscriptSizes;
+		do {
+			auto* DISubscriptLengthValue =
+				llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+					llvm::Type::getInt32Ty(Context.LLContext),
+					ArrTyPtr->Length
+				));
+
+			DISubscriptSizes.push_back(DBuilder->getOrCreateSubrange(0, DISubscriptLengthValue));
+			MoreSubscripts = ArrTyPtr->ElmTy->GetKind() == TypeKind::FIXED_ARRAY;
+			if (MoreSubscripts) {
+				ArrTyPtr = ArrTyPtr->ElmTy->AsFixedArrayType();
+			}
+		} while (MoreSubscripts);
+
+		return DBuilder->createArrayType(
+			ArrTy->GetTotalLinearLength() * Context.LLJuneModule
+												   .getDataLayout()
+												   .getTypeSizeInBits(
+													   GenType(Context, ArrTy->GetBaseType())),
+			0,
+			DIBaseTy,
+			DBuilder->getOrCreateArray(DISubscriptSizes)
+		);
+	}
+
 	case TypeKind::POINTER: {
-		// TODO: Pointer size depends on system
-		u32 PtrSizeInBits = 64;
-		u32 AlignmentInBits = PtrSizeInBits;
-		return DBuilder->createPointerType(EmitType(Ty->AsPointerType()->ElmTy), PtrSizeInBits, AlignmentInBits);
+		u32 PtrSizeInBits = Context.LLJuneModule
+			                       .getDataLayout()
+			                       .getPointerTypeSizeInBits(GenType(Context, Ty));
+		return DBuilder->createPointerType(EmitType(Ty->AsPointerType()->ElmTy), PtrSizeInBits, 0);
 	}
 	case TypeKind::RECORD: {
 		RecordDecl* Record = Ty->AsRecordType()->Record;
@@ -238,7 +279,7 @@ llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 
 llvm::DIType* june::DebugInfoEmitter::EmitMemberFieldType(llvm::DIType* DIScope, VarDecl* Field, u32& BitsOffset) {
 	const llvm::DataLayout& LLDataLayout = Context.LLJuneModule.getDataLayout();
-	u32 SizeInBits = LLDataLayout.getTypeSizeInBits(Field->LLFieldType);
+	u32 SizeInBits = LLDataLayout.getTypeSizeInBits(GenType(Context, Field->Ty));
 	llvm::DIType* DIMemberType = DBuilder->createMemberType(
 		DIScope,
 		Field->Name.Text,

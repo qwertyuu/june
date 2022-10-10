@@ -56,7 +56,7 @@ namespace june {
 		// and decremented when existed
 		u32 LoopDepth = 0;
 
-		void CheckScope(const ScopeStmts& Stmts, Scope& NewScope);
+		void CheckScope(const LexScope& LScope, Scope& NewScope);
 	
 		bool CheckInnerScope(InnerScopeStmt* InnerScope);
 		void CheckReturn(ReturnStmt* Ret);

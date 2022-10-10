@@ -89,6 +89,114 @@ june::IRGen::IRGen(JuneContext& context, DebugInfoEmitter* DIEmitter, bool displ
 	  DisplayLLVMIR(displayLLVMIR) {
 }
 
+
+
+llvm::Type* june::GenType(JuneContext& Context, Type* Ty) {
+	llvm::LLVMContext& LLContext = Context.LLContext;
+	switch (Ty->GetKind()) {
+	case TypeKind::I8:
+	case TypeKind::U8:
+	case TypeKind::C8:
+		return llvm::Type::getInt8Ty(LLContext);
+	case TypeKind::I16:
+	case TypeKind::U16:
+	case TypeKind::C16:
+		return llvm::Type::getInt16Ty(LLContext);
+	case TypeKind::I32:
+	case TypeKind::U32:
+	case TypeKind::C32:
+		return llvm::Type::getInt32Ty(LLContext);
+	case TypeKind::I64:
+	case TypeKind::U64:
+		return llvm::Type::getInt64Ty(LLContext);
+	case TypeKind::F32:
+		return llvm::Type::getFloatTy(LLContext);
+	case TypeKind::F64:
+		return llvm::Type::getDoubleTy(LLContext);
+	case TypeKind::VOID:
+		return llvm::Type::getVoidTy(LLContext);
+	case TypeKind::BOOL:
+		return llvm::Type::getInt1Ty(LLContext);
+	case TypeKind::FIXED_ARRAY: {
+		FixedArrayType* AT = Ty->AsFixedArrayType();
+		return llvm::ArrayType::get(GenType(Context, AT->ElmTy), AT->Length);
+	}
+	case TypeKind::POINTER: {
+		PointerType* PT = Ty->AsPointerType();
+		switch (PT->ElmTy->GetKind()) {
+		case TypeKind::POINTER:
+			return llvm::PointerType::get(GenType(Context, PT->ElmTy), 0);
+		case TypeKind::I8:
+		case TypeKind::U8:
+		case TypeKind::C8:
+		case TypeKind::VOID:
+			return llvm::Type::getInt8PtrTy(LLContext);
+		case TypeKind::I16:
+		case TypeKind::U16:
+		case TypeKind::C16:
+			return llvm::Type::getInt16PtrTy(LLContext);
+		case TypeKind::I32:
+		case TypeKind::U32:
+		case TypeKind::C32:
+			return llvm::Type::getInt32PtrTy(LLContext);
+		case TypeKind::I64:
+		case TypeKind::U64:
+			return llvm::Type::getInt64PtrTy(LLContext);
+		case TypeKind::F32:
+			return llvm::Type::getFloatPtrTy(LLContext);
+		case TypeKind::F64:
+			return llvm::Type::getDoublePtrTy(LLContext);
+		default:
+			return llvm::PointerType::get(GenType(Context, PT->ElmTy), 0);
+		}
+	}
+	case TypeKind::RECORD: {
+		RecordType* RecordTy = Ty->AsRecordType();
+		return GenRecordType(Context, RecordTy->Record);
+	}
+	default:
+		assert(!"Unimplemented GenType() case");
+		return nullptr;
+	}
+}
+
+llvm::Type* june::GenRecordType(JuneContext& Context, RecordDecl* Record) {
+	if (Record->LLStructTy) // Record type already generated.
+		return Record->LLStructTy;
+
+	llvm::StructType* LLStructTy = llvm::StructType::create(Context.LLContext);
+	Record->LLStructTy = LLStructTy; // Set early to prevent endless recursive
+
+	std::vector<llvm::Type*> LLStructFieldTypes;
+	LLStructFieldTypes.resize(Record->Fields.size());
+	if (!Record->Fields.empty()) {
+		for (VarDecl* Field : Record->FieldsByIdxOrder) {
+			LLStructFieldTypes[Field->FieldIdx] = GenType(Context, Field->Ty);
+		}
+	} else {
+		LLStructFieldTypes.push_back(llvm::Type::getInt8Ty(Context.LLContext));
+	}
+		
+	LLStructTy->setBody(LLStructFieldTypes);
+	std::string Name = std::string(Record->Name.Text);
+	Name += ".rjune";
+	LLStructTy->setName(Name);
+		
+	// TODO:!
+	//if (Context.DisplayLLVMIR) {
+	//	LLStructTy->print(llvm::outs());
+	//	const llvm::StructLayout* LLStructLayout = LLModule.getDataLayout().getStructLayout(LLStructTy);
+	//	llvm::Align Alignment = LLStructLayout->getAlignment();
+	//	u64 SizeOfInBytes = LLStructLayout->getSizeInBytes();
+	//	llvm::outs() << " alignment: " << Alignment.value() << ", sizeof: " << SizeOfInBytes;
+	//
+	//	llvm::outs() << "\n\n";
+	//}
+		
+	return LLStructTy;
+}
+
+
 void june::IRGen::GenFunc(FuncDecl* Func) {
 
 	// -- DEBUG
@@ -163,7 +271,7 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	if (Func->ParentRecord) {
 		// Member functions recieve pointers to the record they
 		// are contained inside of.
-		LLParamTypes.push_back(llvm::PointerType::get(GenRecordType(Func->ParentRecord), 0));
+		LLParamTypes.push_back(llvm::PointerType::get(GenRecordType(Context, Func->ParentRecord), 0));
 	}
 
 	for (VarDecl* Param : Func->Params) {
@@ -241,7 +349,7 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	u32 LLParamIndex = 0;
 	if (Func->ParentRecord) {
 		// Member function pointer
-		llvm::Value* LLThisAddr = Builder.CreateAlloca(llvm::PointerType::get(GenRecordType(Func->ParentRecord), 0));
+		llvm::Value* LLThisAddr = Builder.CreateAlloca(llvm::PointerType::get(GenRecordType(Context, Func->ParentRecord), 0));
 		Builder.CreateStore(LLFunc->getArg(LLParamIndex++), LLThisAddr);
 		LLThis = CreateLoad(LLThisAddr, "this");
 	}
@@ -257,7 +365,7 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		if (Func->ParentRecord->FieldsHaveAssignment) {
 			GenDefaultRecordInitCall(Func->ParentRecord, LLThis);
 		} else {
-			llvm::Type* LLRecType = GenRecordType(Func->ParentRecord);
+			llvm::Type* LLRecType = GenRecordType(Context, Func->ParentRecord);
 			Builder.CreateStore(llvm::ConstantAggregateZero::get(LLRecType), LLThis);
 		}
 	}
@@ -267,7 +375,8 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		Builder.CreateCall(Context.JuneInitGlobalsFuncs);
 	}
 
- 	for (AstNode* Node : Func->Stmts) {
+	ScopeStmts& Stmts = Func->Scope.Stmts;
+ 	for (AstNode* Node : Stmts) {
 		GenNode(Node);
 	}
 
@@ -280,30 +389,30 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		if (HasVoidRetTy) {
 			llvm::Instruction* LLRet = Builder.CreateRetVoid();
 			if (DIEmitter)
-				DIEmitter->EmitDebugLocation(LLRet, Func->StmtsEndLoc);
+				DIEmitter->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
 		} else {
 			if (Func->IsMainFunc &&
-				(Func->Stmts.empty() || Func->Stmts.back()->isNot(AstKind::RETURN))) {
+				(Stmts.empty() || Stmts.back()->isNot(AstKind::RETURN))) {
 				// Since main can be declared void it is possible it does not
 				// have a return so storage is nessessary.
 				llvm::Instruction* LLRetStore = Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
 				if (DIEmitter)
-					DIEmitter->EmitDebugLocation(LLRetStore, Func->StmtsEndLoc);
+					DIEmitter->EmitDebugLocation(LLRetStore, Func->Scope.EndLoc);
 			}
 			llvm::Instruction* LLRet = Builder.CreateRet(CreateLoad(LLRetAddr));
 			if (DIEmitter)
-				DIEmitter->EmitDebugLocation(LLRet, Func->StmtsEndLoc);
+				DIEmitter->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
 		}
 	} else if (Func->NumReturns == 0) {
 		if (HasVoidRetTy) {
 			llvm::Instruction* LLRet = Builder.CreateRetVoid();
 			if (DIEmitter)
-				DIEmitter->EmitDebugLocation(LLRet, Func->StmtsEndLoc);
+				DIEmitter->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
 		} else if (Func->IsMainFunc &&
-				  (Func->Stmts.empty() || Func->Stmts.back()->isNot(AstKind::RETURN))) {
+				  (Stmts.empty() || Stmts.back()->isNot(AstKind::RETURN))) {
 			llvm::Instruction* LLRet = Builder.CreateRet(GetLLInt32(0, LLContext));
 			if (DIEmitter)
-				DIEmitter->EmitDebugLocation(LLRet, Func->StmtsEndLoc);
+				DIEmitter->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
 		}
 	}
 
@@ -517,9 +626,11 @@ llvm::Value* june::IRGen::GenRValue(AstNode* Node) {
 }
 
 llvm::Value* june::IRGen::GenInnerScope(InnerScopeStmt* InnerScope) {
-	for (AstNode* Stmt : InnerScope->Stmts) {
-		GenNode(Stmt);
-	}
+	if (DIEmitter)
+		DIEmitter->EmitScopeStart(CFunc->FU, InnerScope->Scope.StartLoc);
+	GenBlock(nullptr, InnerScope->Scope);
+	if (DIEmitter)
+		DIEmitter->EmitScopeEnd();
 	return nullptr;
 }
 
@@ -565,15 +676,19 @@ llvm::Value* june::IRGen::GenRangeLoop(RangeLoopStmt* Loop) {
 
 	// Generating the condition block
 	GenLoopCondJump(LLCondBB, LLBodyBB, LLEndBB, Loop->Cond);
+	EmitDebugLocation(Loop);
 
 	// Generating the body of the loop
-	GenBlock(LLBodyBB, Loop->Stmts);
+	if (DIEmitter)
+		DIEmitter->EmitScopeStart(CFunc->FU, Loop->Scope.StartLoc);
+
+	GenBlock(LLBodyBB, Loop->Scope);
 	LoopBreakStack.pop_back();
 	LoopContinueStack.pop_back();
 
 	// Unconditionally branch back to the condition or inc. block
 	// to restart the loop.
-	GenBranchIfNotTerm(LLContinueBB);
+	GenBranchIfNotTerm(LLContinueBB, &Loop->Scope);
 	
 	// Creating the code for the inc. block if needed
 	if (LLIncBB) {
@@ -584,10 +699,14 @@ llvm::Value* june::IRGen::GenRangeLoop(RangeLoopStmt* Loop) {
 
 		// Jumping directly into the loop condition
 		Builder.CreateBr(LLCondBB); // No need to check for terminal since expressions cannot jump.
+		EmitDebugLocation(Loop->Inc);
 	}
 
 	// Finally continuing forward into a new block after the loop
-	Builder.SetInsertPoint(LLEndBB);
+	GenSetInsertBlock(LLEndBB, &Loop->Scope);
+
+	if (DIEmitter)
+		DIEmitter->EmitScopeEnd();
 
 	return nullptr;
 }
@@ -602,17 +721,24 @@ llvm::Value* june::IRGen::GenPredicateLoop(PredicateLoopStmt* Loop) {
 
 	// Generating the condition block
 	GenLoopCondJump(LLCondBB, LLBodyBB, LLEndBB, Loop->Cond);
+	EmitDebugLocation(Loop);
 
 	// Generating the body of the loop
-	GenBlock(LLBodyBB, Loop->Stmts);
+	if (DIEmitter)
+		DIEmitter->EmitScopeStart(CFunc->FU, Loop->Scope.StartLoc);
+
+	GenBlock(LLBodyBB, Loop->Scope);
 	LoopBreakStack.pop_back();
 	LoopContinueStack.pop_back();
 
 	// Unconditionally branch back to the condition block
-	GenBranchIfNotTerm(LLCondBB);
+	GenBranchIfNotTerm(LLCondBB, &Loop->Scope);
 
 	// Finally continuing forward into a new block after the loop
-	Builder.SetInsertPoint(LLEndBB);
+	GenSetInsertBlock(LLEndBB, &Loop->Scope);
+
+	if (DIEmitter)
+		DIEmitter->EmitScopeEnd();
 
 	return nullptr;
 }
@@ -642,19 +768,28 @@ llvm::Value* june::IRGen::GenIf(IfStmt* If) {
 	}
 
 	GenBranchOnCond(If->Cond, LLThenBB, LLElseBB);
-	
-	GenBlock(LLThenBB, If->Stmts);
-	GenBranchIfNotTerm(LLEndBB);
+	EmitDebugLocation(If);
+
+	if (DIEmitter)
+		DIEmitter->EmitScopeStart(CFunc->FU, If->Scope.StartLoc);
+	GenBlock(LLThenBB, If->Scope);
+	GenBranchIfNotTerm(LLEndBB, &If->Scope);
+	if (DIEmitter)
+		DIEmitter->EmitScopeEnd();
 
 	// Generating the else statement if it exist
 	if (AstNode* Else = If->Else) {
 		Builder.SetInsertPoint(LLElseBB);
 		GenNode(Else);
-		GenBranchIfNotTerm(LLEndBB);
+		if (Else->is(AstKind::INNER_SCOPE)) {
+			GenSetInsertBlock(LLEndBB, &ocast<InnerScopeStmt*>(Else)->Scope);
+		} else {
+			GenSetInsertBlock(LLEndBB, &ocast<IfStmt*>(Else)->Scope);
+		}
+	} else {
+		// Finally continuing forward into a new block after the if
+		GenSetInsertBlock(LLEndBB, &If->Scope);
 	}
-
-	// Finally continuing forward into a new block after the if
-	Builder.SetInsertPoint(LLEndBB);
 
 	return nullptr;
 }
@@ -667,6 +802,7 @@ llvm::Value* june::IRGen::GenLoopControl(LoopControlStmt* LoopControl) {
 		llvm::BasicBlock* LoopRestart = LoopContinueStack[LoopControl->LoopCount - 1];
 		Builder.CreateBr(LoopRestart);
 	}
+	EmitDebugLocation(LoopControl);
 	return nullptr;
 }
 
@@ -1285,6 +1421,11 @@ llvm::Value* june::IRGen::GenArray(Array* Arr, llvm::Value* LLArrAddr) {
 		//    the global array so that it can be pointed to.
 		// 2. Otherwise create a local array on the heap and
 		//    return the address of that to be pointed to.
+
+		// TODO: Pretty sure this logic is actually broken since the
+		// global array generated and then pointed to every single time
+		// would be the same global array. This Pointing to a global array
+		// should really only be done when the destination pointer is a contant.
 		if (Arr->IsFoldable) {
 			return MakeGlobalFixedArray(GenType(DestTy), GenConstArrayForFixedArray(Arr, DestTy));
 		} else {
@@ -1446,118 +1587,18 @@ llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 	return LLAddr;
 }
 
-void june::IRGen::GenBlock(llvm::BasicBlock* LLBB, ScopeStmts& Stmts) {
+void june::IRGen::GenBlock(llvm::BasicBlock* LLBB, LexScope& Scope) {
 	if (LLBB) {
 		GenBranchIfNotTerm(LLBB);
 		Builder.SetInsertPoint(LLBB);
 	}
-	for (AstNode* Stmt : Stmts) {
+	for (AstNode* Stmt : Scope.Stmts) {
 		GenNode(Stmt);
 	}
 }
 
 llvm::Type* june::IRGen::GenType(Type* Ty) {
-	switch (Ty->GetKind()) {
-	case TypeKind::I8:
-	case TypeKind::U8:
-	case TypeKind::C8:
-		return llvm::Type::getInt8Ty(LLContext);
-	case TypeKind::I16:
-	case TypeKind::U16:
-	case TypeKind::C16:
-		return llvm::Type::getInt16Ty(LLContext);
-	case TypeKind::I32:
-	case TypeKind::U32:
-	case TypeKind::C32:
-		return llvm::Type::getInt32Ty(LLContext);
-	case TypeKind::I64:
-	case TypeKind::U64:
-		return llvm::Type::getInt64Ty(LLContext);
-	case TypeKind::F32:
-		return llvm::Type::getFloatTy(LLContext);
-	case TypeKind::F64:
-		return llvm::Type::getDoubleTy(LLContext);
-	case TypeKind::VOID:
-		return llvm::Type::getVoidTy(LLContext);
-	case TypeKind::BOOL:
-		return llvm::Type::getInt1Ty(LLContext);
-	case TypeKind::FIXED_ARRAY: {
-		FixedArrayType* AT = Ty->AsFixedArrayType();
-		return llvm::ArrayType::get(GenType(AT->ElmTy), AT->Length);
-	}
-	case TypeKind::POINTER: {
-		PointerType* PT = Ty->AsPointerType();
-		switch (PT->ElmTy->GetKind()) {
-		case TypeKind::POINTER:
-			return llvm::PointerType::get(GenType(PT->ElmTy), 0);
-		case TypeKind::I8:
-		case TypeKind::U8:
-		case TypeKind::C8:
-		case TypeKind::VOID:
-			return llvm::Type::getInt8PtrTy(LLContext);
-		case TypeKind::I16:
-		case TypeKind::U16:
-		case TypeKind::C16:
-			return llvm::Type::getInt16PtrTy(LLContext);
-		case TypeKind::I32:
-		case TypeKind::U32:
-		case TypeKind::C32:
-			return llvm::Type::getInt32PtrTy(LLContext);
-		case TypeKind::I64:
-		case TypeKind::U64:
-			return llvm::Type::getInt64PtrTy(LLContext);
-		case TypeKind::F32:
-			return llvm::Type::getFloatPtrTy(LLContext);
-		case TypeKind::F64:
-			return llvm::Type::getDoublePtrTy(LLContext);
-		default:
-			return llvm::PointerType::get(GenType(PT->ElmTy), 0);
-		}
-	}
-	case TypeKind::RECORD: {
-		RecordType* RecordTy = Ty->AsRecordType();
-		return GenRecordType(RecordTy->Record);
-	}
-	default:
-		assert(!"Unimplemented GenType() case");
-		return nullptr;
-	}
-}
-
-llvm::Type* june::IRGen::GenRecordType(RecordDecl* Record) {
-	if (Record->LLStructTy) // Record type already generated.
-		return Record->LLStructTy;
-
-	llvm::StructType* LLStructTy = llvm::StructType::create(LLContext);
-	Record->LLStructTy = LLStructTy; // Set early to prevent endless recursive
-
-	std::vector<llvm::Type*> LLStructFieldTypes;
-	LLStructFieldTypes.resize(Record->Fields.size());
-	if (!Record->Fields.empty()) {
-		for (VarDecl* Field : Record->FieldsByIdxOrder) {
-			Field->LLFieldType = GenType(Field->Ty);
-			LLStructFieldTypes[Field->FieldIdx] = Field->LLFieldType;
-		}
-	} else {
-		LLStructFieldTypes.push_back(llvm::Type::getInt8Ty(LLContext));
-	}
-		
-	LLStructTy->setBody(LLStructFieldTypes);
-	std::string Name = std::string(Record->Name.Text);
-	Name += ".rjune";
-	LLStructTy->setName(Name);
-		
-	if (DisplayLLVMIR) {
-		LLStructTy->print(llvm::outs());
-		const llvm::StructLayout* LLStructLayout = LLModule.getDataLayout().getStructLayout(LLStructTy);
-		llvm::Align Alignment = LLStructLayout->getAlignment();
-		u64 SizeOfInBytes = LLStructLayout->getSizeInBytes();
-		llvm::outs() << " alignment: " << Alignment.value() << ", sizeof: " << SizeOfInBytes;
-
-		llvm::outs() << "\n\n";
-	}
-		
-	return LLStructTy;
+	return june::GenType(Context, Ty);
 }
 
 llvm::Value* june::IRGen::GenCast(Type* ToType, Type* FromType, llvm::Value* LLVal) {
@@ -1747,13 +1788,22 @@ llvm::Constant* june::IRGen::GenZeroedValue(Type* Ty) {
 	}
 }
 
-void june::IRGen::GenBranchIfNotTerm(llvm::BasicBlock* LLBB) {
+void june::IRGen::GenBranchIfNotTerm(llvm::BasicBlock* LLBB, LexScope* ScopeBeingEnded) {
 	// Avoiding back-to-back branching
 	llvm::BasicBlock* CurBB = Builder.GetInsertBlock();
 	if (!CurBB->getTerminator()) {
 		// Unconditionally branch
-		Builder.CreateBr(LLBB);
+		llvm::Instruction* LLInst = Builder.CreateBr(LLBB);
+		if (DIEmitter) {
+			if (ScopeBeingEnded)
+				DIEmitter->EmitDebugLocation(LLInst, ScopeBeingEnded->EndLoc);
+		}
 	}
+}
+
+void june::IRGen::GenSetInsertBlock(llvm::BasicBlock* LLBB, LexScope* ScopeBeingEnded) {
+	GenBranchIfNotTerm(LLBB, ScopeBeingEnded);
+	Builder.SetInsertPoint(LLBB);
 }
 
 llvm::GlobalVariable* june::IRGen::MakeGlobalVar(std::string& Name, llvm::Type* LLTy) {
@@ -1867,7 +1917,9 @@ void june::IRGen::GenBranchOnCond(Expr* Cond, llvm::BasicBlock* LLTrueBB, llvm::
 		}
 	}
 
-	Builder.CreateCondBr(GenCond(Cond), LLTrueBB, LLFalseBB);
+	llvm::Value* LLCond = GenCond(Cond);
+	EmitDebugLocation(Cond);
+	Builder.CreateCondBr(LLCond, LLTrueBB, LLFalseBB);
 }
 
 llvm::Value* june::IRGen::GenCond(Expr* Cond) {
@@ -2011,3 +2063,4 @@ void june::IRGen::EmitDebugLocation(AstNode* Node) {
 		DIEmitter->EmitDebugLocation(Builder, Node);
 	}
 }
+

@@ -59,7 +59,7 @@ namespace june {
 
 		void ParseImport();
 
-		void ParseScopeStmts(ScopeStmts& Stmts);
+		void ParseScopeStmts(LexScope& Scope);
 
 		AstNode* ParseStmt();
 

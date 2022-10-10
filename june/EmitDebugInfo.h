@@ -25,6 +25,9 @@ namespace june {
 
 		void EmitFuncEnd(FuncDecl* Func);
 
+		void EmitScopeStart(FileUnit* FU, SourceLoc Loc);
+		void EmitScopeEnd();
+
 		void Finalize();
 
 		void EmitDebugLocation(llvm::IRBuilder<>& IRBuilder, AstNode* Stmt);

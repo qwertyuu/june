@@ -144,11 +144,13 @@ void june::Parser::ParseImport() {
 	}
 }
 
-void june::Parser::ParseScopeStmts(ScopeStmts& Stmts) {
+void june::Parser::ParseScopeStmts(LexScope& Scope) {
+	Scope.StartLoc = CTok.Loc;
 	Match('{');
 	while (CTok.isNot('}') && CTok.isNot(TokenKind::TK_EOF)) {
-		Stmts.push_back(ParseStmt());
+		Scope.Stmts.push_back(ParseStmt());
 	}
+	Scope.EndLoc = CTok.Loc;
 	Match('}');
 }
 
@@ -261,8 +263,7 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 	}
 
 	if (!(Func->Mods & mods::NATIVE)) {
-		ParseScopeStmts(Func->Stmts);
-		Func->StmtsEndLoc = PrevToken.Loc;
+		ParseScopeStmts(Func->Scope);
 	} else {
 		Match(';');
 	}
@@ -441,7 +442,7 @@ june::mods::Mod june::Parser::ParseModifiers() {
 june::InnerScopeStmt* june::Parser::ParseInnerScope() {
 	InnerScopeStmt* InnerScope = NewNode<InnerScopeStmt>(CTok);
 	PUSH_SCOPE();
-	ParseScopeStmts(InnerScope->Stmts);
+	ParseScopeStmts(InnerScope->Scope);
 	POP_SCOPE();
 	return InnerScope;
 }
@@ -506,7 +507,7 @@ june::RangeLoopStmt* june::Parser::ParseRangeLoop(Token LoopTok) {
 	}
 
 	PUSH_SCOPE();
-	ParseScopeStmts(Loop->Stmts);
+	ParseScopeStmts(Loop->Scope);
 	POP_SCOPE();
 
 	return Loop;
@@ -520,7 +521,7 @@ june::PredicateLoopStmt* june::Parser::ParsePredicateLoop(Token LoopTok) {
 	}
 
 	PUSH_SCOPE();
-	ParseScopeStmts(Loop->Stmts);
+	ParseScopeStmts(Loop->Scope);
 	POP_SCOPE();
 
 	return Loop;
@@ -534,7 +535,7 @@ june::IfStmt* june::Parser::ParseIf() {
 	//       declarations inside of if statements
 	If->Cond = ParseExpr();
 
-	ParseScopeStmts(If->Stmts);
+	ParseScopeStmts(If->Scope);
 
 	if (CTok.is(TokenKind::KW_ELSE)) {
 		NextToken(); // Consuming 'else' token
