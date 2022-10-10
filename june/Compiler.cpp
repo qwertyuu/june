@@ -29,7 +29,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 
 	u64 ParseTimeBegin = GetTimeInMilliseconds();
 
-	Context.Init();
+	Context.Init(EmitDebugInfo);
 	Context.CompileAsStandAlone = StandAlone;
 
 	if (!StandAlone) {

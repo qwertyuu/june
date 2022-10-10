@@ -247,6 +247,8 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	}
 	
 	for (VarDecl* Param : Func->Params) {
+		if (DIEmitter)
+			DIEmitter->EmitParam(Func, Param, Builder);
 		Builder.CreateStore(LLFunc->getArg(LLParamIndex++), Param->LLAddress);
 	}
 
@@ -276,23 +278,32 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 
 	if (Func->NumReturns > 1) {
 		if (HasVoidRetTy) {
-			Builder.CreateRetVoid();
+			llvm::Instruction* LLRet = Builder.CreateRetVoid();
+			if (DIEmitter)
+				DIEmitter->EmitDebugLocation(LLRet, Func->StmtsEndLoc);
 		} else {
 			if (Func->IsMainFunc &&
 				(Func->Stmts.empty() || Func->Stmts.back()->isNot(AstKind::RETURN))) {
 				// Since main can be declared void it is possible it does not
 				// have a return so storage is nessessary.
-				Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
-			
+				llvm::Instruction* LLRetStore = Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
+				if (DIEmitter)
+					DIEmitter->EmitDebugLocation(LLRetStore, Func->StmtsEndLoc);
 			}
-			Builder.CreateRet(CreateLoad(LLRetAddr));
+			llvm::Instruction* LLRet = Builder.CreateRet(CreateLoad(LLRetAddr));
+			if (DIEmitter)
+				DIEmitter->EmitDebugLocation(LLRet, Func->StmtsEndLoc);
 		}
 	} else if (Func->NumReturns == 0) {
 		if (HasVoidRetTy) {
-			Builder.CreateRetVoid();
+			llvm::Instruction* LLRet = Builder.CreateRetVoid();
+			if (DIEmitter)
+				DIEmitter->EmitDebugLocation(LLRet, Func->StmtsEndLoc);
 		} else if (Func->IsMainFunc &&
 				  (Func->Stmts.empty() || Func->Stmts.back()->isNot(AstKind::RETURN))) {
-				Builder.CreateRet(GetLLInt32(0, LLContext));
+			llvm::Instruction* LLRet = Builder.CreateRet(GetLLInt32(0, LLContext));
+			if (DIEmitter)
+				DIEmitter->EmitDebugLocation(LLRet, Func->StmtsEndLoc);
 		}
 	}
 
@@ -312,6 +323,8 @@ void june::IRGen::GenGlobalVarDecl(VarDecl* Global) {
 
 llvm::Value* june::IRGen::GenLocalVarDecl(VarDecl* Var) {
 	assert(Var->LLAddress && "The address should have been generated at the start of the function!");
+	if (DIEmitter)
+		DIEmitter->EmitLocalVar(Var, Builder);
 	return GenVarDecl(GetAddressOfVar(Var), Var);
 }
 
@@ -1404,6 +1417,7 @@ llvm::Value* june::IRGen::GenHeapAllocType(HeapAllocType* HeapAlloc) {
 }
 
 llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
+	llvm::Value* LLRValToStore = nullptr;
 	if (Val->Kind == AstKind::ARRAY) {
 		llvm::Value* LLArr = GenArray(ocast<Array*>(Val), LLAddr);
 		if (Val->CastTy) {
@@ -1412,7 +1426,7 @@ llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 			llvm::Value* LLRVal = GenCast(Val->CastTy, Val->Ty, LLArr);
 			if (Val->CastTy->GetKind() == TypeKind::POINTER) {
 				// Storing the array address into the pointer.
-				Builder.CreateStore(LLRVal, LLAddr);
+				LLRValToStore = LLRVal;
 			}
 		}
 	} else if (Val->Kind == AstKind::FUNC_CALL) {
@@ -1420,10 +1434,14 @@ llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 		if (Call->IsConstructorCall) {
 			GenFuncCall(LLAddr, Call);
 		} else {
-			Builder.CreateStore(GenRValue(Val), LLAddr);
+			LLRValToStore = GenRValue(Val);
 		}
 	} else {
-		Builder.CreateStore(GenRValue(Val), LLAddr);
+		LLRValToStore = GenRValue(Val);
+	}
+	if (LLRValToStore) {
+		Builder.CreateStore(LLRValToStore, LLAddr);
+		EmitDebugLocation(Val);
 	}
 	return LLAddr;
 }
@@ -1517,7 +1535,8 @@ llvm::Type* june::IRGen::GenRecordType(RecordDecl* Record) {
 	LLStructFieldTypes.resize(Record->Fields.size());
 	if (!Record->Fields.empty()) {
 		for (VarDecl* Field : Record->FieldsByIdxOrder) {
-			LLStructFieldTypes[Field->FieldIdx] = GenType(Field->Ty);
+			Field->LLFieldType = GenType(Field->Ty);
+			LLStructFieldTypes[Field->FieldIdx] = Field->LLFieldType;
 		}
 	} else {
 		LLStructFieldTypes.push_back(llvm::Type::getInt8Ty(LLContext));
@@ -1530,10 +1549,10 @@ llvm::Type* june::IRGen::GenRecordType(RecordDecl* Record) {
 		
 	if (DisplayLLVMIR) {
 		LLStructTy->print(llvm::outs());
-		const llvm::StructLayout* struct_layout = LLModule.getDataLayout().getStructLayout(LLStructTy);
-		llvm::Align alignment = struct_layout->getAlignment();
-		u64 sizeof_in_bytes = struct_layout->getSizeInBytes();
-		llvm::outs() << " alignment: " << alignment.value() << ", sizeof: " << sizeof_in_bytes;
+		const llvm::StructLayout* LLStructLayout = LLModule.getDataLayout().getStructLayout(LLStructTy);
+		llvm::Align Alignment = LLStructLayout->getAlignment();
+		u64 SizeOfInBytes = LLStructLayout->getSizeInBytes();
+		llvm::outs() << " alignment: " << Alignment.value() << ", sizeof: " << SizeOfInBytes;
 
 		llvm::outs() << "\n\n";
 	}

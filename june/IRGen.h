@@ -27,7 +27,7 @@ namespace june {
 
 	private:
 		JuneContext&       Context;
-		DebugInfoEmitter*      DIEmitter;
+		DebugInfoEmitter*  DIEmitter;
 		llvm::LLVMContext& LLContext;
 		llvm::Module&      LLModule;
 		llvm::IRBuilder<>  Builder;

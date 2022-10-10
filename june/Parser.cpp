@@ -262,6 +262,7 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 
 	if (!(Func->Mods & mods::NATIVE)) {
 		ParseScopeStmts(Func->Stmts);
+		Func->StmtsEndLoc = PrevToken.Loc;
 	} else {
 		Match(';');
 	}

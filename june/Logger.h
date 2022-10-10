@@ -18,6 +18,7 @@ namespace june {
 	class Logger {
 	public:
 		bool HasError = false;
+		u32  NumErrors = 0;
 
 		Logger(const SourceBuf& buf, llvm::raw_ostream& os, const std::string& filePath);
 

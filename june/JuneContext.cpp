@@ -2,6 +2,7 @@
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/DIBuilder.h>
 
 #include "Types.h"
 #include "Tokens.h"
@@ -126,7 +127,7 @@ june::JuneContext::~JuneContext() {
 	delete &LLContext;
 }
 
-void june::JuneContext::Init() {
+void june::JuneContext::Init(bool EmitDebugInfo) {
 	
 	TokenKeywordMap.insert({ "i8"    , TokenKind::KW_TYPE_I8   });
 	TokenKeywordMap.insert({ "i16"   , TokenKind::KW_TYPE_I16  });
@@ -168,7 +169,8 @@ void june::JuneContext::Init() {
 	auto CreatePointersForCache = [&](Type* BaseTy) {
 		Type* ItrElmTy = BaseTy;
 		for (u32 i = 0; i <= 3; i++) {
-			PointerType* PtrTy = PointerType::QuickCreate(ItrElmTy);
+			PointerType* PtrTy = new PointerType;
+			PtrTy->ElmTy = ItrElmTy;
 			StandardPointerCache.insert({ ItrElmTy, PtrTy });
 			ItrElmTy = PtrTy;
 		}
@@ -185,8 +187,25 @@ void june::JuneContext::Init() {
 	CreatePointersForCache(F64Type);
 	CreatePointersForCache(VoidType);
 
-	VoidPtrType = PointerType::Create(VoidType, *this);
+	VoidPtrType = StandardPointerCache[VoidType];
 
+	if (EmitDebugInfo) {
+		llvm::DIBuilder DBuilder = llvm::DIBuilder(LLJuneModule);
+		DITyI8   = DBuilder.createBasicType("i8" , 8 , llvm::dwarf::DW_ATE_signed);
+		DITyI16  = DBuilder.createBasicType("i16", 16, llvm::dwarf::DW_ATE_signed);
+		DITyI32  = DBuilder.createBasicType("i32", 32, llvm::dwarf::DW_ATE_signed);
+		DITyI64  = DBuilder.createBasicType("i64", 64, llvm::dwarf::DW_ATE_signed);
+		DITyU8   = DBuilder.createBasicType("u8" , 8 , llvm::dwarf::DW_ATE_unsigned);
+		DITyU16  = DBuilder.createBasicType("u16", 16, llvm::dwarf::DW_ATE_unsigned);
+		DITyU32  = DBuilder.createBasicType("u32", 32, llvm::dwarf::DW_ATE_unsigned);
+		DITyU64  = DBuilder.createBasicType("u64", 64, llvm::dwarf::DW_ATE_unsigned);
+		DITyC8   = DBuilder.createBasicType("c8", 8, llvm::dwarf::DW_ATE_signed_char);
+		DITyC16  = DBuilder.createBasicType("c16", 16, llvm::dwarf::DW_ATE_signed);
+		DITyC32  = DBuilder.createBasicType("c32", 32, llvm::dwarf::DW_ATE_signed);
+		DITyBool = DBuilder.createBasicType("bool", 8, llvm::dwarf::DW_ATE_boolean);
+		DITyF32  = DBuilder.createBasicType("f32" , 32, llvm::dwarf::DW_ATE_float);
+		DITyF64  = DBuilder.createBasicType("f64" , 64, llvm::dwarf::DW_ATE_float);
+	}
 }
 
 u16 june::JuneContext::GetKeywordKind(llvm::StringRef Text) const {

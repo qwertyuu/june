@@ -1,10 +1,10 @@
+
+Data :: record {
+	a :i32;
+	b :i32;
+}
+
 main() {
-
-	a :i32 = 34;
-	
-	if a > 3 {
-		return;
-	}
-
-	return;
+	a :Data = Data(1, 4);
+	b :Data = Data(6, 22);
 }

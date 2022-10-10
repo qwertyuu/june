@@ -19,7 +19,7 @@ void june::DebugInfoEmitter::EmitCompilationUnit(FileUnit* FU) {
 	if (!Directory.empty()) {
 		Directory = Directory.substr(0, Directory.size() - 1);
 	}
-	
+
 	// TODO: Checksums can be used as a way to verify that the source
 	//       code is the same as executable's debug info for that source
 	//       code. Also, this should be able to be disabled as checksums
@@ -60,7 +60,12 @@ void june::DebugInfoEmitter::EmitFunc(FuncDecl* Func, llvm::IRBuilder<>& IRBuild
 	llvm::DIScope* Scope = Func->FU->DebugUnit->getFile();
 
 	llvm::SmallVector<llvm::Metadata*, 4> DIFuncTys;
-	DIFuncTys.push_back(GenType(Context.I32Type));
+	llvm::Metadata* DIRetTy = Func->IsMainFunc ? EmitType(Context.I32Type)
+		                                       : EmitType(Func->RetTy);
+	DIFuncTys.push_back(DIRetTy);
+	for (VarDecl* Param : Func->Params) {
+		DIFuncTys.push_back(EmitType(Param->Ty));
+	}
 
 	llvm::DISubroutineType* DIType =
 		DBuilder->createSubroutineType(DBuilder->getOrCreateTypeArray(DIFuncTys));
@@ -68,7 +73,7 @@ void june::DebugInfoEmitter::EmitFunc(FuncDecl* Func, llvm::IRBuilder<>& IRBuild
 	llvm::DISubprogram* SP = DBuilder->createFunction(
 		Scope,
 		Func->Name.Text, 
-		"", // linkage name
+		Func->LLAddress->getName(), // linkage name
 		Func->FU->DebugUnit->getFile(),
 		Func->Loc.LineNumber,
 		DIType,
@@ -84,6 +89,53 @@ void june::DebugInfoEmitter::EmitFunc(FuncDecl* Func, llvm::IRBuilder<>& IRBuild
 
 }
 
+void june::DebugInfoEmitter::EmitParam(FuncDecl* Func, VarDecl* Var, llvm::IRBuilder<>& IRBuilder) {
+	llvm::DIScope* DIScope = Func->LLAddress->getSubprogram();
+	
+	llvm::DILocalVariable* DIVar =
+		DBuilder->createParameterVariable(
+			DIScope,
+			Var->Name.Text,
+			Var->ParamIdx + 1,
+			Func->FU->DebugUnit->getFile(),
+			Var->Loc.LineNumber,
+			EmitType(Var->Ty),
+			true
+		);
+
+	DBuilder->insertDeclare(
+		Var->LLAddress,
+		DIVar,
+		DBuilder->createExpression(),
+		llvm::DILocation::get(Context.LLContext, Var->Loc.LineNumber, 0, DIScope),
+		IRBuilder.GetInsertBlock());
+}
+
+void june::DebugInfoEmitter::EmitLocalVar(VarDecl* Var, llvm::IRBuilder<>& IRBuilder) {
+	llvm::DIScope* DIScope = DILexicalScopes.back();
+	
+	llvm::DILocalVariable* DIVar =
+		DBuilder->createAutoVariable(
+			DIScope,
+			Var->Name.Text,
+			Var->FU->DebugUnit->getFile(),
+			Var->Loc.LineNumber,
+			EmitType(Var->Ty),
+			true
+		);
+
+	DBuilder->insertDeclare(
+		Var->LLAddress,
+		DIVar,
+		DBuilder->createExpression(),
+		llvm::DILocation::get(Context.LLContext, Var->Loc.LineNumber, 0, DIScope),
+		IRBuilder.GetInsertBlock());
+}
+
+void june::DebugInfoEmitter::EmitField(RecordDecl* Record, VarDecl* Field, llvm::IRBuilder<>& IRBuilder)
+{
+}
+
 void june::DebugInfoEmitter::EmitFuncEnd(FuncDecl* Func) {
 	DILexicalScopes.clear();
 	DBuilder->finalizeSubprogram(Func->LLAddress->getSubprogram());
@@ -94,11 +146,16 @@ void june::DebugInfoEmitter::Finalize() {
 }
 
 void june::DebugInfoEmitter::EmitDebugLocation(llvm::IRBuilder<>& IRBuilder, AstNode* Stmt) {
-	llvm::DIScope* Scope = DILexicalScopes.back();
+	llvm::DIScope* DIScope = DILexicalScopes.back();
 
-	llvm::Instruction* LastInst = &IRBuilder.GetInsertBlock()->back();
-	LastInst->setDebugLoc(llvm::DILocation::get(
-		Context.LLContext, Stmt->Loc.LineNumber, 0, Scope));
+	llvm::Instruction* LLLastInst = &IRBuilder.GetInsertBlock()->back();
+	EmitDebugLocation(LLLastInst, Stmt->Loc);
+}
+
+void june::DebugInfoEmitter::EmitDebugLocation(llvm::Instruction* LLInst, SourceLoc Loc) {
+	llvm::DIScope* DIScope = DILexicalScopes.back();
+	LLInst->setDebugLoc(llvm::DILocation::get(
+		Context.LLContext, Loc.LineNumber, 0, DIScope));
 }
 
 llvm::Optional<llvm::DIFile::ChecksumKind> june::DebugInfoEmitter::ComputeChecksum(FileUnit* FU, llvm::SmallString<64>& Checksum) {
@@ -110,14 +167,89 @@ llvm::Optional<llvm::DIFile::ChecksumKind> june::DebugInfoEmitter::ComputeChecks
 	return llvm::DIFile::CSK_MD5;
 }
 
-llvm::Metadata* june::DebugInfoEmitter::GenType(Type* Ty) {
+llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 	switch (Ty->GetKind()) {
-	case TypeKind::VOID:
-		return nullptr;
-	case TypeKind::I32:
-		return DBuilder->createBasicType("i32", 32, llvm::dwarf::DW_ATE_signed);
+	case TypeKind::VOID: return nullptr;
+	case TypeKind::I8:   return Context.DITyI8;
+	case TypeKind::I16:  return Context.DITyI16;
+	case TypeKind::I32:  return Context.DITyI32;
+	case TypeKind::I64:  return Context.DITyI64;
+	case TypeKind::U8:   return Context.DITyU8;
+	case TypeKind::U16:  return Context.DITyU16;
+	case TypeKind::U32:  return Context.DITyU32;
+	case TypeKind::U64:  return Context.DITyU64;
+	case TypeKind::C8:   return Context.DITyC8;
+	case TypeKind::C16:  return Context.DITyC16;
+	case TypeKind::C32:  return Context.DITyC32;
+	case TypeKind::BOOL: return Context.DITyBool;
+	case TypeKind::F32:  return Context.DITyF32;
+	case TypeKind::F64:  return Context.DITyF64;
+	case TypeKind::POINTER: {
+		// TODO: Pointer size depends on system
+		u32 PtrSizeInBits = 64;
+		u32 AlignmentInBits = PtrSizeInBits;
+		return DBuilder->createPointerType(EmitType(Ty->AsPointerType()->ElmTy), PtrSizeInBits, AlignmentInBits);
+	}
+	case TypeKind::RECORD: {
+		RecordDecl* Record = Ty->AsRecordType()->Record;
+		auto it = Context.DIRecordTys.find(Record);
+		if (it != Context.DIRecordTys.end()) {
+			return it->second;
+		} else {
+
+			const llvm::StructLayout* LLStructLayout =
+				Context.LLJuneModule.getDataLayout().getStructLayout(Record->LLStructTy);
+			u64 SizeofInBytes = LLStructLayout->getSizeInBytes();
+			
+			llvm::DINode::DIFlags Flags = llvm::DINode::FlagZero;
+			llvm::DICompositeType* DIStructTy = DBuilder->createStructType(
+				nullptr,
+				Record->Name.Text,
+				Record->FU->DebugUnit->getFile(),
+				Record->Loc.LineNumber,
+				SizeofInBytes * 8,
+				0,
+				Flags,
+				nullptr,
+				llvm::DINodeArray(),
+				0,
+				nullptr,
+				Record->LLStructTy->getName()
+			);
+
+			Context.DIRecordTys.insert({ Record, DIStructTy });
+
+			llvm::SmallVector<llvm::Metadata*, 16> DIFieldTys;
+			u32 BitsOffset = 0;
+			for (VarDecl* Field : Record->FieldsByIdxOrder) {
+				DIFieldTys.push_back(EmitMemberFieldType(DIStructTy, Field, BitsOffset));
+			}
+
+			DBuilder->replaceArrays(DIStructTy, DBuilder->getOrCreateArray(DIFieldTys));
+
+			return DIStructTy;
+		}
+	}
 	default:
 		assert(!"Unimplemented!");
 		return nullptr;
 	}
+}
+
+llvm::DIType* june::DebugInfoEmitter::EmitMemberFieldType(llvm::DIType* DIScope, VarDecl* Field, u32& BitsOffset) {
+	const llvm::DataLayout& LLDataLayout = Context.LLJuneModule.getDataLayout();
+	u32 SizeInBits = LLDataLayout.getTypeSizeInBits(Field->LLFieldType);
+	llvm::DIType* DIMemberType = DBuilder->createMemberType(
+		DIScope,
+		Field->Name.Text,
+		Field->FU->DebugUnit->getFile(),
+		Field->Loc.LineNumber,
+		SizeInBits,
+		0,
+		BitsOffset,
+		llvm::DINode::DIFlags::FlagZero,
+		EmitType(Field->Ty)
+	);
+	BitsOffset += SizeInBits;
+	return DIMemberType;
 }

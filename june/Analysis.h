@@ -92,6 +92,8 @@ namespace june {
 		void EnsureChecked(SourceLoc ELoc, VarDecl* Var);
 		void EnsureChecked(SourceLoc ELoc, RecordDecl* Record);
 		void DisplayCircularDep(Decl* StartDep);
+
+		RecordType* GetRecordType(RecordDecl* Record);
 	
 		void Error(AstNode* N, const c8* Msg) {
 			Log.Error(N->Loc, Msg);
@@ -102,7 +104,6 @@ namespace june {
 			Log.Error(N->Loc, Fmt, std::forward<Targs>(Args)...);
 		}
 
-		RecordType* GetRecordType(RecordDecl* Record);
 	};
 }
 

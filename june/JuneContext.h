@@ -15,6 +15,8 @@ namespace llvm {
 	class LLVMContext;
 	class Module;
 	class Function;
+	class DIBasicType;
+	class DICompositeType;
 	namespace Intrinsic {
 		typedef unsigned ID;
 	}
@@ -29,7 +31,8 @@ namespace june {
 	struct FileUnit;
 	struct Type;
 	struct PointerType;
-
+	struct RecordType;
+	
 	class JuneContext {
 	public:
 	
@@ -37,7 +40,7 @@ namespace june {
 
 		~JuneContext();
 
-		void Init();
+		void Init(bool EmitDebugInfo);
 
 
 		// If the Text matches the keyword then it
@@ -52,7 +55,7 @@ namespace june {
 		void RequestGen(Decl* D);
 
 		PointerType* GetCachedPointerType(Type* ElmTy) const;
-
+		
 		void RequestComptimeGen(ComptimeValue CV);
 
 		// Integer Types
@@ -107,6 +110,24 @@ namespace june {
 		llvm::DenseMap<RecordDecl*, llvm::Function*>    DefaultRecordInitFuncs;
 		llvm::DenseMap<Identifier, llvm::Intrinsic::ID> LLVMIntrinsicsTable;
 		llvm::SmallVector<VarDecl*, 4>                  GlobalPostponedAssignments;
+
+		// LLVM Debugging basic types
+		llvm::DenseMap<RecordDecl*, llvm::DICompositeType*> DIRecordTys;
+
+		llvm::DIBasicType* DITyI8;
+		llvm::DIBasicType* DITyI16;
+		llvm::DIBasicType* DITyI32;
+		llvm::DIBasicType* DITyI64;
+		llvm::DIBasicType* DITyU8;
+		llvm::DIBasicType* DITyU16;
+		llvm::DIBasicType* DITyU32;
+		llvm::DIBasicType* DITyU64;
+		llvm::DIBasicType* DITyC8;
+		llvm::DIBasicType* DITyC16;
+		llvm::DIBasicType* DITyC32;
+		llvm::DIBasicType* DITyBool;
+		llvm::DIBasicType* DITyF32;
+		llvm::DIBasicType* DITyF64;
 
 	private:
 		friend class Compiler;

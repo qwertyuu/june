@@ -72,6 +72,7 @@ void june::Logger::Error(SourceLoc Loc, const std::function<void()>& Printer) {
 	HasError = true;
 
 	++TOTAL_ACC_ERRORS;
+	++NumErrors;
 	if (TOTAL_ACC_ERRORS == TOTAL_ALLOWED_ERRORS) {
 		SetTerminalColor(TerminalColorLightBlue);
 		OS << ">>";
