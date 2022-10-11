@@ -1,0 +1,56 @@
+import std.Sys;
+
+/*
+ * Random number generator using
+ * Linear Congruential Generator PRG approach
+ *
+ * Based off of java's Random number generater.
+ */
+Random :: record {
+	
+	mod        :i64 = (1L << 48) - 1;
+	multiplier :i64 = 0x5DEECE66DL;
+	increment  :i64 = 0xBL;
+
+	seed :i64;
+
+	Random() {
+		// TODO: Probably need to come up with a better seed
+		seed = Sys.currentNanoTime();
+	}
+
+	Random(seed :i64) {
+		this.seed = seed;
+	}
+
+	/*
+	 * Generates a random integer
+	 * in the range 0 to bound - 1.
+	 */
+	nextInt(bound :u32) -> i32 {
+		r :i32 = next(31);
+		m :i32 = bound - 1;
+		if (bound & m) == 0 {
+			r = cast(i32)((bound * cast(i64) r) >> 31);
+		} else {
+			u := r;
+			r = u % bound;
+			loop u - (u % bound) + m < 0 {
+				u = next(31);
+				r = u % bound;
+			}
+		}
+		return r;
+	}
+
+	/*
+	 * Generates a new seed which will be used
+	 * for the generated value. Strips off
+	 * nBits (n number of bits) from the value
+	 * to return a number within a given bit size.
+	 */
+	next(nBits :i32) -> i32 {
+		seed = (seed * multiplier + increment) & mod;
+		return cast(i32) (seed >> (48 - nBits));
+	}
+}

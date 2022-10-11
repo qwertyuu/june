@@ -1011,35 +1011,57 @@ june::NumberLiteral* june::Parser::ParseBinLiteral() {
 
 june::NumberLiteral* june::Parser::FinalizeIntLiteral(u32 Idx, u64 IntValue) {
 	NumberLiteral* Number = NewNode<NumberLiteral>(CTok);
-	bool Unsigned = false;
+	
 	llvm::StringRef Text = CTok.GetText();
+	bool Unsigned = false;
 	if (Idx < Text.size()) {
-		Unsigned = Text[Idx] == 'u';
-		++Idx;
-		if (Idx < Text.size()) {
-			switch (Text[Idx]) {
-			case '8':
-				Number->Ty = Unsigned ? Context.U8Type : Context.I8Type;
-				break;
-			case '1':
-				Number->Ty = Unsigned ? Context.U16Type : Context.I16Type;
-				break;
-			case '3':
-				Number->Ty = Unsigned ? Context.U32Type : Context.I32Type;
-				break;
-			case '6':
-				Number->Ty = Unsigned ? Context.U64Type : Context.I64Type;
-				break;
-			}
-		} else if (Unsigned) {
-			Number->Ty = Context.U32Type;
-		} else {
+		switch (Text[Idx]) {
+		case 'b': case 'B':
+			Number->Ty = Context.I8Type;
+			break;
+		case 's': case 'S':
+			Number->Ty = Context.I16Type;
+			break;
+		case 'i': case 'I':
 			Number->Ty = Context.I32Type;
+			break;
+		case 'l': case 'L':
+			Number->Ty = Context.I64Type;
+			break;
+		case 'u': {
+			Unsigned = true;
+			if (++Idx < Text.size()) {
+				switch (Text[Idx]) {
+				case 'b': case 'B':
+					Number->Ty = Context.U8Type;
+					break;
+				case 's': case 'S':
+					Number->Ty = Context.U16Type;
+					break;
+				case 'i': case 'I':
+					Number->Ty = Context.U32Type;
+					break;
+				case 'l': case 'L':
+					Number->Ty = Context.U64Type;
+					break;
+				}
+			} else {
+				Number->Ty = Context.U32Type;
+			}
+			break;
+		}
 		}
 	} else {
-		Number->Ty = Context.I32Type;
+		if (IntValue <= std::numeric_limits<s32>::max()) {
+			Number->Ty = Context.I32Type;
+		} else if (IntValue <= std::numeric_limits<s64>::max()) {
+			Number->Ty = Context.I64Type;
+		} else {
+			Number->Ty = Context.U64Type;
+			Unsigned = true;
+		}
 	}
-
+	
 	if (Unsigned) {
 		Number->UnsignedIntValue = IntValue;
 	} else {

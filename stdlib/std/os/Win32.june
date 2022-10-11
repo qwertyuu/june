@@ -43,3 +43,12 @@ native Sleep(dwMilliseconds :u32) -> void;
 \*===----------------------------------------===*/
 
 native ExitProcess(uExitCode :u32);
+
+/*===----------------------------------------===*\
+ *                                              *
+ * Win32: profileapi.h                          *
+ *                                              *
+\*===----------------------------------------===*/
+
+native QueryPerformanceFrequency(lpFrequency :i64*) -> bool;
+native QueryPerformanceCounter(lpPerformanceCount :i64*) -> bool;

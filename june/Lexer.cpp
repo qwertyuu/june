@@ -262,27 +262,25 @@ june::Token june::Lexer::NextNumber() {
 }
 
 june::Token june::Lexer::FinishInt(const c8* TokStart, u16 Kind) {
-	bool TypeExt = false;
-	if (*CurPtr == 'i') {
-		++CurPtr; TypeExt = true;
-	} else if (*CurPtr == 'u') {
-		++CurPtr; TypeExt = true;
-	}
-	if (TypeExt) {
+	switch (*CurPtr) {
+	case 'B': case 'b':
+	case 'S': case 's':
+	case 'I': case 'i':
+	case 'L': case 'l':
+		++CurPtr;
+		break;
+	case 'u':
+		++CurPtr;
 		switch (*CurPtr) {
-		case '8': ++CurPtr;  break;
-		case '1':
-			if (*(CurPtr + 1) == '6') CurPtr += 2;
-			break;
-		case '3':
-			if (*(CurPtr + 1) == '2') CurPtr += 2;
-			break;
-		case '6':
-			if (*(CurPtr + 1) == '4') CurPtr += 2;
+		case 'B': case 'b':
+		case 'S': case 's':
+		case 'I': case 'i':
+		case 'L': case 'l':
+			++CurPtr;
 			break;
 		}
+		break;
 	}
-
 	return CreateToken(Kind, TokStart);
 }
 

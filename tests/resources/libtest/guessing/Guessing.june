@@ -1,0 +1,21 @@
+import std.Sys;
+import std.util.Random;
+
+main() {
+	
+	Sys.initialize();
+
+	Sys.println("Guess a number between 0-10");
+	guess :i32 = Sys.in.readInt();
+
+	rand := Random();
+	answer := rand.nextInt(10);
+
+	if guess == answer {
+		Sys.println("You guessed correctly!");
+	} else {
+		Sys.println("You guessed wrong!");
+		Sys.print("Right answer was: ");
+		Sys.println(answer);
+	}
+}

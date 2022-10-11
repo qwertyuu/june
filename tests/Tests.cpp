@@ -72,6 +72,7 @@ void RunStdLibTest(const c8* TestDirectoryPath) {
 
 	june::Compiler Compiler;
 	//Compiler.DisplayLLVMIR = true;
+	//Compiler.EmitDebugInfo = true;
 	Compiler.PathToStandardLibrary = JUNE_COMPILER_STDLIB_SOURCE_DIR;
 	Compiler.DisplayTimes = true;
 	Compiler.Compile(SourceDirectories);
@@ -85,7 +86,7 @@ void RunStdLibTest(const c8* TestDirectoryPath) {
 
 int main() {
 
-	//RunStdLibTest(LIB_SRC("addtwo"));
+	//RunStdLibTest(LIB_SRC("guessing"));
 	
 	RunTest(SRC("main1"), 0);
 	RunTest(SRC("main2"), 55);

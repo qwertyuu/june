@@ -13,6 +13,10 @@ writeToHandle(handle :void*, msg :c8*, length :u32) {
 	Win32.WriteFile(handle, msg, length, &numberOfBytesWritten, null);
 }
 
+
+// Functions for writing to std out.
+//----------------------------------------------
+
 print(msg :c8*, length :u32) {
 	writeToHandle(Win32.GetStdHandle(-11), msg, length);
 }
@@ -50,8 +54,27 @@ println(i :i32) {
 }
 
 /*
+ * Runs at startup to ensure
+ * certain functionality is ran
+ * right as the application begins.
+ */
+initialize() {
+	Win32.QueryPerformanceFrequency(&performanceFrequency);
+}
+
+/*
  * Stops the current application from running.
  */
 exit(exitCode :u32) {
 	Win32.ExitProcess(exitCode);
+}
+
+
+// Used to keep track of time
+performanceFrequency :i64;
+
+currentNanoTime() -> i64 {
+	current :i64;
+	Win32.QueryPerformanceCounter(&current);
+	return cast(i64) ((cast(f64) current/performanceFrequency) * 1E+9);
 }

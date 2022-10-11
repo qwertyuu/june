@@ -21,4 +21,8 @@ InStream :: record {
 		// -2 because \r\n
 		return String(buffer, amountRead - 2);
 	}
+
+	readInt() -> i32 {
+		return readLine().parseInt();
+	}
 }

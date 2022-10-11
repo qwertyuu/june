@@ -1612,9 +1612,9 @@ llvm::Value* june::IRGen::GenCast(Type* ToType, Type* FromType, llvm::Value* LLV
 	case TypeKind::C8:
 	case TypeKind::C16:
 	case TypeKind::C32:
-		//  --- Integers ---
+		//  --- TO Integers ---
 		if (FromType->isInt()) {
-			// Int to int
+			// Int to Int
 			if (ToType->MemSize() < FromType->MemSize()) {
 				// Signed and unsigned downcasting use trunc
 				return Builder.CreateTrunc(LLVal, LLCastType);
@@ -1628,11 +1628,11 @@ llvm::Value* june::IRGen::GenCast(Type* ToType, Type* FromType, llvm::Value* LLV
 				}
 			}
 		} else if (FromType->isFloat()) {
-			// Int to floating point
-			if (FromType->isSigned()) {
-				return Builder.CreateSIToFP(LLVal, LLCastType);
+			// Floating to Int
+			if (ToType->isSigned()) {
+				return Builder.CreateFPToSI(LLVal, LLCastType);
 			} else {
-				return Builder.CreateUIToFP(LLVal, LLCastType);
+				return Builder.CreateFPToUI(LLVal, LLCastType);
 			}
 		} else if (FromType->GetKind() == TypeKind::POINTER) {
 			// Ptr to Int
@@ -1641,7 +1641,7 @@ llvm::Value* june::IRGen::GenCast(Type* ToType, Type* FromType, llvm::Value* LLV
 		goto missing_cast_case_lab;
 	case TypeKind::F32:
 	case TypeKind::F64:
-		//  --- Floating ---
+		//  --- TO Floating ---
 		if (FromType->isFloat()) {
 			// Float to Float
 			if (ToType->MemSize() > FromType->MemSize()) {
@@ -1661,7 +1661,7 @@ llvm::Value* june::IRGen::GenCast(Type* ToType, Type* FromType, llvm::Value* LLV
 		}
 		goto missing_cast_case_lab;
 	case TypeKind::POINTER:
-		//  --- Pointers ---
+		//  --- TO Pointers ---
 		if (FromType->GetKind() == TypeKind::FIXED_ARRAY) {
 			// Fixed-Array to Pointer
 			return GetArrayAsPtr1Nesting(LLVal);
