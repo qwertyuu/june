@@ -139,11 +139,14 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			continue;
 		}
 
-		IRGen Gen(Context, EmitDebugInfo, DisplayLLVMIR | Verbose);
-		if (D->is(AstKind::FUNC_DECL)) {
-			Gen.GenFunc(ocast<FuncDecl*>(D));
-		} else {
-			Gen.GenGlobalVar(ocast<VarDecl*>(D));
+		// Only generating code if there are absolutely no errors
+		if (!FoundCompileError) {
+			IRGen Gen(Context, EmitDebugInfo, DisplayLLVMIR | Verbose);
+			if (D->is(AstKind::FUNC_DECL)) {
+				Gen.GenFunc(ocast<FuncDecl*>(D));
+			} else {
+				Gen.GenGlobalVar(ocast<VarDecl*>(D));
+			}
 		}
 	}
 

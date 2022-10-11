@@ -8,6 +8,13 @@ main() {
 	
 	Sys.println();
 	Sys.println("Read in numbers:");
-	Sys.println(numStr1);
-	Sys.println(numStr2);
+
+	num1 := numStr1.parseInt();
+	num2 := numStr2.parseInt();
+
+	sum := num1 + num2;
+
+	Sys.print("Sum: ");
+	Sys.println(sum);
+
 }

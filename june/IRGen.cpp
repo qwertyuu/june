@@ -213,7 +213,10 @@ void june::IRGen::GenFunc(FuncDecl* Func) {
 		llvm::outs() << '\n';
 	}
 
-	llvm::verifyFunction(*Func->LLAddress);
+	if (Func->LLAddress && !(Func->Mods & mods::Mods::NATIVE)) {
+		// -- DEBUG
+		llvm::verifyFunction(*Func->LLAddress);
+	}
 }
 
 void june::IRGen::GenGlobalVar(VarDecl* Global) {
@@ -293,7 +296,11 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	// name mangle based on the mangler
 
 	std::string LLFuncName = std::string(Func->Name.Text);
-	
+	if (!(Func->Mods & mods::Mods::NATIVE) && !Func->IsMainFunc) {
+		// Adding .june to prevent conflicts with external dependencies.
+		LLFuncName += ".june";
+	}
+
 	// TODO: Linkage
 	llvm::Function* LLFunc = llvm::Function::Create(
 		LLFuncType,
@@ -1401,17 +1408,7 @@ llvm::Value* june::IRGen::GenNumberLiteral(NumberLiteral* Number) {
 
 llvm::Value* june::IRGen::GenArray(Array* Arr, llvm::Value* LLArrAddr) {
 
-	FixedArrayType* DestTy = Arr->Ty->AsFixedArrayType();
-	if (Arr->CastTy) {
-		if (Arr->CastTy->GetKind() == TypeKind::FIXED_ARRAY) {
-			DestTy = Arr->CastTy->AsFixedArrayType();
-		} else {
-			DestTy = FixedArrayType::Create(
-				Arr->CastTy->AsContainerType()->ElmTy,
-				DestTy->Length,
-				Context);
-		}
-	}
+	FixedArrayType* DestTy = GetArrayDestTy(Arr);
 
 	if (Arr->CastTy && Arr->CastTy->GetKind() == TypeKind::POINTER) {
 		// Must generate an array for a pointer
@@ -2025,6 +2022,21 @@ llvm::Value* june::IRGen::GenLLVMIntrinsicCall(FuncCall* Call) {
 	}
 }
 
+june::FixedArrayType* june::IRGen::GetArrayDestTy(Array* Arr) {
+	FixedArrayType* DestTy = Arr->Ty->AsFixedArrayType();
+	if (Arr->CastTy) {
+		if (Arr->CastTy->GetKind() == TypeKind::FIXED_ARRAY) {
+			DestTy = Arr->CastTy->AsFixedArrayType();
+		} else {
+			DestTy = FixedArrayType::Create(
+				           Arr->CastTy->AsContainerType()->ElmTy,
+				           DestTy->Length,
+				           Context);
+		}
+	}
+	return DestTy;
+}
+
 llvm::Constant* june::IRGen::GenGlobalConstVal(VarDecl* Global) {
 	Type* Ty = Global->Ty;
 	if (Ty->GetKind() == TypeKind::RECORD) {
@@ -2038,13 +2050,18 @@ llvm::Constant* june::IRGen::GenGlobalConstVal(VarDecl* Global) {
 	} else {
 		if (Global->Assignment->IsFoldable) {
 			if (Global->Assignment->is(AstKind::ARRAY)) {
+
+				Array* Arr = ocast<Array*>(Global->Assignment);
 				
 				if (Global->Ty->GetKind() == TypeKind::POINTER) {
 					// The destination is a pointer so a global array needs
 					// to be created first, then that global array needs
 					// to be pointed to the pointer value of the global.
-					llvm::Value* LLGArr = GenArray(ocast<Array*>(Global->Assignment), nullptr);
+					llvm::Value* LLGArr = GenArray(Arr, nullptr);
 					return llvm::cast<llvm::Constant>(GetArrayAsPtr1Nesting(LLGArr));
+				} else if (Global->Ty->GetKind() == TypeKind::FIXED_ARRAY) {
+					return GenConstArrayForFixedArray(
+						ocast<Array*>(Global->Assignment), GetArrayDestTy(Arr));
 				}
 			}
 			return llvm::cast<llvm::Constant>(GenRValue(Global->Assignment));

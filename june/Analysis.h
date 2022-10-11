@@ -82,9 +82,10 @@ namespace june {
 		void CheckThisRef(ThisRef* This);
 
 		bool IsAssignableTo(Type* ToTy, Expr* FromExpr);
-		bool IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr);
+		bool IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr, bool LossenNumConversion);
 		bool IsCastableTo(Type* ToTy, Type* FromTy);
 		void CreateCast(Expr* E, Type* ToType);
+		void CreateArrayElementsCast(Type* BaseType, Array* Arr);
 
 		bool IsLValue(Expr* E);
 

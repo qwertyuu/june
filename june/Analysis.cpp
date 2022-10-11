@@ -752,7 +752,12 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	}
 
 	if (!CalledFunc) {
-		std::string FuncDef = "(";
+		std::string FuncDef = "";
+		if (Call->Site->is(AstKind::IDENT_REF) || Call->Site->is(AstKind::FIELD_ACCESSOR)) {
+			FuncDef += ocast<IdentRef*>(Call->Site)->Ident.Text;
+		}
+
+		FuncDef += "(";
 		for (u32 i = 0; i < Call->Args.size(); i++) {
 			FuncDef += Call->Args[i]->Ty->ToStr();
 			if (i + 1 != Call->Args.size()) FuncDef += ", ";
@@ -769,15 +774,15 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 			FuncDef);
 		if (Canidates && Canidates->size() == 1) {
 			FuncDecl* OnlyFunc = (*Canidates)[0];
-			std::string OptFuncDef = "(";
+			std::string OptFuncDef = std::string(OnlyFunc->Name.Text) +"(";
 			for (u32 i = 0; i < OnlyFunc->Params.size(); i++) {
 				OptFuncDef += OnlyFunc->Params[i]->Ty->ToStr();
 				if (i + 1 != OnlyFunc->Params.size()) OptFuncDef += ", ";
 			}
 			OptFuncDef += ")";
 
-			Log.Note("Did you mean to call %s '%s' with definition: '%s'",
-				ftype, OnlyFunc->Name, OptFuncDef).EndNote();
+			Log.Note("Did you mean to call %s '%s'",
+				ftype, OptFuncDef).EndNote();
 		}
 
 		YIELD_ERROR(Call);
@@ -1404,10 +1409,10 @@ void june::Analysis::CheckThisRef(ThisRef* This) {
 }
 
 bool june::Analysis::IsAssignableTo(Type* ToTy, Expr* FromExpr) {
-	return IsAssignableTo(ToTy, FromExpr->Ty, FromExpr);
+	return IsAssignableTo(ToTy, FromExpr->Ty, FromExpr, false);
 }
 
-bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr) {
+bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr, bool LossenNumConversion) {
 	switch (ToTy->GetKind()) {
 	case TypeKind::I8:
 	case TypeKind::I16:
@@ -1421,7 +1426,7 @@ bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr) {
 	case TypeKind::C16:
 	case TypeKind::C32:
 		if (FromTy->isInt()) {
-			if (ToTy->MemSize() >= FromTy->MemSize()) {
+			if (ToTy->MemSize() >= FromTy->MemSize() || LossenNumConversion) {
 				return true;
 			} else if (FromExpr && FromExpr->is(AstKind::NUMBER_LITERAL)) {
 				// If the FromExpr is a basic number literal
@@ -1526,7 +1531,7 @@ bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr) {
 			FromArrTy = FromArrTy->ElmTy->AsFixedArrayType();
 			if (ToArrTy->Length < FromArrTy->Length) return false;
 		}
-		return IsAssignableTo(ToArrTy->ElmTy, FromArrTy->ElmTy, nullptr);
+		return IsAssignableTo(ToArrTy->ElmTy, FromArrTy->ElmTy, nullptr, true);
 	}
 	case TypeKind::RECORD:
 		return FromTy->is(ToTy);
@@ -1561,15 +1566,36 @@ bool june::Analysis::IsCastableTo(Type* ToTy, Type* FromTy) {
 	case TypeKind::POINTER:
 		if (FromTy->isNumber() || FromTy->GetKind() == TypeKind::POINTER)
 			return true; // Allow pointers/numbers to cast to pointers
-		return IsAssignableTo(ToTy, FromTy, nullptr);
+		return IsAssignableTo(ToTy, FromTy, nullptr, false);
 	default:
-		return IsAssignableTo(ToTy, FromTy, nullptr);
+		return IsAssignableTo(ToTy, FromTy, nullptr, false);
 	}
 }
 
 void june::Analysis::CreateCast(Expr* E, Type* ToType) {
 	if (ToType->is(E->Ty)) return;
 	E->CastTy = ToType;
+
+	if (E->is(AstKind::ARRAY)) {
+		TypeKind ToK = ToType->GetKind();
+		if (ToK == TypeKind::FIXED_ARRAY || ToK == TypeKind::POINTER) {
+			Type* CastToBaseTy = ToType->AsContainerType()->GetBaseType();
+			if (CastToBaseTy->isNot(E->Ty->AsFixedArrayType()->GetBaseType())) {
+				CreateArrayElementsCast(CastToBaseTy, ocast<Array*>(E));
+			}
+		}
+	}
+}
+
+void june::Analysis::CreateArrayElementsCast(Type* BaseType, Array* Arr) {
+	for (u32 i = 0; i < Arr->NumElements; i++) {
+		Expr* Elm = Arr->GetElement(i);
+		if (Elm->is(AstKind::ARRAY)) {
+			CreateArrayElementsCast(BaseType, ocast<Array*>(Elm));
+		} else {
+			CreateCast(Elm, BaseType);
+		}
+	}
 }
 
 bool june::Analysis::IsLValue(Expr* E) {

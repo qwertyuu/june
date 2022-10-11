@@ -159,10 +159,11 @@ namespace june {
 
 		llvm::Value* GenLLVMIntrinsicCall(FuncCall* Call);
 
+		FixedArrayType* GetArrayDestTy(Array* Arr);
+
 		llvm::Constant* GenGlobalConstVal(VarDecl* Global);
 
 		void EmitDebugLocation(AstNode* Node);
-
 		DebugInfoEmitter* GetDIEmitter(Decl* D);
 		DebugInfoEmitter* GetDIEmitter();
 

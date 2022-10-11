@@ -1,5 +1,18 @@
 import std.Mem;
 import std.Sys;
+import std.lang.Characters;
+
+/*
+ * The smallest possible radix for converting to/from strings
+ * into numbers.
+ */
+MIN_RADIX := 2;
+
+/*
+ * The largest possible radix for converting to/from strings
+ * into numbers.
+ */
+MAX_RADIX := 36;
 
 String :: record {
 
@@ -21,7 +34,28 @@ String :: record {
 		this.buffer[length] = '\0';
 	}
 
+	/*
+	 * Parses the string into a signed integer width
+	 * a radix of 10 (Base-10).
+	 *
+	 * Valid character pattern: [+-]?[0-9]+
+	 *
+	 * @return  a parsed signed integer.
+	 */
 	parseInt() -> i32 {
+		return parseInt(10);
+	}
+
+	/*
+	 * Parses the string into a signed integer
+	 * for the given radix. All the characters in
+	 * the string (excluding a leading + or -)
+	 * must all be digits of the given radix.
+	 *
+	 * @param   radix to be used during parsing
+	 * @return  a parsed signed integer.
+	 */
+	parseInt(radix :u32) -> i32 {
 		// TODO: Replace with actual error handling!
 
 		if (empty()) {
@@ -29,7 +63,61 @@ String :: record {
 			Sys.exit(1);
 		}
 
-		return 0;
+		if radix < MIN_RADIX {
+			Sys.println("NumberException: radix < 2");
+			Sys.exit(1);
+		}
+
+		if radix > MAX_RADIX {
+			Sys.println("NumberException: radix too large");
+			Sys.exit(1);
+		}
+
+		isNeg := false;
+		i := 0;
+
+		// Maybe it has a leading + or -
+		firstCh :c8 = buffer[0];
+		if firstCh < '0' {
+			if firstCh == '-' {
+				isNeg = true;
+			} else if firstCh != '+' {
+				Sys.println("NumberException: Invalid sequence start");
+				Sys.exit(1);
+			}
+
+			if length == 1 {
+				Sys.println("NumberException: + or - by itself");
+				Sys.exit(1);
+			}
+
+			++i; // Move over the + or - character
+		}
+
+		result :i32;  prevVal :i32;
+		loop i < length {
+			ch := buffer[i++];
+			digit :i32 = Characters.toDigitForRadix(ch, radix);
+
+			if digit < 0 {
+				Sys.println("NumberException: Character was not a digit");
+				Sys.exit(1);
+			}
+
+			prevVal = result;
+			result = result * radix + digit;
+
+			if result / radix < prevVal {
+				Sys.println("NumberException: Overflow");
+				Sys.exit(1);
+			}
+		}
+
+		if isNeg {
+			return -result;
+		} else {
+			return result;
+		}
 	}
 
 	empty() -> bool {
