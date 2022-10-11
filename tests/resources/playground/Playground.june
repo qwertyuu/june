@@ -1,8 +1,24 @@
-import OtherFile;
 
-a :i32 = OtherFile.a;
-b :i32 = a;
+A :: record {
+	f1 :i32 = 14;
+	f2 :i32 = 11;
+	f3 :i32 = 1111;
 
-main() {
-	
+	m() {
+		
+	}
+}
+
+g() -> A {
+	return A();
+}
+
+f() -> A {
+	return g();
+}
+
+main() -> i32 {
+	j :A = f();
+
+	return j.f1 + j.f2 + j.f3;
 }

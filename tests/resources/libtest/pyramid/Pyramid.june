@@ -1,0 +1,32 @@
+// Taken from:
+// https://www.programiz.com/cpp-programming/examples/pyramid-pattern
+import std.Sys;
+
+main() {
+	
+	rows := 15;
+	count := 0; count1 := 0; k := 0;
+
+	loop i := 1; i <= rows; i++ {
+		loop space := 0; space < rows-i; space++ {
+			Sys.print("  ");
+			++count;
+		}
+
+		loop k != 2*i-1 {
+			if count <= rows-1 {
+				Sys.print(" ");
+				++count;
+			} else {
+				Sys.print("* ");
+				++count1;
+			}
+
+			++k;
+		}
+
+		count1 = 0; count = 0; k = 0;
+		
+		Sys.println();
+	}
+}

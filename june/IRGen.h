@@ -163,9 +163,13 @@ namespace june {
 
 		llvm::Constant* GenGlobalConstVal(VarDecl* Global);
 
+		bool FuncNeedsRVO(FuncDecl* Func);
+
 		void EmitDebugLocation(AstNode* Node);
 		DebugInfoEmitter* GetDIEmitter(Decl* D);
 		DebugInfoEmitter* GetDIEmitter();
+
+		void GenStoreRVOStructRes(Expr* Assignment);
 
 	};
 }

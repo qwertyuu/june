@@ -200,7 +200,7 @@ llvm::Type* june::GenRecordType(JuneContext& Context, RecordDecl* Record) {
 void june::IRGen::GenFunc(FuncDecl* Func) {
 
 	// -- DEBUG
-	//llvm::outs() << "generating function: " << Func->Name << '\n';
+	llvm::outs() << "generating function: " << Func->Name << '\n';
 
 	CFunc = Func;
 
@@ -264,7 +264,10 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 		}
 	}
 
-	llvm::Type* LLRetTy = Func->IsMainFunc ? llvm::Type::getInt32Ty(LLContext)
+	bool RVO = FuncNeedsRVO(Func);
+
+	llvm::Type* LLRetTy = RVO              ? llvm::Type::getVoidTy(LLContext) :
+                          Func->IsMainFunc ? llvm::Type::getInt32Ty(LLContext)
 		                                   : GenType(Func->RetTy);
 
 	// TODO: This could probably be converted to an array
@@ -275,6 +278,13 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 		// Member functions recieve pointers to the record they
 		// are contained inside of.
 		LLParamTypes.push_back(llvm::PointerType::get(GenRecordType(Context, Func->ParentRecord), 0));
+	}
+
+	if (RVO) {
+		// Instead of returning the structure we pass a reference
+		// into the function of the structure and return void.
+		LLParamTypes.push_back(llvm::PointerType::get(
+			GenRecordType(Context, Func->RetTy->AsRecordType()->Record), 0));
 	}
 
 	for (VarDecl* Param : Func->Params) {
@@ -322,7 +332,9 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	if (Func->Mods & mods::NATIVE) return;
 
 	LLFunc = Func->LLAddress;
-	bool HasVoidRetTy = Func->RetTy->GetKind() == TypeKind::VOID && !Func->IsMainFunc;
+	
+	bool RVO = FuncNeedsRVO(Func);
+	bool HasVoidRetTy = Func->RetTy->GetKind() == TypeKind::VOID && !Func->IsMainFunc || RVO;
 
 	// Entry block for the function.
 	llvm::BasicBlock* LLEntryBlock = llvm::BasicBlock::Create(LLContext, "entry.block", LLFunc);
@@ -348,7 +360,7 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	}
 
 	// Allocating space for the variables
-	for (VarDecl* Var : Func->AllocVars) {
+	for (VarDecl* Var : Func->AllocVars) {	
 		GenAlloca(Var);
 	}
 
@@ -603,7 +615,9 @@ llvm::Value* june::IRGen::GenRValue(AstNode* Node) {
 		break;
 	}
 	case AstKind::FUNC_CALL: {
-		if (ocast<FuncCall*>(Node)->IsConstructorCall) {
+		FuncCall* Call = ocast<FuncCall*>(Node);
+		if (Call->IsConstructorCall ||
+			(Call->CalledFunc && FuncNeedsRVO(Call->CalledFunc))) {
 			LLValue = CreateLoad(LLValue);
 		}
 		break;
@@ -639,11 +653,16 @@ llvm::Value* june::IRGen::GenInnerScope(InnerScopeStmt* InnerScope) {
 }
 
 llvm::Value* june::IRGen::GenReturn(ReturnStmt* Ret) {
+	bool RVO = FuncNeedsRVO(CFunc);
+
 	if (CFunc->NumReturns == 1) {
-		if (Ret->Val) {
+		if (Ret->Val && !RVO) {
 			Builder.CreateRet(GenRValue(Ret->Val));
 		} else if (CFunc->IsMainFunc) {
 			Builder.CreateRet(GetLLInt32(0, LLContext));
+		} else if (RVO) {
+			GenStoreRVOStructRes(Ret->Val);
+			Builder.CreateRetVoid();
 		} else {
 			Builder.CreateRetVoid();
 		}
@@ -651,10 +670,12 @@ llvm::Value* june::IRGen::GenReturn(ReturnStmt* Ret) {
 		return nullptr;
 	}
 
-	if (Ret->Val) {
+	if (Ret->Val && !RVO) {
 		Builder.CreateStore(GenRValue(Ret->Val), LLRetAddr);
 	} else if (CFunc->IsMainFunc) {
 		Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
+	} else if (RVO) {
+		GenStoreRVOStructRes(Ret->Val);
 	}
 	EmitDebugLocation(Ret); // storage
 	Builder.CreateBr(LLFuncEndBB);
@@ -837,13 +858,16 @@ llvm::Value* june::IRGen::GenFieldAccessor(FieldAccessor* FA) {
 		llvm::Value* LLSite = GenNode(FA->Site);
 
 		// Ex.  'a().b'  or  'a().j()'  ect..
-		if (FA->Site->is(AstKind::FUNC_CALL) &&
-			!ocast<FuncCall*>(FA->Site)->IsConstructorCall &&
-			FA->Site->Ty->GetKind() == TypeKind::RECORD
-			) {
-			llvm::Value* LLTempStorage = CreateTempAlloca(LLSite->getType());
-			Builder.CreateStore(LLSite, LLTempStorage);
-			LLSite = LLTempStorage;
+		if (FA->Site->is(AstKind::FUNC_CALL)) {
+			FuncCall* Call = ocast<FuncCall*>(FA->Site);
+			if (!Call->IsConstructorCall &&
+				!(Call->CalledFunc && FuncNeedsRVO(Call->CalledFunc)) &&
+				FA->Site->Ty->GetKind() == TypeKind::RECORD
+				) {
+				llvm::Value* LLTempStorage = CreateTempAlloca(LLSite->getType());
+				Builder.CreateStore(LLSite, LLTempStorage);
+				LLSite = LLTempStorage;
+			}
 		}
 
 		if (Site->Ty->GetKind() == TypeKind::POINTER &&
@@ -912,14 +936,19 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 	llvm::Function* LLCalledFunc = Call->CalledFunc->LLAddress;
 
 	// Adding arguments
+	u32 ArgIndex = 0;
 	llvm::SmallVector<llvm::Value*, 2> LLArgs;
-	u32 MemberObjOffset = (Call->CalledFunc->ParentRecord ? 1 : 0);
-	LLArgs.resize(Call->Args.size() + Call->NamedArgs.size() + MemberObjOffset);
+	bool RVO = FuncNeedsRVO(Call->CalledFunc);
+	u32 ExtraParamsOffset = (Call->CalledFunc->ParentRecord ? 1 : 0);
+	if (RVO) {
+		++ExtraParamsOffset;
+	}
+	LLArgs.resize(Call->Args.size() + Call->NamedArgs.size() + ExtraParamsOffset);
 
 	if (Call->CalledFunc->ParentRecord) {
 		
 		if (Call->IsConstructorCall) {  // Record(...)
-			LLArgs[0] = LLAddr;
+			LLArgs[ArgIndex++] = LLAddr;
 		}
 		// Calling a member function so need to pass in the
 		// record pointer.
@@ -928,16 +957,27 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 			// valid explaination is it is a call
 			// to another member function inside
 			// the same record.
-			LLArgs[0] = LLThis;
+			LLArgs[ArgIndex++] = LLThis;
 		} else {
-			LLArgs[0] = GenNode(Call->Site);
+			LLArgs[ArgIndex++] = GenNode(Call->Site);
 		}
 	}
 
+	// The function being takes a reference to the returning
+	// struct as an argument rather than returning the struct
+	if (RVO) {
+		if (!LLAddr) {
+			// For whatever reason the user is ignoring the return
+			// value of the structure so need to create it for them.
+			LLAddr = CreateTempAlloca(GenType(Call->CalledFunc->RetTy));
+		}
+
+		LLArgs[ArgIndex++] = LLAddr;
+	}
 
 	for (u32 i = 0; i < Call->Args.size(); i++) {
 		Expr* Arg = Call->Args[i];
-		LLArgs[i + MemberObjOffset] = GenRValue(Arg);
+		LLArgs[ArgIndex++] = GenRValue(Arg);
 	}
 	for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
 		LLArgs[NamedArg.VarRef->ParamIdx] = GenRValue(NamedArg.AssignValue);
@@ -958,7 +998,7 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 
 	llvm::Value* CallValue = Builder.CreateCall(LLCalledFunc, LLArgs);
 	EmitDebugLocation(Call);
-	if (!Call->IsConstructorCall) {
+	if (!Call->IsConstructorCall && !RVO) {
 		return CallValue;
 	} else {
 		return LLAddr; // Returning the newly generated object
@@ -1567,7 +1607,9 @@ llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 		}
 	} else if (Val->Kind == AstKind::FUNC_CALL) {
 		FuncCall* Call = ocast<FuncCall*>(Val);
-		if (Call->IsConstructorCall) {
+		if (Call->IsConstructorCall || 
+			(Call->CalledFunc && FuncNeedsRVO(Call->CalledFunc))
+			) {
 			GenFuncCall(LLAddr, Call);
 		} else {
 			LLRValToStore = GenRValue(Val);
@@ -2073,6 +2115,24 @@ llvm::Constant* june::IRGen::GenGlobalConstVal(VarDecl* Global) {
 	}
 }
 
+bool june::IRGen::FuncNeedsRVO(FuncDecl* Func) {
+	// Valid reasons for using RVO
+	// 1. The structure is big
+	// 2. The structure has a destructor
+	if (Func->RetTy->GetKind() != TypeKind::RECORD) {
+		return false;
+	}
+	// TODO: Come up with a better size indication.
+	//       Honestly, it should probably be system dependent?
+	const llvm::StructLayout* LLStructLayout = LLModule.getDataLayout().getStructLayout(
+		Func->RetTy->AsRecordType()->Record->LLStructTy
+	);
+	if (LLStructLayout->getSizeInBytes() > 8) {
+		return true;
+	}
+	return false;
+}
+
 void june::IRGen::EmitDebugLocation(AstNode* Node) {
 	if (EmitDebugInfo) {
 		GetDIEmitter()->EmitDebugLocation(Builder, Node);
@@ -2088,3 +2148,26 @@ june::DebugInfoEmitter* june::IRGen::GetDIEmitter() {
 	return CFunc->FU->DIEmitter;
 }
 
+void june::IRGen::GenStoreRVOStructRes(Expr* Assignment) {
+	llvm::Value* LLRVOStructAddr;
+	if (LLThis) {
+		// Must be the second parameter
+		LLRVOStructAddr = LLFunc->getArg(1);
+	} else {
+		LLRVOStructAddr = LLFunc->getArg(0);
+	}
+
+	llvm::Value* LLStructAssignment = GenNode(Assignment);
+
+	llvm::StructType* LLStructTy = llvm::cast<llvm::StructType>(
+		LLStructAssignment->getType()->getPointerElementType());
+
+	const llvm::StructLayout* LLStructLayout = LLModule.getDataLayout().getStructLayout(LLStructTy);
+	llvm::Align LLAlignment = LLStructLayout->getAlignment();
+	
+	Builder.CreateMemCpy(
+		LLRVOStructAddr   , LLAlignment,
+		LLStructAssignment, LLAlignment,
+		SizeOfTypeInBytes(LLStructTy)
+	);
+}

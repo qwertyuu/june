@@ -1,3 +1,0 @@
-import Playground;
-
-a :i32 = Playground.b;
