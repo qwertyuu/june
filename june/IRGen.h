@@ -40,8 +40,6 @@ namespace june {
 		llvm::Function* LLFunc;
 		llvm::Value*    LLThis = nullptr; // The 'this' pointer for member functions
 
-		llvm::Instruction* AllocaInsertPt = nullptr;
-
 		// The address that the return value gets placed
 		// into.
 		llvm::Value* LLRetAddr = nullptr;
@@ -85,6 +83,7 @@ namespace june {
 		llvm::Value* GenArrayAccess(ArrayAccess* AA);
 		llvm::Value* GenTypeCast(TypeCast* Cast);
 		llvm::Value* GenHeapAllocType(HeapAllocType* HeapAlloc);
+		llvm::Value* GenTernaryCond(TernaryCond* Ternary);
 		
 		llvm::Value* GenAssignment(llvm::Value* LLAddr, Expr* Val);
 

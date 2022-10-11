@@ -113,11 +113,7 @@ String :: record {
 			}
 		}
 
-		if isNeg {
-			return -result;
-		} else {
-			return result;
-		}
+		return isNeg ? -result |> result;
 	}
 
 	empty() -> bool {

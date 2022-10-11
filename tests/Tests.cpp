@@ -86,7 +86,7 @@ void RunStdLibTest(const c8* TestDirectoryPath) {
 
 int main() {
 
-	//RunStdLibTest(LIB_SRC("pyramid"));
+	//RunStdLibTest(LIB_SRC("addtwo"));
 	
 	RunTest(SRC("main1"), 0);
 	RunTest(SRC("main2"), 55);

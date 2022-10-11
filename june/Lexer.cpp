@@ -60,6 +60,7 @@ restartLex:
 	case ')': return CreateToken(')', TokStart);
 	case ',': return CreateToken(',', TokStart);
 	case '.': return CreateToken('.', TokStart);
+	case '?': return CreateToken('?', TokStart);
 	case ':':
 		if (*CurPtr == ':') return CreateTokenAndEat(TokenKind::COL_COL, TokStart);
 		else                return CreateToken(':', TokStart);
@@ -85,6 +86,7 @@ restartLex:
 	case '|':
 		if (*CurPtr == '=')      return CreateTokenAndEat(TokenKind::BAR_EQ, TokStart);
 		else if (*CurPtr == '|') return CreateTokenAndEat(TokenKind::BAR_BAR, TokStart);
+		else if (*CurPtr == '>') return CreateTokenAndEat(TokenKind::BAR_GT, TokStart);
 		else                     return CreateToken('|', TokStart);
 	case '&':
 		if (*CurPtr == '=')      return CreateTokenAndEat(TokenKind::AMP_EQ, TokStart);

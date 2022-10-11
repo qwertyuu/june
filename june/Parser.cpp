@@ -594,8 +594,20 @@ june::Expr* june::Parser::ParseAssignmentAndExprs() {
 }
 
 june::Expr* june::Parser::ParseExpr() {
-	Expr* LHS = ParseBinaryOpExpr(ParsePrimaryAndPostExpr());
-	return LHS;
+	Expr* E = ParseBinaryOpExpr(ParsePrimaryAndPostExpr());
+	if (CTok.is('?')) {
+		TernaryCond* Ternary = NewNode<TernaryCond>(CTok);
+		Ternary->Cond = E;
+		NextToken(); // Consuming '?' token
+		Ternary->Val1 = ParseExpr();
+		if (Ternary->Val1->is(AstKind::ERROR)) {
+			return E;
+		}
+		Match(TokenKind::BAR_GT);
+		Ternary->Val2 = ParseExpr();
+		return Ternary;
+	}
+	return E;
 }
 
 june::Expr* june::Parser::ParsePrimaryAndPostExpr() {

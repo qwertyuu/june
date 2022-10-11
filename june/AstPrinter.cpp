@@ -293,7 +293,7 @@ namespace june {
 
 	void PrintTypeCast(const JuneContext& Context, const TypeCast* Cast, u32 Depth) {
 		llvm::outs() << "(type-cast)\n";
-		PrintNode(Context, Cast->Val, Depth);
+		PrintNode(Context, Cast->Val, Depth + 1);
 	}
 
 	void PrintHeapAllocType(const JuneContext& Context, const HeapAllocType* HeapAlloc, u32 Depth) {
@@ -302,6 +302,17 @@ namespace june {
 
 	void PrintThisRef(const JuneContext& Context, const ThisRef* This, u32 Depth) {
 		llvm::outs() << "(this)";
+	}
+
+	void PrintTernaryCond(const JuneContext& Context, const TernaryCond* Ternary, u32 Depth) {
+		llvm::outs() << "(ternary-cond)\n";
+		PrintIndent(Depth);
+		llvm::outs() << "cond:\n";
+		PrintNode(Context, Ternary->Cond, Depth + 1);
+		llvm::outs() << "\nval1:\n";
+		PrintNode(Context, Ternary->Val1, Depth + 1);
+		llvm::outs() << "\nval2:\n";
+		PrintNode(Context, Ternary->Val2, Depth + 1);
 	}
 
 	void PrintErrorNode() {
@@ -380,6 +391,9 @@ namespace june {
 			break;
 		case AstKind::THIS_REF:
 			PrintThisRef(Context, ocast<const ThisRef*>(N), Depth);
+			break;
+		case AstKind::TERNARY_COND:
+			PrintTernaryCond(Context, ocast<const TernaryCond*>(N), Depth);
 			break;
 		case AstKind::ERROR:
 			PrintErrorNode();

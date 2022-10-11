@@ -91,6 +91,7 @@ namespace june {
 		EXL_EQ,      // !=
 		COL_COL,     // ::
 		MINUS_GT,    // ->
+		BAR_GT,      // |>
 
 		// === Extra === \\
 

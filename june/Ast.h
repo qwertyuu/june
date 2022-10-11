@@ -63,6 +63,7 @@ namespace june {
 		TYPE_CAST,
 		HEAP_ALLOC_TYPE,
 		THIS_REF,
+		TERNARY_COND,
 
 	};
 
@@ -544,6 +545,17 @@ namespace june {
 	struct ThisRef : Expr {
 		ThisRef()
 			: Expr(AstKind::THIS_REF) {}
+	};
+
+	struct TernaryCond : Expr {
+
+		Expr* Cond;
+		Expr* Val1;
+		Expr* Val2;
+
+		TernaryCond()
+			: Expr(AstKind::TERNARY_COND) {}
+
 	};
 }
 

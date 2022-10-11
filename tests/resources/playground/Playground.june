@@ -1,24 +1,30 @@
 
-A :: record {
-	f1 :i32 = 14;
-	f2 :i32 = 11;
-	f3 :i32 = 1111;
+String :: record {
 
-	m() {
-		
+	length :u32;
+	buffer :c8*;
+
+	String() {}
+
+	String(buffer :c8*) {
+		this.length = Mem.strlen(buffer);
+		this.buffer = new c8[length + 1]; // +1 for null terminator
+		Mem.memcpy(this.buffer, buffer, length + 1);
 	}
 }
 
-g() -> A {
-	return A();
+from(i :i32) -> String {
+	if i == 0 {
+		return String("0");
+	}
+
+	res :String = String();
+
+	return res;
 }
 
-f() -> A {
-	return g();
-}
+main() {
+	
+	from(341);
 
-main() -> i32 {
-	j :A = f();
-
-	return j.f1 + j.f2 + j.f3;
 }

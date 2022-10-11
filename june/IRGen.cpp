@@ -355,10 +355,6 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		}
 	}
 	
-	if (!LLEntryBlock->getInstList().empty()) {
-		AllocaInsertPt = &LLEntryBlock->getInstList().back();
-	}
-
 	// Allocating space for the variables
 	for (VarDecl* Var : Func->AllocVars) {	
 		GenAlloca(Var);
@@ -371,6 +367,10 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		llvm::Value* LLThisAddr = Builder.CreateAlloca(llvm::PointerType::get(GenRecordType(Context, Func->ParentRecord), 0));
 		Builder.CreateStore(LLFunc->getArg(LLParamIndex++), LLThisAddr);
 		LLThis = CreateLoad(LLThisAddr, "this");
+	}
+
+	if (RVO) {
+		++LLParamIndex;
 	}
 	
 	for (VarDecl* Param : Func->Params) {
@@ -527,6 +527,8 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 		return GenHeapAllocType(ocast<HeapAllocType*>(Node));
 	case AstKind::THIS_REF:
 		return LLThis;
+	case AstKind::TERNARY_COND:
+		return GenTernaryCond(ocast<TernaryCond*>(Node));
 	default:
 		assert(!"Unimplemented generation case!");
 		return nullptr;
@@ -538,12 +540,6 @@ void june::IRGen::GenGlobalInitFunc() {
 
 	LLFunc = Context.JuneInitGlobalsFuncs;
 	Builder.SetInsertPoint(LLEntryBlock);
-
-	// This is still needed because temporary allocations may still
-	// occure and it needs a place to allocate at.
-	if (!LLEntryBlock->getInstList().empty()) {
-		AllocaInsertPt = &LLEntryBlock->getInstList().back();
-	}
 
 	GenGlobalPostponedAssignments();
 
@@ -1592,6 +1588,13 @@ llvm::Value* june::IRGen::GenHeapAllocType(HeapAllocType* HeapAlloc) {
 	}
 }
 
+llvm::Value* june::IRGen::GenTernaryCond(TernaryCond* Ternary) {
+	llvm::Value* LLCond = GenCond(Ternary->Cond);
+	llvm::Value* LLVal1 = GenRValue(Ternary->Val1);
+	llvm::Value* LLVal2 = GenRValue(Ternary->Val2);
+	return Builder.CreateSelect(LLCond, LLVal1, LLVal2);
+}
+
 llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 	llvm::Value* LLRValToStore = nullptr;
 	if (Val->Kind == AstKind::ARRAY) {
@@ -1969,10 +1972,11 @@ llvm::Value* june::IRGen::GenCond(Expr* Cond) {
 llvm::Value* june::IRGen::CreateTempAlloca(llvm::Type* LLTy) {
 	llvm::BasicBlock* BackupInsertBlock = Builder.GetInsertBlock();
 	// The address does not exist so it needs to be created.
-	if (AllocaInsertPt) {
-		Builder.SetInsertPoint(AllocaInsertPt);
+	llvm::BasicBlock* LLEntryBlock = &LLFunc->getEntryBlock();
+	if (LLEntryBlock->getInstList().empty()) {
+		Builder.SetInsertPoint(LLEntryBlock);
 	} else {
-		Builder.SetInsertPoint(&LLFunc->getEntryBlock());
+		Builder.SetInsertPoint(&LLEntryBlock->getInstList().front());
 	}
 	llvm::Value* LLAddr = Builder.CreateAlloca(LLTy);
 	Builder.SetInsertPoint(BackupInsertBlock);
@@ -2125,8 +2129,7 @@ bool june::IRGen::FuncNeedsRVO(FuncDecl* Func) {
 	// TODO: Come up with a better size indication.
 	//       Honestly, it should probably be system dependent?
 	const llvm::StructLayout* LLStructLayout = LLModule.getDataLayout().getStructLayout(
-		Func->RetTy->AsRecordType()->Record->LLStructTy
-	);
+		llvm::cast<llvm::StructType>(GenType(Func->RetTy)));
 	if (LLStructLayout->getSizeInBytes() > 8) {
 		return true;
 	}

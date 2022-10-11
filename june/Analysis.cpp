@@ -336,6 +336,9 @@ void june::Analysis::CheckNode(AstNode* Node) {
 	case AstKind::THIS_REF:
 		CheckThisRef(ocast<ThisRef*>(Node));
 		break;
+	case AstKind::TERNARY_COND:
+		CheckTernaryCond(ocast<TernaryCond*>(Node));
+		break;
 	default:
 		assert(!"Unimplemented node check");
 		break;
@@ -1406,6 +1409,29 @@ void june::Analysis::CheckThisRef(ThisRef* This) {
 	}
 	// Just take the type as absolute.
 	This->Ty = PointerType::Create(GetRecordType(CRecord), Context);
+}
+
+void june::Analysis::CheckTernaryCond(TernaryCond* Ternary) {
+	CheckNode(Ternary->Cond);
+	YIELD_ERROR_WHEN_M(Ternary, Ternary->Cond);
+
+	if (!IsComparable(Ternary->Cond->Ty)) {
+		Error(Ternary->Cond, "Expected boolean type for Conditional operator '?'");
+	}
+
+	CheckNode(Ternary->Val1);
+	CheckNode(Ternary->Val2);
+
+	YIELD_ERROR_WHEN_M(Ternary, Ternary->Val1);
+	YIELD_ERROR_WHEN_M(Ternary, Ternary->Val2);
+
+	if (!IsCastableTo(Ternary->Val1->Ty, Ternary->Val2->Ty)) {
+		Error(Ternary, "Conditional operator '?' expects both values to have compatible types");
+		YIELD_ERROR(Ternary);
+	}
+	CreateCast(Ternary->Val2, Ternary->Val1->Ty);
+
+	Ternary->Ty = Ternary->Val1->Ty;
 }
 
 bool june::Analysis::IsAssignableTo(Type* ToTy, Expr* FromExpr) {

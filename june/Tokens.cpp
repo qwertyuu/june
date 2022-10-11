@@ -43,6 +43,7 @@ std::string june::GetTokenKindPresentation(u16 Kind, const JuneContext& Context)
 	case TokenKind::POST_PLUS_PLUS:   return "++";
 	case TokenKind::MINUS_MINUS:
 	case TokenKind::POST_MINUS_MINUS: return "--";
+	case TokenKind::BAR_GT:           return "|>";
 	default:
 		if (Kind < 257) {
 			if (Kind >= 33 && Kind <= 126)

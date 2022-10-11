@@ -80,6 +80,7 @@ namespace june {
 		void CheckTypeCast(TypeCast* Cast);
 		void CheckHeapAllocType(HeapAllocType* HeapAlloc);
 		void CheckThisRef(ThisRef* This);
+		void CheckTernaryCond(TernaryCond* Ternary);
 
 		bool IsAssignableTo(Type* ToTy, Expr* FromExpr);
 		bool IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr, bool LossenNumConversion);
