@@ -1,7 +1,8 @@
 import OtherFile;
 
+a :i32 = OtherFile.a;
+b :i32 = a;
+
 main() {
 	
-	OtherFile.f();
-
 }

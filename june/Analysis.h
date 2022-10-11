@@ -36,7 +36,8 @@ namespace june {
 		FileUnit*   FU;
 		FuncDecl*   CFunc   = nullptr;
 		RecordDecl* CRecord = nullptr;
-		VarDecl*    CField = nullptr;
+		VarDecl*    CField  = nullptr;
+		VarDecl*    CGlobal = nullptr;
 
 		struct Scope {
 			Scope* Parent = nullptr;

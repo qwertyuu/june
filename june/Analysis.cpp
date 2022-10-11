@@ -117,13 +117,15 @@ void june::Analysis::CheckVarDecl(VarDecl* Var) {
 
 	if (Var->IsGlobal) {
 		// Global variable. Need to request generation.
+		CGlobal = Var;
 		Context.RequestGen(Var);
 	}
 
 #define VAR_YIELD(E)         \
 E;                           \
 Var->IsBeingChecked = false; \
-CField = nullptr;            \
+CField  = nullptr;           \
+CGlobal = nullptr;           \
 YIELD_ERROR(Var)
 
 	if (Var->UsesInferedType) {
@@ -163,6 +165,7 @@ YIELD_ERROR(Var)
 
 	Var->IsBeingChecked = false;
 	CField = nullptr;
+	CGlobal = nullptr;
 
 #undef VAR_YIELD
 }
@@ -569,7 +572,6 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 		SearchForFuncs();
 	}
 
-	// TODO: Looses restrictions for comptime values.
 	IRef->IsFoldable = false;
 
 	switch (IRef->RefKind) {
@@ -671,7 +673,6 @@ void june::Analysis::CheckFieldAccessor(FieldAccessor* FA, bool GivePrefToFuncs)
 
 void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	
-	// TODO: Loosen restrictions for comptime functions.
 	Call->IsFoldable = false;
 
 	// Checking arguments
@@ -1592,8 +1593,9 @@ void june::Analysis::EnsureChecked(SourceLoc ELoc, VarDecl* Var) {
 		if (CField) {
 			Log.Error(ELoc, "Fields form a circular dependency");
 			DisplayCircularDep(CField);
-		} else {
-			// TODO: global circular dependencies!
+		} else if (CGlobal) {
+			Log.Error(ELoc, "Global variables form a circular depedency");
+			DisplayCircularDep(CGlobal);
 		}
 		Var->Ty = Context.ErrorType;
 		return;
@@ -1603,7 +1605,7 @@ void june::Analysis::EnsureChecked(SourceLoc ELoc, VarDecl* Var) {
 	if (CField) {
 		Var->DepD = CField; // CField depends on Var.
 	} else {
-		// TODO: globals
+		Var->DepD = CGlobal;
 	}
 	A.CheckVarDecl(Var);
 	Var->DepD = nullptr; // Dependency finished.
