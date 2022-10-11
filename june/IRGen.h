@@ -18,7 +18,7 @@ namespace june {
 	class IRGen {
 	public:
 	
-		IRGen(JuneContext& context, DebugInfoEmitter* DIEmitter, bool displayLLVMIR);
+		IRGen(JuneContext& context, bool emitDebugInfo, bool displayLLVMIR);
 
 		void GenFunc(FuncDecl* Func);
 
@@ -30,10 +30,10 @@ namespace june {
 
 	private:
 		JuneContext&       Context;
-		DebugInfoEmitter*  DIEmitter;
 		llvm::LLVMContext& LLContext;
 		llvm::Module&      LLModule;
 		llvm::IRBuilder<>  Builder;
+		bool               EmitDebugInfo;
 		bool               DisplayLLVMIR;
 
 		FuncDecl*       CFunc;
@@ -162,6 +162,9 @@ namespace june {
 		llvm::Constant* GenGlobalConstVal(VarDecl* Global);
 
 		void EmitDebugLocation(AstNode* Node);
+
+		DebugInfoEmitter* GetDIEmitter(Decl* D);
+		DebugInfoEmitter* GetDIEmitter();
 
 	};
 }

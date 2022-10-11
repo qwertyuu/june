@@ -1,8 +1,7 @@
-a :i32 = 1345;
+import OtherFile;
 
 main() {
 	
-	a = 33;
-	a = 22;
+	OtherFile.f();
 
 }

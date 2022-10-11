@@ -9,7 +9,10 @@
 #include <llvm/Support/SHA1.h>
 
 june::DebugInfoEmitter::DebugInfoEmitter(JuneContext& context)
-	: Context(context), DBuilder(new llvm::DIBuilder(context.LLJuneModule)) {
+	: Context(context), 
+	  DBuilder(new llvm::DIBuilder(context.LLJuneModule)),
+      LLContext(context.LLContext)
+{
 }
 
 void june::DebugInfoEmitter::EmitCompilationUnit(FileUnit* FU) {
@@ -39,7 +42,7 @@ void june::DebugInfoEmitter::EmitCompilationUnit(FileUnit* FU) {
 	llvm::StringRef DebugFlags = "";
 
 	llvm::dwarf::SourceLanguage LangTag = llvm::dwarf::DW_LANG_C99;
-	FU->DebugUnit = DBuilder->createCompileUnit(
+	DebugUnit = DBuilder->createCompileUnit(
 		LangTag,
 		CUFile,
 		"June Compiler", // Producer
@@ -58,7 +61,7 @@ void june::DebugInfoEmitter::EmitCompilationUnit(FileUnit* FU) {
 
 void june::DebugInfoEmitter::EmitFunc(FuncDecl* Func, llvm::IRBuilder<>& IRBuilder) {
 	
-	llvm::DIScope* Scope = Func->FU->DebugUnit->getFile();
+	llvm::DIScope* Scope = DebugUnit->getFile();
 
 	llvm::SmallVector<llvm::Metadata*, 4> DIFuncTys;
 	llvm::Metadata* DIRetTy = Func->IsMainFunc ? EmitType(Context.I32Type)
@@ -75,7 +78,7 @@ void june::DebugInfoEmitter::EmitFunc(FuncDecl* Func, llvm::IRBuilder<>& IRBuild
 		Scope,
 		Func->Name.Text, 
 		Func->LLAddress->getName(), // linkage name
-		Func->FU->DebugUnit->getFile(),
+		DebugUnit->getFile(),
 		Func->Loc.LineNumber,
 		DIType,
 		Func->Loc.LineNumber, // TODO: scope line
@@ -98,7 +101,7 @@ void june::DebugInfoEmitter::EmitParam(FuncDecl* Func, VarDecl* Var, llvm::IRBui
 			DIScope,
 			Var->Name.Text,
 			Var->ParamIdx + 1,
-			Func->FU->DebugUnit->getFile(),
+			DebugUnit->getFile(),
 			Var->Loc.LineNumber,
 			EmitType(Var->Ty),
 			true
@@ -108,7 +111,7 @@ void june::DebugInfoEmitter::EmitParam(FuncDecl* Func, VarDecl* Var, llvm::IRBui
 		Var->LLAddress,
 		DIVar,
 		DBuilder->createExpression(),
-		llvm::DILocation::get(Context.LLContext, Var->Loc.LineNumber, 0, DIScope),
+		llvm::DILocation::get(LLContext, Var->Loc.LineNumber, 0, DIScope),
 		IRBuilder.GetInsertBlock());
 }
 
@@ -119,7 +122,7 @@ void june::DebugInfoEmitter::EmitLocalVar(VarDecl* Var, llvm::IRBuilder<>& IRBui
 		DBuilder->createAutoVariable(
 			DIScope,
 			Var->Name.Text,
-			Var->FU->DebugUnit->getFile(),
+			DebugUnit->getFile(),
 			Var->Loc.LineNumber,
 			EmitType(Var->Ty),
 			true
@@ -129,16 +132,16 @@ void june::DebugInfoEmitter::EmitLocalVar(VarDecl* Var, llvm::IRBuilder<>& IRBui
 		Var->LLAddress,
 		DIVar,
 		DBuilder->createExpression(),
-		llvm::DILocation::get(Context.LLContext, Var->Loc.LineNumber, 0, DIScope),
+		llvm::DILocation::get(LLContext, Var->Loc.LineNumber, 0, DIScope),
 		IRBuilder.GetInsertBlock());
 }
 
 void june::DebugInfoEmitter::EmitGlobalVar(VarDecl* Var, llvm::IRBuilder<>& IRBuilder) {
 	llvm::DIGlobalVariableExpression* DIGVE = DBuilder->createGlobalVariableExpression(
-		Var->FU->DebugUnit,
+		DebugUnit,
 		Var->Name.Text,
 		Var->LLAddress->getName(), // Linkage name
-		Var->FU->DebugUnit->getFile(),
+		DebugUnit->getFile(),
 		Var->Loc.LineNumber,
 		EmitType(Var->Ty),
 		false,
@@ -156,7 +159,7 @@ void june::DebugInfoEmitter::EmitFuncEnd(FuncDecl* Func) {
 
 void june::DebugInfoEmitter::EmitScopeStart(FileUnit* FU, SourceLoc Loc) {
 	llvm::DILexicalBlock* DILexBlock = DBuilder->createLexicalBlock(DILexicalScopes.back(),
-		FU->DebugUnit->getFile(), Loc.LineNumber, 0);
+		DebugUnit->getFile(), Loc.LineNumber, 0);
 	DILexicalScopes.push_back(DILexBlock);
 }
 
@@ -176,7 +179,7 @@ void june::DebugInfoEmitter::EmitDebugLocation(llvm::IRBuilder<>& IRBuilder, Ast
 void june::DebugInfoEmitter::EmitDebugLocation(llvm::Instruction* LLInst, SourceLoc Loc) {
 	llvm::DIScope* DIScope = DILexicalScopes.back();
 	LLInst->setDebugLoc(llvm::DILocation::get(
-		Context.LLContext, Loc.LineNumber, 0, DIScope));
+		LLContext, Loc.LineNumber, 0, DIScope));
 }
 
 llvm::Optional<llvm::DIFile::ChecksumKind> june::DebugInfoEmitter::ComputeChecksum(FileUnit* FU, llvm::SmallString<64>& Checksum) {
@@ -215,7 +218,7 @@ llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 		do {
 			auto* DISubscriptLengthValue =
 				llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
-					llvm::Type::getInt32Ty(Context.LLContext),
+					llvm::Type::getInt32Ty(LLContext),
 					ArrTyPtr->Length
 				));
 
@@ -258,7 +261,7 @@ llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 			llvm::DICompositeType* DIStructTy = DBuilder->createStructType(
 				nullptr,
 				Record->Name.Text,
-				Record->FU->DebugUnit->getFile(),
+				DebugUnit->getFile(),
 				Record->Loc.LineNumber,
 				SizeofInBytes * 8,
 				0,
@@ -295,7 +298,7 @@ llvm::DIType* june::DebugInfoEmitter::EmitMemberFieldType(llvm::DIType* DIScope,
 	llvm::DIType* DIMemberType = DBuilder->createMemberType(
 		DIScope,
 		Field->Name.Text,
-		Field->FU->DebugUnit->getFile(),
+		DebugUnit->getFile(),
 		Field->Loc.LineNumber,
 		SizeInBits,
 		0,

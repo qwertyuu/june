@@ -80,12 +80,12 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& OS, LLTypePrinter& Printer) {
 
 
 
-june::IRGen::IRGen(JuneContext& context, DebugInfoEmitter* DIEmitter, bool displayLLVMIR)
+june::IRGen::IRGen(JuneContext& context, bool emitDebugInfo, bool displayLLVMIR)
 	: Context(context),
-	  DIEmitter(DIEmitter),
 	  LLContext(context.LLContext),
 	  LLModule(context.LLJuneModule),
 	  Builder(context.LLContext),
+	  EmitDebugInfo(emitDebugInfo),
 	  DisplayLLVMIR(displayLLVMIR) {
 }
 
@@ -321,8 +321,8 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	llvm::BasicBlock* LLEntryBlock = llvm::BasicBlock::Create(LLContext, "entry.block", LLFunc);
 	Builder.SetInsertPoint(LLEntryBlock);
 
-	if (DIEmitter) {
-		DIEmitter->EmitFunc(Func, Builder);
+	if (EmitDebugInfo) {
+		GetDIEmitter(Func)->EmitFunc(Func, Builder);
 	}
 
 	if (Func->NumReturns > 1) {
@@ -355,8 +355,8 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	}
 	
 	for (VarDecl* Param : Func->Params) {
-		if (DIEmitter)
-			DIEmitter->EmitParam(Func, Param, Builder);
+		if (EmitDebugInfo)
+			GetDIEmitter(Func)->EmitParam(Func, Param, Builder);
 		Builder.CreateStore(LLFunc->getArg(LLParamIndex++), Param->LLAddress);
 	}
 
@@ -385,39 +385,33 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 		Builder.SetInsertPoint(LLFuncEndBB);
 	}
 
+	llvm::Instruction* LLRet = nullptr;
 	if (Func->NumReturns > 1) {
 		if (HasVoidRetTy) {
-			llvm::Instruction* LLRet = Builder.CreateRetVoid();
-			if (DIEmitter)
-				DIEmitter->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
+			LLRet = Builder.CreateRetVoid();
 		} else {
 			if (Func->IsMainFunc &&
 				(Stmts.empty() || Stmts.back()->isNot(AstKind::RETURN))) {
 				// Since main can be declared void it is possible it does not
 				// have a return so storage is nessessary.
 				llvm::Instruction* LLRetStore = Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
-				if (DIEmitter)
-					DIEmitter->EmitDebugLocation(LLRetStore, Func->Scope.EndLoc);
+				GetDIEmitter(Func)->EmitDebugLocation(LLRetStore, Func->Scope.EndLoc);
 			}
-			llvm::Instruction* LLRet = Builder.CreateRet(CreateLoad(LLRetAddr));
-			if (DIEmitter)
-				DIEmitter->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
+			LLRet = Builder.CreateRet(CreateLoad(LLRetAddr));
 		}
 	} else if (Func->NumReturns == 0) {
 		if (HasVoidRetTy) {
-			llvm::Instruction* LLRet = Builder.CreateRetVoid();
-			if (DIEmitter)
-				DIEmitter->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
+			LLRet = Builder.CreateRetVoid();
 		} else if (Func->IsMainFunc &&
 				  (Stmts.empty() || Stmts.back()->isNot(AstKind::RETURN))) {
-			llvm::Instruction* LLRet = Builder.CreateRet(GetLLInt32(0, LLContext));
-			if (DIEmitter)
-				DIEmitter->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
+			LLRet = Builder.CreateRet(GetLLInt32(0, LLContext));
 		}
 	}
 
-	if (DIEmitter) {
-		DIEmitter->EmitFuncEnd(Func);
+	if (EmitDebugInfo) {
+		if (LLRet)
+			GetDIEmitter(Func)->EmitDebugLocation(LLRet, Func->Scope.EndLoc);
+		GetDIEmitter(Func)->EmitFuncEnd(Func);
 	}
 }
 
@@ -429,14 +423,14 @@ void june::IRGen::GenGlobalVarDecl(VarDecl* Global) {
 	Name += "." + std::to_string(Context.NumGeneratedGlobalVars++);
 	Global->LLAddress = MakeGlobalVar(Name, GenType(Global->Ty));
 
-	if (DIEmitter)
-		DIEmitter->EmitGlobalVar(Global, Builder);
+	if (EmitDebugInfo)
+		GetDIEmitter(Global)->EmitGlobalVar(Global, Builder);
 }
 
 llvm::Value* june::IRGen::GenLocalVarDecl(VarDecl* Var) {
 	assert(Var->LLAddress && "The address should have been generated at the start of the function!");
-	if (DIEmitter)
-		DIEmitter->EmitLocalVar(Var, Builder);
+	if (EmitDebugInfo)
+		GetDIEmitter(Var)->EmitLocalVar(Var, Builder);
 	return GenVarDecl(GetAddressOfVar(Var), Var);
 }
 
@@ -629,11 +623,11 @@ llvm::Value* june::IRGen::GenRValue(AstNode* Node) {
 }
 
 llvm::Value* june::IRGen::GenInnerScope(InnerScopeStmt* InnerScope) {
-	if (DIEmitter)
-		DIEmitter->EmitScopeStart(CFunc->FU, InnerScope->Scope.StartLoc);
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeStart(CFunc->FU, InnerScope->Scope.StartLoc);
 	GenBlock(nullptr, InnerScope->Scope);
-	if (DIEmitter)
-		DIEmitter->EmitScopeEnd();
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeEnd();
 	return nullptr;
 }
 
@@ -682,8 +676,8 @@ llvm::Value* june::IRGen::GenRangeLoop(RangeLoopStmt* Loop) {
 	EmitDebugLocation(Loop);
 
 	// Generating the body of the loop
-	if (DIEmitter)
-		DIEmitter->EmitScopeStart(CFunc->FU, Loop->Scope.StartLoc);
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeStart(CFunc->FU, Loop->Scope.StartLoc);
 
 	GenBlock(LLBodyBB, Loop->Scope);
 	LoopBreakStack.pop_back();
@@ -708,8 +702,8 @@ llvm::Value* june::IRGen::GenRangeLoop(RangeLoopStmt* Loop) {
 	// Finally continuing forward into a new block after the loop
 	GenSetInsertBlock(LLEndBB, &Loop->Scope);
 
-	if (DIEmitter)
-		DIEmitter->EmitScopeEnd();
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeEnd();
 
 	return nullptr;
 }
@@ -727,8 +721,8 @@ llvm::Value* june::IRGen::GenPredicateLoop(PredicateLoopStmt* Loop) {
 	EmitDebugLocation(Loop);
 
 	// Generating the body of the loop
-	if (DIEmitter)
-		DIEmitter->EmitScopeStart(CFunc->FU, Loop->Scope.StartLoc);
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeStart(CFunc->FU, Loop->Scope.StartLoc);
 
 	GenBlock(LLBodyBB, Loop->Scope);
 	LoopBreakStack.pop_back();
@@ -740,8 +734,8 @@ llvm::Value* june::IRGen::GenPredicateLoop(PredicateLoopStmt* Loop) {
 	// Finally continuing forward into a new block after the loop
 	GenSetInsertBlock(LLEndBB, &Loop->Scope);
 
-	if (DIEmitter)
-		DIEmitter->EmitScopeEnd();
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeEnd();
 
 	return nullptr;
 }
@@ -773,12 +767,12 @@ llvm::Value* june::IRGen::GenIf(IfStmt* If) {
 	GenBranchOnCond(If->Cond, LLThenBB, LLElseBB);
 	EmitDebugLocation(If);
 
-	if (DIEmitter)
-		DIEmitter->EmitScopeStart(CFunc->FU, If->Scope.StartLoc);
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeStart(CFunc->FU, If->Scope.StartLoc);
 	GenBlock(LLThenBB, If->Scope);
 	GenBranchIfNotTerm(LLEndBB, &If->Scope);
-	if (DIEmitter)
-		DIEmitter->EmitScopeEnd();
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeEnd();
 
 	// Generating the else statement if it exist
 	if (AstNode* Else = If->Else) {
@@ -1797,9 +1791,9 @@ void june::IRGen::GenBranchIfNotTerm(llvm::BasicBlock* LLBB, LexScope* ScopeBein
 	if (!CurBB->getTerminator()) {
 		// Unconditionally branch
 		llvm::Instruction* LLInst = Builder.CreateBr(LLBB);
-		if (DIEmitter) {
+		if (EmitDebugInfo) {
 			if (ScopeBeingEnded)
-				DIEmitter->EmitDebugLocation(LLInst, ScopeBeingEnded->EndLoc);
+				GetDIEmitter()->EmitDebugLocation(LLInst, ScopeBeingEnded->EndLoc);
 		}
 	}
 }
@@ -2062,8 +2056,17 @@ llvm::Constant* june::IRGen::GenGlobalConstVal(VarDecl* Global) {
 }
 
 void june::IRGen::EmitDebugLocation(AstNode* Node) {
-	if (DIEmitter) {
-		DIEmitter->EmitDebugLocation(Builder, Node);
+	if (EmitDebugInfo) {
+		GetDIEmitter()->EmitDebugLocation(Builder, Node);
 	}
+}
+
+june::DebugInfoEmitter* june::IRGen::GetDIEmitter(Decl* D) {
+	return D->FU->DIEmitter;
+}
+
+june::DebugInfoEmitter* june::IRGen::GetDIEmitter() {
+	assert(CFunc && "Should only obtain the debug emitter in this context when inside a function");
+	return CFunc->FU->DIEmitter;
 }
 

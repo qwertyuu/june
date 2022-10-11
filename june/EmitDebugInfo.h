@@ -40,8 +40,11 @@ namespace june {
 		llvm::DIType* EmitType(Type* Ty);
 		llvm::DIType* EmitMemberFieldType(llvm::DIType* DIScope, VarDecl* Field, u32& BitsOffset);
 
-		JuneContext&     Context;
-		llvm::DIBuilder* DBuilder;
+
+		JuneContext&         Context;
+		llvm::LLVMContext&   LLContext;
+		llvm::DIBuilder*     DBuilder;
+		llvm::DICompileUnit* DebugUnit;
 
 		llvm::SmallVector<llvm::DIScope*> DILexicalScopes;
 	};

@@ -109,16 +109,13 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		}
 	}
 
-
-	DebugInfoEmitter* DIEmitter = nullptr;
-	if (EmitDebugInfo)
-		DIEmitter = new DebugInfoEmitter(Context);
-	if (DIEmitter) {
+	// Create a debug compilation unit for each FileUnit
+	if (EmitDebugInfo) {
 		for (auto FUItr = Context.FileUnits.begin(),
 			FUEnd = Context.FileUnits.end();
 			FUItr != FUEnd; FUItr++
 			) {
-			DIEmitter->EmitCompilationUnit(FUItr->second);
+			FUItr->second->DIEmitter->EmitCompilationUnit(FUItr->second);
 		}
 	}
 
@@ -142,7 +139,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			continue;
 		}
 
-		IRGen Gen(Context, DIEmitter, DisplayLLVMIR | Verbose);
+		IRGen Gen(Context, EmitDebugInfo, DisplayLLVMIR | Verbose);
 		if (D->is(AstKind::FUNC_DECL)) {
 			Gen.GenFunc(ocast<FuncDecl*>(D));
 		} else {
@@ -182,7 +179,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		return;
 	}
 
-	IRGen Gen(Context, DIEmitter, DisplayLLVMIR | Verbose);
+	IRGen Gen(Context, EmitDebugInfo, DisplayLLVMIR | Verbose);
 	Gen.GenGlobalInitFunc();
 
 	if (EmitDebugInfo) {
@@ -192,8 +189,15 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		LLVMIdentMD->addOperand(llvm::MDNode::get(Context.LLContext, { llvm::MDString::get(Context.LLContext, "June Compiler") }));
 	}
 	
-	if (DIEmitter)
-		DIEmitter->Finalize();
+	// Finalizing all the debug compilation units.
+	if (EmitDebugInfo) {
+		for (auto FUItr = Context.FileUnits.begin(),
+			FUEnd = Context.FileUnits.end();
+			FUItr != FUEnd; FUItr++
+			) {
+			FUItr->second->DIEmitter->Finalize();
+		}
+	}
 
 	// -- DEBUG
 	// llvm::verifyModule(Context.LLJuneModule);
@@ -287,6 +291,10 @@ void june::Compiler::CollectDirectoryFiles(const std::filesystem::path& Director
 void june::Compiler::AddFileUnit(std::string& RelativePath, std::string& AbsolutePath) {
 	
 	FileUnit* FU = new FileUnit(llvm::errs(), RelativePath);
+	if (EmitDebugInfo) {
+		FU->DIEmitter = new DebugInfoEmitter(Context);
+	}
+
 	std::string& PathKey = FU->FL.PathKey;
 	PathKey = std::move(RelativePath.substr(0, RelativePath.size() - 5));
 	std::replace(PathKey.begin(), PathKey.end(), '/', '.');

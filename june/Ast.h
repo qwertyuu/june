@@ -28,7 +28,7 @@ namespace june {
 	struct Expr;
 	struct AstNode;
 	struct RecordType;
-	struct QualifyingType;
+	class DebugInfoEmitter;
 
 	using ScopeStmts = llvm::SmallVector<AstNode*, 8>;
 	using FuncsList  = llvm::SmallVector<FuncDecl*, 4>;
@@ -86,11 +86,11 @@ namespace june {
 
 		bool HasBeenParsed = false;
 
-		FileLocation FL;
-		SourceBuf    SBuf;
-		Logger       Log;
-		llvm::DICompileUnit* DebugUnit = nullptr;
-
+		FileLocation      FL;
+		SourceBuf         SBuf;
+		Logger            Log;
+		DebugInfoEmitter* DIEmitter;
+		
 		// When parsing a file record types
 		// cannot be resolved until the file
 		// has been fully parsed. This structure
