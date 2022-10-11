@@ -428,6 +428,9 @@ void june::IRGen::GenGlobalVarDecl(VarDecl* Global) {
 	std::string Name = "g_" + Global->Name.Text.str();
 	Name += "." + std::to_string(Context.NumGeneratedGlobalVars++);
 	Global->LLAddress = MakeGlobalVar(Name, GenType(Global->Ty));
+
+	if (DIEmitter)
+		DIEmitter->EmitGlobalVar(Global, Builder);
 }
 
 llvm::Value* june::IRGen::GenLocalVarDecl(VarDecl* Var) {

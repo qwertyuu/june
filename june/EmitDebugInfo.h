@@ -21,7 +21,7 @@ namespace june {
 
 		void EmitParam(FuncDecl* Func, VarDecl* Var, llvm::IRBuilder<>& IRBuilder);
 		void EmitLocalVar(VarDecl* Var, llvm::IRBuilder<>& IRBuilder);
-		void EmitField(RecordDecl* Record, VarDecl* Field, llvm::IRBuilder<>& IRBuilder);
+		void EmitGlobalVar(VarDecl* Var, llvm::IRBuilder<>& IRBuilder);
 
 		void EmitFuncEnd(FuncDecl* Func);
 

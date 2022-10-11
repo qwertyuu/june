@@ -133,8 +133,20 @@ void june::DebugInfoEmitter::EmitLocalVar(VarDecl* Var, llvm::IRBuilder<>& IRBui
 		IRBuilder.GetInsertBlock());
 }
 
-void june::DebugInfoEmitter::EmitField(RecordDecl* Record, VarDecl* Field, llvm::IRBuilder<>& IRBuilder)
-{
+void june::DebugInfoEmitter::EmitGlobalVar(VarDecl* Var, llvm::IRBuilder<>& IRBuilder) {
+	llvm::DIGlobalVariableExpression* DIGVE = DBuilder->createGlobalVariableExpression(
+		Var->FU->DebugUnit,
+		Var->Name.Text,
+		Var->LLAddress->getName(), // Linkage name
+		Var->FU->DebugUnit->getFile(),
+		Var->Loc.LineNumber,
+		EmitType(Var->Ty),
+		false,
+		true
+	);
+	
+	llvm::GlobalVariable* LLGVar = llvm::cast<llvm::GlobalVariable>(Var->LLAddress);
+	LLGVar->addDebugInfo(DIGVE);
 }
 
 void june::DebugInfoEmitter::EmitFuncEnd(FuncDecl* Func) {
