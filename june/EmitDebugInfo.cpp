@@ -89,8 +89,6 @@ void june::DebugInfoEmitter::EmitFunc(FuncDecl* Func, llvm::IRBuilder<>& IRBuild
 
 	DILexicalScopes.push_back(SP);
 
-	IRBuilder.SetCurrentDebugLocation(llvm::DebugLoc());
-
 }
 
 void june::DebugInfoEmitter::EmitParam(FuncDecl* Func, VarDecl* Var, llvm::IRBuilder<>& IRBuilder) {

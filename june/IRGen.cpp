@@ -950,6 +950,7 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 
 
 	llvm::Value* CallValue = Builder.CreateCall(LLCalledFunc, LLArgs);
+	EmitDebugLocation(Call);
 	if (!Call->IsConstructorCall) {
 		return CallValue;
 	} else {
