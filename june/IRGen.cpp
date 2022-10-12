@@ -154,6 +154,16 @@ llvm::Type* june::GenType(JuneContext& Context, Type* Ty) {
 		RecordType* RecordTy = Ty->AsRecordType();
 		return GenRecordType(Context, RecordTy->Record);
 	}
+	case TypeKind::FUNCTION: {
+		FunctionType* FuncTy = Ty->AsFunctionType();
+		llvm::SmallVector<llvm::Type*, 4> LLParamTypes;
+		for (Type* ParamType : FuncTy->ParamTypes) {
+			LLParamTypes.push_back(GenType(Context, ParamType));
+		}
+		llvm::Type* LLRetType = GenType(Context, FuncTy->RetTy);
+		bool IsVarArgs = false;
+		return llvm::PointerType::get(llvm::FunctionType::get(LLRetType, LLParamTypes, IsVarArgs), 0);
+	}
 	default:
 		assert(!"Unimplemented GenType() case");
 		return nullptr;
@@ -200,7 +210,7 @@ llvm::Type* june::GenRecordType(JuneContext& Context, RecordDecl* Record) {
 void june::IRGen::GenFunc(FuncDecl* Func) {
 
 	// -- DEBUG
-	llvm::outs() << "generating function: " << Func->Name << '\n';
+	// llvm::outs() << "generating function: " << Func->Name << '\n';
 
 	CFunc = Func;
 
@@ -274,10 +284,10 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	// since the size is likely known.
 	llvm::SmallVector<llvm::Type*, 4> LLParamTypes;
 
-	if (Func->ParentRecord) {
+	if (Func->Record) {
 		// Member functions recieve pointers to the record they
 		// are contained inside of.
-		LLParamTypes.push_back(llvm::PointerType::get(GenRecordType(Context, Func->ParentRecord), 0));
+		LLParamTypes.push_back(llvm::PointerType::get(GenRecordType(Context, Func->Record), 0));
 	}
 
 	if (RVO) {
@@ -362,9 +372,9 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 
 	// Storing the incoming variables
 	u32 LLParamIndex = 0;
-	if (Func->ParentRecord) {
+	if (Func->Record) {
 		// Member function pointer
-		llvm::Value* LLThisAddr = Builder.CreateAlloca(llvm::PointerType::get(GenRecordType(Context, Func->ParentRecord), 0));
+		llvm::Value* LLThisAddr = Builder.CreateAlloca(llvm::PointerType::get(GenRecordType(Context, Func->Record), 0));
 		Builder.CreateStore(LLFunc->getArg(LLParamIndex++), LLThisAddr);
 		LLThis = CreateLoad(LLThisAddr, "this");
 	}
@@ -380,11 +390,11 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	}
 
 	// If it is a constructor the fields need to be initialized early
-	if (Func->ParentRecord && Func->Name == Func->ParentRecord->Name) {
-		if (Func->ParentRecord->FieldsHaveAssignment) {
-			GenDefaultRecordInitCall(Func->ParentRecord, LLThis);
+	if (Func->Record && Func->Name == Func->Record->Name) {
+		if (Func->Record->FieldsHaveAssignment) {
+			GenDefaultRecordInitCall(Func->Record, LLThis);
 		} else {
-			llvm::Type* LLRecType = GenRecordType(Context, Func->ParentRecord);
+			llvm::Type* LLRecType = GenRecordType(Context, Func->Record);
 			Builder.CreateStore(llvm::ConstantAggregateZero::get(LLRecType), LLThis);
 		}
 	}
@@ -414,7 +424,8 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 				// Since main can be declared void it is possible it does not
 				// have a return so storage is nessessary.
 				llvm::Instruction* LLRetStore = Builder.CreateStore(GetLLInt32(0, LLContext), LLRetAddr);
-				GetDIEmitter(Func)->EmitDebugLocation(LLRetStore, Func->Scope.EndLoc);
+				if (EmitDebugInfo)
+					GetDIEmitter(Func)->EmitDebugLocation(LLRetStore, Func->Scope.EndLoc);
 			}
 			LLRet = Builder.CreateRet(CreateLoad(LLRetAddr));
 		}
@@ -929,19 +940,24 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 		return LLAddr;
 	}
 
-	llvm::Function* LLCalledFunc = Call->CalledFunc->LLAddress;
-
 	// Adding arguments
 	u32 ArgIndex = 0;
 	llvm::SmallVector<llvm::Value*, 2> LLArgs;
-	bool RVO = FuncNeedsRVO(Call->CalledFunc);
-	u32 ExtraParamsOffset = (Call->CalledFunc->ParentRecord ? 1 : 0);
-	if (RVO) {
-		++ExtraParamsOffset;
+	bool RVO = false;
+	u32 NumArgs = Call->Args.size() + Call->NamedArgs.size();
+	if (Call->CalledFunc) {
+		RVO = FuncNeedsRVO(Call->CalledFunc);
+		if (Call->CalledFunc->Record) {
+			++NumArgs;
+		}
+		if (RVO) {
+			++NumArgs;
+		}
 	}
-	LLArgs.resize(Call->Args.size() + Call->NamedArgs.size() + ExtraParamsOffset);
+	
+	LLArgs.resize(NumArgs);
 
-	if (Call->CalledFunc->ParentRecord) {
+	if (Call->CalledFunc && Call->CalledFunc->Record) {
 		
 		if (Call->IsConstructorCall) {  // Record(...)
 			LLArgs[ArgIndex++] = LLAddr;
@@ -979,20 +995,31 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 		LLArgs[NamedArg.VarRef->ParamIdx] = GenRValue(NamedArg.AssignValue);
 	}
 
-	// -- DEBUG
-	//llvm::outs() << "Calling Function with name: " << Call->CalledFunc->Name << '\n';
-	//llvm::outs() << "Types passed to function:\n";
-	//for (u32 i = 0; i < LLArgs.size(); i++) {
-	//	llvm::outs() << LLValTypePrinter(LLArgs[i]) << '\n';
-	//}
-	//llvm::outs() << "Types expected by function:\n";
-	//for (u32 i = 0; i < LLCalledFunc->arg_size(); i++) {
-	//	llvm::outs() << LLValTypePrinter(LLCalledFunc->getArg(i)) << '\n';
-	//}
-	//llvm::outs() << '\n';
+	llvm::Value* CallValue = nullptr;
+	if (Call->CalledFunc) {
+		// -- DEBUG
+		//llvm::outs() << "Calling Function with name: " << Call->CalledFunc->Name << '\n';
+		//llvm::outs() << "Types passed to function:\n";
+		//for (u32 i = 0; i < LLArgs.size(); i++) {
+		//	llvm::outs() << LLValTypePrinter(LLArgs[i]) << '\n';
+		//}
+		//llvm::outs() << "Types expected by function:\n";
+		//for (u32 i = 0; i < LLCalledFunc->arg_size(); i++) {
+		//	llvm::outs() << LLValTypePrinter(LLCalledFunc->getArg(i)) << '\n';
+		//}
+		//llvm::outs() << '\n';
+		
+		CallValue = Builder.CreateCall(Call->CalledFunc->LLAddress, LLArgs);
+	} else {
+		// Call must be on a variable
+		llvm::Value* CallSite = CreateLoad(GenNode(Call->Site));
+		CallValue =
+			Builder.CreateCall(
+			     llvm::cast<llvm::FunctionType>(CallSite->getType()->getPointerElementType()),
+			     CallSite,
+			     LLArgs);
+	}
 
-
-	llvm::Value* CallValue = Builder.CreateCall(LLCalledFunc, LLArgs);
 	EmitDebugLocation(Call);
 	if (!Call->IsConstructorCall && !RVO) {
 		return CallValue;
@@ -1400,6 +1427,15 @@ llvm::Value* june::IRGen::GenUnaryOp(UnaryOp* UOP) {
 		// though.
 		return GenRValue(UOP->Val);
 	case '&':
+		if (UOP->Val->is(AstKind::IDENT_REF) || UOP->Val->is(AstKind::FIELD_ACCESSOR)) {
+			IdentRef* IRef = ocast<IdentRef*>(UOP->Val);
+			if (IRef->RefKind == IdentRef::FUNCS) {
+				FuncDecl* Func = (*IRef->FuncsRef)[0];
+				GenFuncDecl(Func);
+				return Func->LLAddress;
+			}
+		}
+
 		// When GenRValue is called it makes sure
 		// not to shave off the pointer value for
 		// this operator. Because of that all this
@@ -1817,6 +1853,7 @@ llvm::Constant* june::IRGen::GenZeroedValue(Type* Ty) {
 	case TypeKind::BOOL:
 		return llvm::ConstantInt::getFalse(LLContext);
 	case TypeKind::POINTER:
+	case TypeKind::FUNCTION:
 		return llvm::Constant::getNullValue(GenType(Ty));
 	case TypeKind::FIXED_ARRAY:
 		return llvm::ConstantAggregateZero::get(GenType(Ty));

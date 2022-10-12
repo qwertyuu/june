@@ -61,6 +61,7 @@ restartLex:
 	case ',': return CreateToken(',', TokStart);
 	case '.': return CreateToken('.', TokStart);
 	case '?': return CreateToken('?', TokStart);
+	case '`': return CreateToken('`', TokStart);
 	case ':':
 		if (*CurPtr == ':') return CreateTokenAndEat(TokenKind::COL_COL, TokStart);
 		else                return CreateToken(':', TokStart);

@@ -4,6 +4,8 @@
 #include "Prolog.h"
 #include <string>
 
+#include <llvm/ADT/SmallVector.h>
+
 namespace june {
 
 	class JuneContext;
@@ -11,6 +13,7 @@ namespace june {
 	struct FixedArrayType;
 	struct ContainerType;
 	struct RecordType;
+	struct FunctionType;
 	struct Expr;
 	struct RecordDecl;
 	
@@ -41,6 +44,7 @@ namespace june {
 		RECORD,
 		NULLPTR,
 		UNDEFINED,
+		FUNCTION,
 
 	};
 
@@ -84,6 +88,7 @@ namespace june {
 		FixedArrayType* AsFixedArrayType();
 		ContainerType* AsContainerType();
 		RecordType* AsRecordType();
+		FunctionType* AsFunctionType();
 
 	private:
 		TypeKind Kind;
@@ -160,6 +165,28 @@ namespace june {
 		std::string ToStr() const override;
 
 	};
+
+	//===-------------------------------===//
+	// Function Type
+	//===-------------------------------===//
+	struct FunctionType : public Type {
+
+		llvm::SmallVector<Type*, 4> ParamTypes;
+		Type* RetTy;
+
+		FunctionType()
+			: Type(TypeKind::FUNCTION) {}
+
+		static FunctionType* Create(Type* RetTy, llvm::SmallVector<Type*, 4>& ParamTypes);
+
+		bool is(Type* T) const override;
+
+		std::string ToStr() const override;
+
+		std::string ArgsToStr() const;
+
+	};
+	
 }
 
 #endif // JUNE_TYPES_H

@@ -160,6 +160,10 @@ int main() {
 	RunTest(SRC("globals2"), 32 + 154 + 32);
 	RunTest(SRC("globals3"), 22 + 1111 + 34 + 66);
 	RunTest(SRC("globals4"), 154 + 154 + 11 + 11 + 11);
+	RunTest(SRC("varfunccall1"), 11);
+	RunTest(SRC("varfunccall2"), 15323);
+	RunTest(SRC("varfunccall3"), 6578 + 12);
+	RunTest(SRC("varfunccall4"), 1241 + 778);
 	//RunTest(SRC("playground"), 0);
 
 	if (Succeeded + Failed > 0) {

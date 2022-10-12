@@ -1,0 +1,19 @@
+// -- Test to make sure that calling
+//    variable functions can be stored
+//    inside of arrays and then called.
+a() -> i32 {
+	return 1241;
+}
+
+b() -> i32 {
+	return 778;
+}
+
+main() -> i32 {
+	
+	funcs :`() -> i32`[2];
+	funcs[0] = &a;
+	funcs[1] = &b;
+	
+	return funcs[0]() + funcs[1]();
+}

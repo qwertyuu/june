@@ -293,7 +293,7 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 
 	if (Func->isNot(AstKind::ERROR)) {
 		if (CRecord) {
-			Func->ParentRecord = CRecord;
+			Func->Record = CRecord;
 			if (Func->Name == CRecord->Name) {
 				CheckFuncRedeclaration(CRecord->Constructors, Func);
 				CRecord->Constructors.push_back(Func);
@@ -1336,8 +1336,37 @@ june::Type* june::Parser::ParseType(bool ReqArrayLengthComptime) {
 
 		break;
 	}
+	case '`': {
+		NextToken(); // Consuming '`' token
+		Ty = ParseType(ReqArrayLengthComptime);
+		if (Ty->GetKind() == TypeKind::ERROR) {
+			return Ty;
+		}
+		Match('`');
+		break;
+	}
+	case '(': {
+		NextToken(); // Consuming '(' token
+
+		llvm::SmallVector<Type*, 4> ParamTypes;
+		if (CTok.isNot(')')) {
+			ParamTypes.push_back(ParseType());
+			while (CTok.is(',')) {
+				NextToken(); // Consuming ',' token
+				ParamTypes.push_back(ParseType());
+			}
+		}
+
+		Match(')');
+		Match(TokenKind::MINUS_GT);
+		Type* RetTy = ParseType();
+		Ty = FunctionType::Create(RetTy, ParamTypes);
+
+		break;
+	}
 	default:
 		Error(CTok, "Expected Type");
+		SkipRecovery(false);
 		return Context.ErrorType;
 	}
 

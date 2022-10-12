@@ -150,6 +150,10 @@ YIELD_ERROR(Var)
 			VAR_YIELD(Error(Var, "Variables cannot have type 'void'"));
 		}
 
+		if (Var->Assignment->Ty->GetKind() == TypeKind::UNDEFINED) {
+			VAR_YIELD(Error(Var, "Cannot infer the type from an assignment of an undefined type"));
+		}
+
 		if (!IsAssignableTo(Var->Ty, Var->Assignment)) {
 			VAR_YIELD(Error(Var,
 				"Cannot assign value of type '%s' to variable of type '%s'",
@@ -198,7 +202,7 @@ void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
 
 	FU      = Func->FU;
 	CFunc   = Func;
-	CRecord = Func->ParentRecord;
+	CRecord = Func->Record;
 
 	Scope FuncScope;
 	CheckScope(Func->Scope, FuncScope);
@@ -569,7 +573,7 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 	}
 
 	// Reverse order of the first case.
-	if (!GivePrefToFuncs && IRef->RefKind == IdentRef::NOT_FOUND) {
+	if (GivePrefToFuncs && IRef->RefKind == IdentRef::NOT_FOUND) {
 		SearchForVars();
 	} else if (IRef->RefKind == IdentRef::NOT_FOUND) {
 		SearchForFuncs();
@@ -696,17 +700,69 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 		CheckFieldAccessor(ocast<FieldAccessor*>(Call->Site), true);
 		break;
 	default:
-		assert(!"Unimplemented site resolution");
+		CheckNode(Call->Site);
 		break;
 	}
 	YIELD_ERROR_WHEN_M(Call, Call->Site);
 
 	FuncsList* Canidates = nullptr;
 	RecordDecl* ConstructorRecord = nullptr;
-	switch (Call->Site->Kind) {
+
+	Expr* Site = Call->Site;
+
+	if (Site->Kind == AstKind::FUNC_CALL    ||
+		Site->Kind == AstKind::ARRAY_ACCESS ||
+		Site->Kind == AstKind::THIS_REF     ||
+		((Site->Kind == AstKind::IDENT_REF ||
+			Site->Kind == AstKind::FIELD_ACCESSOR
+			) && ocast<IdentRef*>(Site)->RefKind == IdentRef::VAR)
+		) {
+		// Call on a variable.
+		if (Site->Ty->GetKind() != TypeKind::FUNCTION) {
+			Error(Call, "Cannot make a call on a variable that does not have a function type");
+			YIELD_ERROR(Call);
+		}
+
+		FunctionType* CalledFuncTy = Site->Ty->AsFunctionType();
+		if (!Call->NamedArgs.empty()) {
+			Error(Call, "Cannot have named arguments for a call on a variable");
+			YIELD_ERROR(Call);
+		}
+
+		bool ValidCallArgs = true;
+		if (Call->Args.size() != CalledFuncTy->ParamTypes.size()) {
+			ValidCallArgs = false;
+		} else {
+			for (u32 i = 0; i < Call->Args.size(); i++) {
+				if (!IsAssignableTo(CalledFuncTy->ParamTypes[i], Call->Args[i])) {
+					ValidCallArgs = false;
+					break;
+				}
+			}
+		}
+
+		if (!ValidCallArgs) {
+			std::string FuncDef = "(";
+			for (u32 i = 0; i < Call->Args.size(); i++) {
+				FuncDef += Call->Args[i]->Ty->ToStr();
+				if (i + 1 != Call->Args.size()) FuncDef += ", ";
+			}
+			FuncDef += ")";
+
+
+			Error(Call, "Invalid arguments for call. Expected '%s' but found '%s'",
+				CalledFuncTy->ArgsToStr(), FuncDef);
+			YIELD_ERROR(Call);
+		}
+
+		Call->Ty = CalledFuncTy->RetTy;
+		return;
+	}
+
+	switch (Site->Kind) {
 	case AstKind::IDENT_REF:
 	case AstKind::FIELD_ACCESSOR: {
-		IdentRef* IRef = ocast<IdentRef*>(Call->Site);
+		IdentRef* IRef = ocast<IdentRef*>(Site);
 		switch (IRef->RefKind) {
 		case IdentRef::FUNCS:
 			Canidates = IRef->FuncsRef;
@@ -1283,6 +1339,29 @@ YIELD_ERROR(UOP)
 			YIELD_ERROR(UOP);
 		}
 
+		if (UOP->Val->is(AstKind::IDENT_REF) || UOP->Val->is(AstKind::FIELD_ACCESSOR)) {
+			// TODO: What about RVO?
+			// TODO: What if the function has infered param types?
+			IdentRef* IRef = ocast<IdentRef*>(UOP->Val);
+			if (IRef->RefKind == IdentRef::FUNCS) {
+				FuncDecl* Func = (*IRef->FuncsRef)[0];
+
+				llvm::SmallVector<Type*, 4> ParamTypes;
+				if (Func->Record) {
+					// It is a member function so the first argument is an argument to
+					// the pointer of the record.
+					ParamTypes.push_back(PointerType::Create(GetRecordType(Func->Record), Context));
+				}
+
+				for (VarDecl* Param : Func->Params) {
+					ParamTypes.push_back(Param->Ty);
+				}
+				UOP->Ty = FunctionType::Create(Func->RetTy, ParamTypes);
+				Context.RequestGen(Func);
+				break;
+			}
+		}
+
 		UOP->Ty = PointerType::Create(VT, Context);
 		break;
 	}
@@ -1567,6 +1646,8 @@ bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr, bo
 		return false;
 	case TypeKind::NULLPTR:
 		return false;
+	case TypeKind::FUNCTION:
+		return FromTy->is(ToTy);
 	default:
 		assert(!"unimplemented IsAssignableTo()");
 		return false;
@@ -1648,6 +1729,8 @@ void june::Analysis::EnsureChecked(SourceLoc ELoc, VarDecl* Var) {
 		} else if (CGlobal) {
 			Log.Error(ELoc, "Global variables form a circular depedency");
 			DisplayCircularDep(CGlobal);
+		} else {
+			Log.Error(ELoc, "Cannot access a local variable while it is being declared");
 		}
 		Var->Ty = Context.ErrorType;
 		return;

@@ -95,9 +95,9 @@ namespace june {
 		// When parsing a file record types
 		// cannot be resolved until the file
 		// has been fully parsed. This structure
-		// may represent a the record type before
-		// and after it has been qualified be
-		// searching for it's reference.
+		// may represent a record type before
+		// and after it has been qualified by
+		// the analysis.
 		struct QualifyingRecordType {
 			RecordType* RecType;
 			RecordDecl* RelRecord = nullptr;
@@ -112,9 +112,6 @@ namespace june {
 		llvm::DenseMap<std::tuple<RecordDecl*, RecordLocation>,
 			QualifyingRecordType> QualifyingRecordTypes;
 
-		// list
-		//  < qualifying-type, key-to-map >
-		
 		llvm::DenseMap<Identifier, FileUnit*>       Imports;
 		llvm::DenseMap<Identifier, FuncsList>       GlobalFuncs;
 		llvm::DenseMap<Identifier, VarDecl*>        GlobalVars;
@@ -179,7 +176,7 @@ namespace june {
 
 		// If the function is a member function this
 		// will be non-null.
-		RecordDecl* ParentRecord = nullptr;
+		RecordDecl* Record = nullptr;
 
 		bool IsMainFunc         = false;
 		u32 NumReturns = 0;

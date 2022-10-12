@@ -164,6 +164,11 @@ june::RecordType* june::Type::AsRecordType() {
 	return ocast<RecordType*>(this);
 }
 
+june::FunctionType* june::Type::AsFunctionType() {
+	assert(GetKind() == TypeKind::FUNCTION && "Not a function type");
+	return ocast<FunctionType*>(this);
+}
+
 june::Type* june::ContainerType::GetBaseType() const {
 	if (ElmTy->GetKind() == GetKind())
 		return ElmTy->AsContainerType()->GetBaseType();
@@ -253,4 +258,43 @@ bool june::RecordType::is(Type* T) const {
 
 std::string june::RecordType::ToStr() const {
 	return Record->Name.Text.str();
+}
+
+//===-------------------------------===//
+// Function Type
+//===-------------------------------===//
+
+june::FunctionType* june::FunctionType::Create(Type* RetTy, llvm::SmallVector<Type*, 4>& ParamTypes) {
+	FunctionType* FuncTy = new FunctionType;
+	FuncTy->RetTy = RetTy;
+	FuncTy->ParamTypes = std::move(ParamTypes);
+	return FuncTy;
+}
+
+bool june::FunctionType::is(Type* T) const {
+	if (T->GetKind() != TypeKind::FUNCTION) return false;
+	FunctionType* FT = T->AsFunctionType();
+	if (RetTy->isNot(FT->RetTy)) return false;
+	if (ParamTypes.size() != FT->ParamTypes.size()) return false;
+	for (u32 i = 0; i < ParamTypes.size(); i++) {
+		if (ParamTypes[i]->isNot(FT->ParamTypes[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
+std::string june::FunctionType::ToStr() const {
+	return ArgsToStr() + " -> " + RetTy->ToStr();
+}
+
+std::string june::FunctionType::ArgsToStr() const {
+	std::string s = "(";
+	for (u32 i = 0; i < ParamTypes.size(); i++) {
+		s += ParamTypes[i]->ToStr();
+		if (i + 1 != ParamTypes.size()) {
+			s += ", ";
+		}
+	}
+	return s + ")";
 }

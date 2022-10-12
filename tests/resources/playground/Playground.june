@@ -1,30 +1,13 @@
 
-String :: record {
 
-	length :u32;
-	buffer :c8*;
+u() {
 
-	String() {}
-
-	String(buffer :c8*) {
-		this.length = Mem.strlen(buffer);
-		this.buffer = new c8[length + 1]; // +1 for null terminator
-		Mem.memcpy(this.buffer, buffer, length + 1);
-	}
-}
-
-from(i :i32) -> String {
-	if i == 0 {
-		return String("0");
-	}
-
-	res :String = String();
-
-	return res;
 }
 
 main() {
-	
-	from(341);
+
+	r :`() -> void`[3];
+	r[1] = &u;
+	r[1]();
 
 }

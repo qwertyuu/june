@@ -1,0 +1,18 @@
+// -- Test to make sure that calling
+//    a variable function which refers
+//    to a member function works.
+A :: record {
+	a :i32 = 12;
+
+	m() -> i32 {
+		return 6578 + a;
+	}
+}
+
+main() -> i32 {
+	
+	f : (A*) -> i32 = &A.m;
+
+	y :A;
+	return f(&y);
+}
