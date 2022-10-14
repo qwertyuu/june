@@ -6,6 +6,12 @@
 #include "JuneContext.h"
 
 bool june::Type::is(Type* T) const {
+	if (Kind == TypeKind::GENERIC_TYPE) {
+		const Type* BoundTy = UnboxGeneric();
+		if (BoundTy && BoundTy != this) {
+			return BoundTy->is(T);
+		} // Else, comparison is during parsing so compare by pointer.
+	}
 	return this == T;
 }
 
@@ -31,8 +37,12 @@ june::Type* june::Type::GetFloatTypeBasedOnSize(u32 S, JuneContext& C) {
 	}
 }
 
+june::TypeKind june::Type::GetKind() const {
+	return UnboxGeneric()->Kind;
+}
+
 bool june::Type::isInt() {
-	switch (Kind) {
+	switch (GetKind()) {
 	case TypeKind::I8:
 	case TypeKind::I16:
 	case TypeKind::I32:
@@ -53,11 +63,12 @@ bool june::Type::isInt() {
 }
 
 bool june::Type::isFloat() {
-	return Kind == TypeKind::F32 || Kind == TypeKind::F64;
+	TypeKind K = GetKind();
+	return K == TypeKind::F32 || K == TypeKind::F64;
 }
 
 bool june::Type::isSigned() {
-	switch (Kind) {
+	switch (GetKind()) {
 	case TypeKind::I8:
 	case TypeKind::I16:
 	case TypeKind::I32:
@@ -74,7 +85,7 @@ bool june::Type::isSigned() {
 }
 
 bool june::Type::isNumber() {
-	switch (Kind) {
+	switch (GetKind()) {
 	case TypeKind::I8:
 	case TypeKind::I16:
 	case TypeKind::I32:
@@ -121,7 +132,7 @@ std::string june::Type::ToStr() const {
 }
 
 u32 june::Type::MemSize() {
-	switch (Kind) {
+	switch (GetKind()) {
 	case TypeKind::I8:
 	case TypeKind::U8:
 	case TypeKind::C8:
@@ -145,29 +156,52 @@ u32 june::Type::MemSize() {
 	};
 }
 
+const june::Type* june::Type::UnboxGeneric() const {
+	if (Kind == TypeKind::GENERIC_TYPE) {
+		Type* BoundTy = ocast<const GenericType*>(this)->BoundTy;
+		if (BoundTy) return BoundTy;
+	}
+	return this;
+}
+
+june::Type* june::Type::UnboxGeneric() {
+	if (Kind == TypeKind::GENERIC_TYPE)
+		return ocast<GenericType*>(this)->BoundTy;
+	return this;
+}
+
 june::PointerType* june::Type::AsPointerType() {
 	assert(GetKind() == TypeKind::POINTER && "Not a pointer type");
-	return ocast<PointerType*>(this);
+	return ocast<PointerType*>(UnboxGeneric());
 }
 
 june::FixedArrayType* june::Type::AsFixedArrayType() {
 	assert(GetKind() == TypeKind::FIXED_ARRAY && "Not a fixed array type");
-	return ocast<FixedArrayType*>(this);
+	return ocast<FixedArrayType*>(UnboxGeneric());
 }
 
 june::ContainerType* june::Type::AsContainerType() {
-	return ocast<ContainerType*>(this);
+	return ocast<ContainerType*>(UnboxGeneric());
 }
 
 june::RecordType* june::Type::AsRecordType() {
 	assert(GetKind() == TypeKind::RECORD && "Not a record type");
-	return ocast<RecordType*>(this);
+	return ocast<RecordType*>(UnboxGeneric());
 }
 
 june::FunctionType* june::Type::AsFunctionType() {
 	assert(GetKind() == TypeKind::FUNCTION && "Not a function type");
-	return ocast<FunctionType*>(this);
+	return ocast<FunctionType*>(UnboxGeneric());
 }
+
+june::GenericType* june::Type::AsGenericType() {
+	assert(Kind == TypeKind::GENERIC_TYPE && "Not a generic type");
+	return ocast<GenericType*>(this);
+}
+
+//===-------------------------------===//
+// Container Type
+//===-------------------------------===//
 
 june::Type* june::ContainerType::GetBaseType() const {
 	if (ElmTy->GetKind() == GetKind())
@@ -297,4 +331,20 @@ std::string june::FunctionType::ArgsToStr() const {
 		}
 	}
 	return s + ")";
+}
+
+//===-------------------------------===//
+// Generic Type
+//===-------------------------------===//
+
+std::string june::GenericType::ToStr() const {
+	if (BoundTy) {
+		return std::string("<") + std::string(Name.Text.str()) + ">=" + BoundTy->ToStr();
+	}
+	return std::string(Name.Text.str());
+}
+
+void june::GenericType::Bind(Type* TyToBind) {
+	assert((!TyToBind || !TyToBind->isGeneric()) && "Forgot to unbox the type before binding.");
+	BoundTy = TyToBind;
 }

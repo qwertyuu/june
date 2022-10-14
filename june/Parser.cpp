@@ -80,7 +80,8 @@ void june::Parser::Parse() {
 			}
 			break;
 		}
-		case AstKind::FUNC_DECL: {
+		case AstKind::FUNC_DECL:
+		case AstKind::GENERIC_FUNC_DECL: {
 			FuncDecl* Func = ocast<FuncDecl*>(Node);
 			if (Func->isNot(AstKind::ERROR)) {
 				CheckFuncRedeclaration(FU->GlobalFuncs, Func);
@@ -194,47 +195,81 @@ june::AstNode* june::Parser::ParseStmt() {
 	case TokenKind::KW_BREAK:  Stmt = ParseLoopControl(); Match(';'); break;
 	case TokenKind::KW_NATIVE: {
 		mods::Mod Mods = ParseModifiers();
-		if (PeekToken(1).is('(')) {
-			Stmt = ParseFuncDecl(Mods);
+		Token NameTok = CTok;
+		NextToken(); // Consuming name token
+		llvm::SmallVector<Identifier> Generics = ParseGenerics();
+		if (!Generics.empty()) {
+			// Variable declarations cannot have generics
+			if (PeekToken(1).is('(')) {
+				Stmt = ParseFuncDecl(NameTok, Mods, Generics);
+			} else {
+				Stmt = ParseRecordDecl(NameTok, Mods);
+			}
 		} else {
-			Stmt = ParseVarDecl(Mods); Match(';');
+			if (PeekToken(1).is('(')) {
+				Stmt = ParseFuncDecl(NameTok, Mods, Generics);
+			} else if (PeekToken(1).is(TokenKind::COL_COL)) {
+				Stmt = ParseRecordDecl(NameTok, Mods);
+			} else {
+				Stmt = ParseVarDecl(NameTok, Mods); Match(';');
+			}
 		}
 		break;
 	}
 	case TokenKind::IDENT: {
-		Token PeekedTok = PeekToken(1);
-		if (PeekedTok.is('(')) {
-			// Distinguishing between a function call and a function declaration.
 		
-			Token TkAfterOpenL = PeekToken(2);
-			bool IsFunctionDecl = false;
-			if (TkAfterOpenL.is(')')) {
-				// These cases:
-				//
-				// Function declaration: ident() ->
-				// Function declaration: ident() {
-				// Function declaration: ident() -    - Even though not valid it is an easy mistake so included
-				if (PeekToken(3).is(TokenKind::MINUS_GT) || PeekToken(3).is('{') || PeekToken(3).is('-')) {
+		llvm::SmallVector<Identifier> Generics;
+		if (PeekToken(1).is('<')) {
+			Token NameTok = CTok;
+			NextToken(); // Consuming name token
+			Generics = ParseGenerics();
+
+			// Variable declarations cannot have generics
+			if (CTok.is('(')) {
+				Stmt = ParseFuncDecl(NameTok, 0, Generics);
+			} else {
+				ParseRecordDecl(NameTok, 0);
+			}
+		} else {
+			Token PeekedTok = PeekToken(1);
+			if (PeekedTok.is('(')) {
+				// Distinguishing between a function call and a function declaration.
+		
+				Token TkAfterOpenL = PeekToken(2);
+				bool IsFunctionDecl = false;
+				if (TkAfterOpenL.is(')')) {
+					// These cases:
+					//
+					// Function declaration: ident() ->
+					// Function declaration: ident() {
+					// Function declaration: ident() -    - Even though not valid it is an easy mistake so included
+					if (PeekToken(3).is(TokenKind::MINUS_GT) || PeekToken(3).is('{') || PeekToken(3).is('-')) {
+						IsFunctionDecl = true;
+					}
+				} else if (TkAfterOpenL.is(TokenKind::IDENT) && PeekToken(3).is(':')) {
+					// This case:
+					// ident(ident :
 					IsFunctionDecl = true;
 				}
-			} else if (TkAfterOpenL.is(TokenKind::IDENT) && PeekToken(3).is(':')) {
-				// This case:
-				// ident(ident :
-				IsFunctionDecl = true;
-			}
 
-			if (IsFunctionDecl) {
-				Stmt = ParseFuncDecl(0);
-			} else {
-				Stmt = ParseExpr(); Match(';'); // Function calls
+				if (IsFunctionDecl) {
+					Token NameTok = CTok; NextToken();
+					Stmt = ParseFuncDecl(NameTok, 0, Generics);
+				} else {
+					// Putting the identifier back.
+					
+					Stmt = ParseExpr(); Match(';'); // Function calls
+				}
 			}
-		}
-		else if (PeekedTok.is(':')) {
-			Stmt = ParseVarDecl(0); Match(';');
-		} else if (PeekedTok.is(TokenKind::COL_COL)) {
-			Stmt = ParseRecordDecl(0);
-		} else {
-			Stmt = ParseAssignmentAndExprs(); Match(';');
+			else if (PeekedTok.is(':')) {
+				Token NameTok = CTok; NextToken();
+				Stmt = ParseVarDecl(NameTok, 0); Match(';');
+			} else if (PeekedTok.is(TokenKind::COL_COL)) {
+				Token NameTok = CTok; NextToken();
+				Stmt = ParseRecordDecl(NameTok, 0);
+			} else {
+				Stmt = ParseAssignmentAndExprs(); Match(';');
+			}	
 		}
 		break;
 	}
@@ -244,12 +279,25 @@ june::AstNode* june::Parser::ParseStmt() {
 	return Stmt;
 }
 
-june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
-
-	Token NameTok = CTok;
-	Identifier Name = ParseIdentifier("Expected identifier for function declaration");
+june::FuncDecl* june::Parser::ParseFuncDecl(Token NameTok, mods::Mod Mods, llvm::SmallVector<Identifier>& Generics) {
 	
-	FuncDecl* Func = NewNode<FuncDecl>(NameTok);
+	Identifier Name = ParseIdentifier(NameTok, "Expected identifier for function declaration");
+
+	FuncDecl* Func = nullptr;
+	if (Generics.empty()) {
+		Func = NewNode<FuncDecl>(NameTok);
+	} else {
+		GenericFuncDecl* GenericFunc = NewNode<GenericFuncDecl>(NameTok);
+		u32 GenericIdx = 0;
+		for (Identifier Generic : Generics) {
+			GenericType* GenTy = new GenericType;
+			GenTy->Name = Generic;
+			GenTy->Idx = GenericIdx++;
+			GenericFunc->GenericTypes.insert({ Generic, GenTy });
+		}
+		Func = GenericFunc;
+	}
+	
 	Func->Name = Name;
 	Func->Mods = Mods;
 	Func->FU   = FU;
@@ -340,7 +388,8 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 			}
 		}
 		if (!(Func->Mods & mods::Mods::NATIVE)) {
-			Context.UncheckedDecls.insert(Func);
+			if (Func->isNot(AstKind::GENERIC_FUNC_DECL))
+				Context.UncheckedDecls.insert(Func);
 		}
 	}
 
@@ -349,9 +398,13 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 }
 
 june::VarDecl* june::Parser::ParseVarDecl(mods::Mod Mods) {
+	Token NameTok = CTok; NextToken();
+	return ParseVarDecl(NameTok, Mods);
+}
 
-	Token NameTok = CTok;
-	Identifier Name = ParseIdentifier("Expected identifier for variable declaration");
+june::VarDecl* june::Parser::ParseVarDecl(Token NameTok, mods::Mod Mods) {
+
+	Identifier Name = ParseIdentifier(NameTok, "Expected identifier for variable declaration");
 
 	VarDecl* Var = NewNode<VarDecl>(NameTok);
 	Var->Name = Name;
@@ -408,10 +461,9 @@ june::VarDecl* june::Parser::ParseVarDecl(mods::Mod Mods) {
 	return Var;
 }
 
-june::RecordDecl* june::Parser::ParseRecordDecl(mods::Mod Mods) {
+june::RecordDecl* june::Parser::ParseRecordDecl(Token NameTok, mods::Mod Mods) {
 
-	Token NameTok = CTok;
-	Identifier Name = ParseIdentifier("Expected identifier for record declaration");
+	Identifier Name = ParseIdentifier(NameTok, "Expected identifier for record declaration");
 
 	Match(TokenKind::COL_COL);
 	Match(TokenKind::KW_RECORD);
@@ -466,6 +518,15 @@ june::Identifier june::Parser::ParseIdentifier(const c8* ErrorMessage) {
 	return Identifier(Text);
 }
 
+june::Identifier june::Parser::ParseIdentifier(Token PossibleIdent, const c8* ErrorMessage) {
+	if (PossibleIdent.isNot(TokenKind::IDENT)) {
+		Error(PossibleIdent, ErrorMessage);
+		return Identifier();
+	}
+	llvm::StringRef Text = PossibleIdent.GetText();
+	return Identifier(Text);
+}
+
 june::mods::Mod june::Parser::ParseModifiers() {
 	NativeModifierName = "";
 	mods::Mod mods = 0;
@@ -503,6 +564,26 @@ june::mods::Mod june::Parser::ParseModifiers() {
 		return mods;
 	}
 	}
+}
+
+llvm::SmallVector<june::Identifier> june::Parser::ParseGenerics() {
+	if (CTok.isNot('<')) return {};
+	NextToken(); // Consuming '<' token
+
+	llvm::SmallVector<Identifier> Generics;
+	if (CTok.isNot('>')) {
+		bool MoreGenerics = false;
+		do {
+			Generics.push_back(ParseIdentifier("Expected identifier for generic name"));
+			MoreGenerics = CTok.is(',');
+			if (MoreGenerics) {
+				NextToken(); // Consuming ',' token
+			}
+		} while (MoreGenerics);
+	}
+
+	Match('>');
+	return Generics;
 }
 
 june::InnerScopeStmt* june::Parser::ParseInnerScope() {
@@ -1432,6 +1513,17 @@ june::Type* june::Parser::ParseType(bool ReqArrayLengthComptime) {
 	case TokenKind::KW_TYPE_VOID:   NextToken(); Ty = Context.VoidType;   break;
 	case TokenKind::IDENT: {
 		
+		// Check to see if the type is a generic type
+		if (CFunc && CFunc->is(AstKind::GENERIC_FUNC_DECL)) {
+			GenericFuncDecl* GenericFunc = ocast<GenericFuncDecl*>(CFunc);
+			auto it = GenericFunc->GenericTypes.find(Identifier(CTok.GetText()));
+			if (it != GenericFunc->GenericTypes.end()) {
+				Ty = it->second;
+				NextToken(); // Consuming generic name token
+				break;
+			}
+		}
+
 		Token StartTok = CTok;
 		RecordLocation Loc = ParseRecordLocation();
 		Token EndTok = PrevToken;

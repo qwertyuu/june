@@ -7,6 +7,7 @@
 #include "JuneContext.h"
 #include "IRGen.h"
 #include "CodeGen.h"
+#include "TypeBinding.h"
 
 #include <llvm/Support/raw_ostream.h>
 #include <iostream>
@@ -138,7 +139,8 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 
 	// Checking and generating code
 	while (!Context.QuededDeclsToGen.empty()) {
-		Decl* D = Context.QuededDeclsToGen.front();
+		JuneContext::DeclGen DGen = Context.QuededDeclsToGen.front();
+		Decl* D = DGen.D;
 		Context.QuededDeclsToGen.pop();
 
 		if (D->FU->Log.HasError) {
@@ -146,8 +148,13 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			continue;
 		}
 
+		if (D->is(AstKind::GENERIC_FUNC_DECL)) {
+			GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(D);
+			BindTypes(GenFunc, std::get<0>(GenFunc->BindingCache[DGen.TypeBindingId]));
+		}
+
 		Analysis A(Context, D->FU->Log);
-		if (D->is(AstKind::FUNC_DECL)) {
+		if (D->is(AstKind::FUNC_DECL) || D->is(AstKind::GENERIC_FUNC_DECL)) {
 			A.CheckFuncDecl(ocast<FuncDecl*>(D));
 		} // else if VAR_DECL  : should already have been checked.
 		
@@ -161,9 +168,16 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			IRGen Gen(Context, EmitDebugInfo, DisplayLLVMIR | Verbose);
 			if (D->is(AstKind::FUNC_DECL)) {
 				Gen.GenFunc(ocast<FuncDecl*>(D));
+			} else if (D->is(AstKind::GENERIC_FUNC_DECL)) {
+				Gen.GenGenericFunc(ocast<GenericFuncDecl*>(D), DGen.TypeBindingId);
 			} else {
 				Gen.GenGlobalVar(ocast<VarDecl*>(D));
 			}
+		}
+
+		if (D->is(AstKind::GENERIC_FUNC_DECL)) {
+			GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(D);
+			UnbindTypes(GenFunc);
 		}
 	}
 
@@ -388,7 +402,7 @@ void june::Compiler::ParseFiles(FileUnit* FU) {
 		return;
 	}
 
-	if (DisplayAST) {
+	if (DisplayAST | Verbose) {
 		PrintFileUnit(Context, FU);
 		llvm::outs() << "\n\n";
 	}

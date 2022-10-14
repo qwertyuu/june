@@ -72,8 +72,15 @@ namespace june {
 		void CheckFuncCall(FuncCall* Call);
 		void CheckDefaultRecordInitFuncCall(FuncCall* Call, RecordDecl* Record);
 		void DisplayErrorForNamedArgsSlotTaken(FuncCall* Call, bool UseFieldIdx);
+		
 		FuncDecl* FindBestFuncCallCanidate(FuncsList* Canidates, FuncCall* Call);
+		template<bool IsGenericFuncT>
+		bool CompareAsCanidate(FuncCall* Call, FuncDecl* Canidate, u32& NumConflicts);
+		
 		FuncDecl* FindBestFuncCallCanidateWithNamedArgs(FuncsList* Canidates, FuncCall* Call);
+		template<bool IsGenericFuncT>
+		bool CompareAsNamedArgCandiate(FuncCall* Call, FuncDecl* Canidate, u32& NumConflicts, bool& CanidateHasNameSlotTaken);
+
 		void CheckBinaryOp(BinaryOp* BinOp);
 		void CheckUnaryOp(UnaryOp* UOP);
 		void CheckArray(Array* Arr);

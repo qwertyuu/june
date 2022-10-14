@@ -4,6 +4,7 @@
 #include "Prolog.h"
 #include "Identifier.h"
 #include "Comptime.h"
+#include "Ast.h"
 
 #include <queue>
 #include <llvm/ADT/StringMap.h>
@@ -24,11 +25,6 @@ namespace llvm {
 
 namespace june {
 
-	struct Decl;
-	struct FuncDecl;
-	struct VarDecl;
-	struct RecordDecl;
-	struct FileUnit;
 	struct Type;
 	struct PointerType;
 	struct RecordType;
@@ -53,6 +49,7 @@ namespace june {
 		llvm::StringRef GetKwAsString(u32 TokenKind) const;
 
 		void RequestGen(Decl* D);
+		u32 RequestGen(TypeBindList& Bindings, GenericFuncDecl* GenFunc);
 
 		PointerType* GetCachedPointerType(Type* ElmTy) const;
 		
@@ -97,7 +94,13 @@ namespace june {
 		// 'length' identifier (for identifying array lengths)
 		Identifier LengthIdentifier;
 
-		std::queue<Decl*> QuededDeclsToGen;
+		struct DeclGen {
+			u32   TypeBindingId;
+			Decl* D;
+		};
+
+		std::queue<DeclGen> QuededDeclsToGen;
+
 		std::unordered_set<Decl*> UncheckedDecls;
 
 		// ----- LLVM -----

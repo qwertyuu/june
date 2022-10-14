@@ -16,7 +16,7 @@ separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS})
 
 # Add source to this project's executable.
-add_library (june "Tokens.h" "Prolog.h" "Source.h" "Tokens.cpp" "JuneContext.h" "JuneContext.cpp" "Lexer.h" "Logger.h" "Logger.cpp" "Lexer.cpp" "Util.h" "Util.cpp" "Parser.h" "Ast.h" "Identifier.h" "Identifier.cpp" "Parser.cpp" "Types.h" "Types.cpp" "Compiler.h" "Compiler.cpp" "AstPrinter.h" "AstPrinter.cpp" "Analysis.h" "Analysis.cpp" "IRGen.h" "IRGen.cpp" "CodeGen.h" "CodeGen.cpp" "Comptime.h" "Comptime.cpp" "RecordLocation.h" "RecordLocation.cpp" "EmitDebugInfo.h" "EmitDebugInfo.cpp")
+add_library (june "Tokens.h" "Prolog.h" "Source.h" "Tokens.cpp" "JuneContext.h" "JuneContext.cpp" "Lexer.h" "Logger.h" "Logger.cpp" "Lexer.cpp" "Util.h" "Util.cpp" "Parser.h" "Ast.h" "Identifier.h" "Identifier.cpp" "Parser.cpp" "Types.h" "Types.cpp" "Compiler.h" "Compiler.cpp" "AstPrinter.h" "AstPrinter.cpp" "Analysis.h" "Analysis.cpp" "IRGen.h" "IRGen.cpp" "CodeGen.h" "CodeGen.cpp" "Comptime.h" "Comptime.cpp" "RecordLocation.h" "RecordLocation.cpp" "EmitDebugInfo.h" "EmitDebugInfo.cpp" "TypeBinding.h" "TypeBinding.cpp")
 target_include_directories (june PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories (june PUBLIC ${LLVM_INCLUDE_DIRS})
 

@@ -3,6 +3,7 @@
 
 #include <stack>
 #include <queue>
+#include <llvm/ADT/SmallVector.h>
 
 #include "Lexer.h"
 #include "Ast.h"
@@ -65,11 +66,14 @@ namespace june {
 
 		AstNode* ParseStmt();
 
-		FuncDecl* ParseFuncDecl(mods::Mod Mods);
+		FuncDecl* ParseFuncDecl(Token NameTok, mods::Mod Mods, llvm::SmallVector<Identifier>& Generics);
 		VarDecl* ParseVarDecl(mods::Mod Mods);
-		RecordDecl* ParseRecordDecl(mods::Mod Mods);
+		VarDecl* ParseVarDecl(Token NameTok, mods::Mod Mods);
+		RecordDecl* ParseRecordDecl(Token NameTok, mods::Mod Mods);
 		Identifier ParseIdentifier(const c8* ErrorMessage);
+		Identifier ParseIdentifier(Token PossibleIdent, const c8* ErrorMessage);
 		mods::Mod ParseModifiers();
+		llvm::SmallVector<Identifier> ParseGenerics();
 
 		InnerScopeStmt* ParseInnerScope();
 		ReturnStmt* ParseReturn();

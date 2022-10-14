@@ -164,7 +164,7 @@ void june::Lexer::SkipMultilineComment() {
 	while (true) {
 		switch (*CurPtr) {
 		case '\0': {
-			// TODO: report error about an unclosed comment
+			Error(CurPtr, "Unexpected end of file. Expected comment to be closed with */");
 			return;
 		case '\n':
 			++LineNumber;

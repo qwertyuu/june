@@ -6,7 +6,7 @@
 
 #include "Types.h"
 #include "Tokens.h"
-#include "Ast.h"
+#include "TypeBinding.h"
 
 constexpr june::HexLUT::HexLUT() : LUT() {
 	LUT['0'] = true;
@@ -227,8 +227,18 @@ llvm::StringRef june::JuneContext::GetKwAsString(u32 TokenKind) const {
 
 void june::JuneContext::RequestGen(Decl* D) {
 	if (D->GenRequestedAlready) return;
-	QuededDeclsToGen.push(D);
+	QuededDeclsToGen.push(DeclGen{ {}, D});
 	D->GenRequestedAlready = true;
+}
+
+u32 june::JuneContext::RequestGen(TypeBindList& Bindings, GenericFuncDecl* GenFunc) {
+	u32 BindingId = GetBindingsId(GenFunc, Bindings);
+	if (BindingId == INVALID_BINDING_ID) {
+		BindingId = (u32)GenFunc->BindingCache.size();
+		GenFunc->BindingCache.push_back(std::make_tuple(std::move(Bindings), nullptr));
+		QuededDeclsToGen.push(DeclGen{ BindingId, GenFunc });
+	}
+	return BindingId;
 }
 
 june::PointerType* june::JuneContext::GetCachedPointerType(Type* ElmTy) const {

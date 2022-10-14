@@ -23,6 +23,23 @@ namespace june {
 		}
 	}
 
+	void PrintGenericFuncDecl(const JuneContext& Context, const GenericFuncDecl* Func, u32 Depth) {
+		llvm::outs() << "(generic-func| name=\"" << Func->Name << "\", generic-types=[";
+		u32 Count = 0;
+		for (auto [GenericName, GenericType] : Func->GenericTypes) {
+			llvm::outs() << GenericName;
+			if (++Count != Func->GenericTypes.size())
+				llvm::outs() << ", ";
+		}
+		llvm::outs() << "])";
+		if (!Func->Scope.Stmts.empty()) {
+			for (AstNode* N : Func->Scope.Stmts) {
+				llvm::outs() << '\n';
+				PrintNode(Context, N, Depth + 1);
+			}
+		}
+	}
+
 	void PrintVarDecl(const JuneContext& Context, const VarDecl* Var, u32 Depth) {
 		llvm::outs() << "(var| name=\"" << Var->Name << "\")";
 		if (Var->Assignment) {
@@ -331,6 +348,9 @@ namespace june {
 		switch (N->Kind) {
 		case AstKind::FUNC_DECL:
 			PrintFuncDecl(Context, ocast<const FuncDecl*>(N), Depth);
+			break;
+		case AstKind::GENERIC_FUNC_DECL:
+			PrintGenericFuncDecl(Context, ocast<const GenericFuncDecl*>(N), Depth);
 			break;
 		case AstKind::VAR_DECL:
 			PrintVarDecl(Context, ocast<const VarDecl*>(N), Depth);

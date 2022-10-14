@@ -3,6 +3,7 @@
 #include "Types.h"
 #include "JuneContext.h"
 #include "Tokens.h"
+#include "TypeBinding.h"
 
 #include <limits>
 #include <unordered_set>
@@ -905,7 +906,19 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 			FuncDef);
 		if (Canidates && Canidates->size() == 1) {
 			FuncDecl* OnlyFunc = (*Canidates)[0];
-			std::string OptFuncDef = std::string(OnlyFunc->Name.Text) +"(";
+			std::string OptFuncDef = std::string(OnlyFunc->Name.Text);
+			if (OnlyFunc->is(AstKind::GENERIC_FUNC_DECL)) {
+				GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(OnlyFunc);
+				OptFuncDef += "<";
+				u32 Count = 0;
+				for (auto [GenericName, _] : GenFunc->GenericTypes) {
+					OptFuncDef += GenericName.Text.str();
+					if (++Count != GenFunc->GenericTypes.size())
+						OptFuncDef += ",";
+				}
+				OptFuncDef += ">";
+			}
+			OptFuncDef += + "(";
 			for (u32 i = 0; i < OnlyFunc->Params.size(); i++) {
 				OptFuncDef += OnlyFunc->Params[i]->Ty->ToStr();
 				if (i + 1 != OnlyFunc->Params.size()) OptFuncDef += ", ";
@@ -919,6 +932,41 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 		YIELD_ERROR(Call);
 	}
 
+	TypeBindList TypeBindings;
+	if (CalledFunc->is(AstKind::GENERIC_FUNC_DECL)) {
+		GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(CalledFunc);
+		TypeBindings.reserve(GenFunc->GenericTypes.size());
+
+		// Generating the type bindings.
+		for (u32 i = 0; i < Call->Args.size(); i++) {
+			Type* ParamTy = CalledFunc->Params[i]->Ty;
+			if (ParamTy->isGeneric()) {
+				GenericType* GenTy = ParamTy->AsGenericType();
+				if (!IsGenericTypeNameBound(TypeBindings, GenTy->Name)) {
+					// Unboxing is good here since if the function being called from
+					// has generics those types should already have been binded during
+					// its check.
+					TypeBindings.push_back(
+						std::make_tuple(GenTy->Name, Call->Args[i]->Ty->UnboxGeneric()));
+				}
+			}
+		}
+		for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+			Type* ParamTy = CalledFunc->Params[NamedArg.VarRef->ParamIdx]->Ty;
+			if (ParamTy->isGeneric()) {
+				GenericType* GenTy = ParamTy->AsGenericType();
+				if (!IsGenericTypeNameBound(TypeBindings, GenTy->Name)) {
+					TypeBindings.push_back(
+						std::make_tuple(GenTy->Name, NamedArg.AssignValue->Ty->UnboxGeneric()));
+				}
+			}
+		}
+
+		// Have to temporarily bind the types
+		// properly create casting.
+		BindTypes(GenFunc, TypeBindings);
+	}
+
 	// TODO: VarArgs will require further work to get this to work right
 	// Ensuring that the arguments comply with the function
 	for (u32 i = 0; i < Call->Args.size(); i++) {
@@ -928,13 +976,19 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 		CreateCast(NamedArg.AssignValue, CalledFunc->Params[NamedArg.VarRef->ParamIdx]->Ty);
 	}
 
-	Call->CalledFunc = CalledFunc;
-	Context.RequestGen(CalledFunc);
-
 	if (!Call->IsConstructorCall) {
-		Call->Ty = CalledFunc->RetTy;
+		Call->Ty = CalledFunc->RetTy->UnboxGeneric();
 	} else {
 		Call->Ty = GetRecordType(ConstructorRecord);
+	}
+
+	Call->CalledFunc = CalledFunc;
+	if (CalledFunc->is(AstKind::GENERIC_FUNC_DECL)) {
+		GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(CalledFunc);
+		UnbindTypes(GenFunc);
+		Call->TypeBindingId = Context.RequestGen(TypeBindings, GenFunc);
+	} else {
+		Context.RequestGen(CalledFunc);
 	}
 
 	if (Call->Ty->GetKind() == TypeKind::RECORD) {
@@ -1016,40 +1070,92 @@ june::FuncDecl* june::Analysis::FindBestFuncCallCanidate(FuncsList* Canidates, F
 	u32 LeastConflicts = std::numeric_limits<u32>::max();
 	s32 SelectionIndex = -1;
 
+	llvm::SmallVector<std::tuple<FuncDecl*, u32>> GenericFuncs;
 	for (u32 i = 0; i < Canidates->size(); i++) {
 		FuncDecl* Canidate = (*Canidates)[i];
-		// Making sure the function actually qualifies as a
-		// canidate
-		if (Canidate->Params.size() != Call->Args.size()) continue;
-		bool ArgsAssignable = true;
-		// TODO: VarArgs will require further work to get this to work right
-		for (u32 j = 0; j < Call->Args.size(); j++) {
-			if (!IsAssignableTo(Canidate->Params[j]->Ty, Call->Args[j])) {
-				ArgsAssignable = false;
-				break;
-			}
+		
+		if (Canidate->is(AstKind::GENERIC_FUNC_DECL)) {
+			GenericFuncs.push_back(std::make_tuple(Canidate, i));
+			continue;
 		}
-		if (!ArgsAssignable) continue;
-		// Finding the function with the least conflicts
-		// TODO: VarArgs will require further work to get this to work right
+
 		u32 NumConflicts = 0;
-		for (u32 j = 0; j < Call->Args.size(); j++) {
-			if (Call->Args[j]->Ty
-				->isNot(Canidate->Params[j]->Ty)) {
-				++NumConflicts;
-			}
+		if (!CompareAsCanidate<false>(Call, Canidate, NumConflicts)) {
+			continue;
 		}
+
 		if (NumConflicts < LeastConflicts) {
 			LeastConflicts = NumConflicts;
 			SelectionIndex = i;
 		}
 	}
 
-	if (SelectionIndex == -1)
-		return nullptr;
+	if (!GenericFuncs.empty() && SelectionIndex == -1) {
+		for (u32 i = 0; i < GenericFuncs.size(); i++) {
+			FuncDecl* Canidate = std::get<0>(GenericFuncs[i]);
 
+			u32 NumConflicts = 0;
+			if (!CompareAsCanidate<true>(Call, Canidate, NumConflicts)) {
+				continue;
+			}
+
+			if (NumConflicts < LeastConflicts) {
+				LeastConflicts = NumConflicts;
+				SelectionIndex = std::get<1>(GenericFuncs[i]);
+			}
+		}
+	}
+
+	if (SelectionIndex == -1) {
+		return nullptr;
+	}
+	
 	return (*Canidates)[SelectionIndex];
 }
+
+template<bool IsGenericFuncT>
+bool june::Analysis::CompareAsCanidate(FuncCall* Call, FuncDecl* Canidate, u32& NumConflicts) {
+	if (Canidate->Params.size() != Call->Args.size()) return false;
+
+	bool ArgsAssignable = true;
+	// TODO: VarArgs will require further work to get this to work right
+	for (u32 i = 0; i < Call->Args.size(); i++) {
+		if constexpr (IsGenericFuncT) {
+			if (Canidate->Params[i]->Ty->isGeneric()) {
+				// TODO: In the future check generic restrictions
+				continue;
+			}
+		}
+
+		if (!IsAssignableTo(Canidate->Params[i]->Ty, Call->Args[i])) {
+			ArgsAssignable = false;
+			break;
+		}
+	}
+	if (!ArgsAssignable) return false;
+
+	// Finding the function with the least conflicts
+	// TODO: VarArgs will require further work to get this to work right
+	for (u32 i = 0; i < Call->Args.size(); i++) {
+		if constexpr (IsGenericFuncT) {
+			if (Canidate->Params[i]->Ty->isGeneric()) {
+				continue;
+			}
+		}
+
+		if (Call->Args[i]->Ty
+			->isNot(Canidate->Params[i]->Ty)) {
+			++NumConflicts;
+		}
+	}
+
+	return true;
+}
+
+template bool june::Analysis::CompareAsCanidate<true>
+	(FuncCall* Call, FuncDecl* Canidate, u32& NumConflicts);
+template bool june::Analysis::CompareAsCanidate<false>
+	(FuncCall* Call, FuncDecl* Canidate, u32& NumConflicts);
 
 june::FuncDecl* june::Analysis::FindBestFuncCallCanidateWithNamedArgs(FuncsList* Canidates, FuncCall* Call) {
 	if (!Canidates) return nullptr;
@@ -1059,82 +1165,144 @@ june::FuncDecl* june::Analysis::FindBestFuncCallCanidateWithNamedArgs(FuncsList*
 
 	bool CanidateHasNameSlotTaken = false;
 
-	u32 i = 0;
-	canidate_sel_restart_lab:
-	if (i < Canidates->size()) {
-		++i;
-		FuncDecl* Canidate = (*Canidates)[i - 1];
+	llvm::SmallVector<std::tuple<FuncDecl*, u32>> GenericFuncs;
+	for (u32 i = 0; i < Canidates->size(); i++) {
+		FuncDecl* Canidate = (*Canidates)[i];
 		
-
-		CanidateHasNameSlotTaken = false;
-		
-		// Making sure the function actually qualifies as a
-		// canidate
-		if (Canidate->Params.size() != Call->Args.size() + Call->NamedArgs.size())
-			goto canidate_sel_restart_lab;
-		
-		std::unordered_set<u32> ConsumedArgs;
-		for (u32 j = 0; j < Call->Args.size(); j++) {
-			ConsumedArgs.insert(j);
-			if (!IsAssignableTo(Canidate->Params[j]->Ty, Call->Args[j])) {
-				goto canidate_sel_restart_lab;
-			}
-		}
-		
-		for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
-			for (u32 j = 0; j < Canidate->Params.size(); j++) {
-				VarDecl* Param = Canidate->Params[j];
-				if (NamedArg.Name == Param->Name) {
-					if (!IsAssignableTo(Param->Ty, NamedArg.AssignValue)) {
-						goto canidate_sel_restart_lab;
-					}
-					
-					if (ConsumedArgs.find(j) != ConsumedArgs.end()) {
-						CanidateHasNameSlotTaken = true;
-					}
-					NamedArg.VarRef = Param;
-					ConsumedArgs.insert(j);
-					break; // Found name no reason to continue searching
-					       // the rest of the arguments.
-				}
-			}
-			if (!NamedArg.VarRef) {
-				// Could not find a variable by the given
-				// name so just moving on to the next canidate.
-				goto canidate_sel_restart_lab;
-			}
+		if (Canidate->is(AstKind::GENERIC_FUNC_DECL)) {
+			GenericFuncs.push_back(std::make_tuple(Canidate, i));
+			continue;
 		}
 
-		// Finding the function with the least conflicts
 		u32 NumConflicts = 0;
-		for (u32 j = 0; j < Call->Args.size(); j++) {
-			if (Call->Args[j]->Ty
-				->isNot(Canidate->Params[j]->Ty)) {
-				++NumConflicts;
-			}
-		}
-		for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
-			if (NamedArg.AssignValue->Ty
-				->isNot(NamedArg.VarRef->Ty)) {
-				++NumConflicts;
-			}
+		if (!CompareAsNamedArgCandiate<false>(Call, Canidate, NumConflicts, CanidateHasNameSlotTaken)) {
+			continue;
 		}
 
 		if (NumConflicts < LeastConflicts) {
 			LeastConflicts = NumConflicts;
-			SelectionIndex = i - 1;
+			SelectionIndex = i;
 		}
 	}
 
-	if (SelectionIndex == -1)
-		return nullptr;
+	if (!GenericFuncs.empty() && SelectionIndex == -1) {
+		for (u32 i = 0; i < GenericFuncs.size(); i++) {
+			FuncDecl* Canidate = std::get<0>(GenericFuncs[i]);
 
+			u32 NumConflicts = 0;
+			if (!CompareAsNamedArgCandiate<true>(Call, Canidate, NumConflicts, CanidateHasNameSlotTaken)) {
+				continue;
+			}
+
+			if (NumConflicts < LeastConflicts) {
+				LeastConflicts = NumConflicts;
+				SelectionIndex = std::get<1>(GenericFuncs[i]);
+			}
+		}
+	}
+
+	if (SelectionIndex == -1) {
+		return nullptr;
+	}
+	
 	if (CanidateHasNameSlotTaken) {
 		DisplayErrorForNamedArgsSlotTaken(Call, false);
 	}
 
 	return (*Canidates)[SelectionIndex];
 }
+
+
+template<bool IsGenericFuncT>
+bool june::Analysis::CompareAsNamedArgCandiate(FuncCall* Call, FuncDecl* Canidate, u32& NumConflicts, bool& CanidateHasNameSlotTaken) {
+	
+	CanidateHasNameSlotTaken = false;
+	
+	if (Canidate->Params.size() != Call->Args.size() + Call->NamedArgs.size()) return false;
+	
+	std::unordered_set<u32> ConsumedArgs;
+	for (u32 i = 0; i < Call->Args.size(); i++) {
+		ConsumedArgs.insert(i);
+
+		if constexpr (IsGenericFuncT) {
+			if (Canidate->Params[i]->Ty->isGeneric()) {
+				// TODO: In the future check generic restrictions
+				continue;
+			}
+		}
+
+		if (!IsAssignableTo(Canidate->Params[i]->Ty, Call->Args[i])) {
+			return false;
+		}
+	}
+
+	for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+		for (u32 i = 0; i < Canidate->Params.size(); i++) {
+			VarDecl* Param = Canidate->Params[i];
+			if (NamedArg.Name == Param->Name) {
+
+				if constexpr (IsGenericFuncT) {
+					if (Canidate->Params[i]->Ty->isGeneric()) {
+						// TODO: In the future check generic restrictions
+					} else  if (!IsAssignableTo(Param->Ty, NamedArg.AssignValue)) {
+						return false;
+					}
+				} else {
+					if (!IsAssignableTo(Param->Ty, NamedArg.AssignValue)) {
+						return false;
+					}
+				}
+
+				if (ConsumedArgs.find(i) != ConsumedArgs.end()) {
+					CanidateHasNameSlotTaken = true;
+				}
+				NamedArg.VarRef = Param;
+				ConsumedArgs.insert(i);
+				break; // Found name no reason to continue searching
+					    // the rest of the arguments.
+			}
+		}
+		if (!NamedArg.VarRef) {
+			// Could not find a variable by the given
+			// name so just moving on to the next canidate.
+			return false;
+		}
+	}
+
+	// Finding the function with the least conflicts
+	for (u32 i = 0; i < Call->Args.size(); i++) {
+		if constexpr (IsGenericFuncT) {
+			if (Canidate->Params[i]->Ty->isGeneric()) {
+				continue;
+			}
+		}
+
+		if (Call->Args[i]->Ty
+			->isNot(Canidate->Params[i]->Ty)) {
+			++NumConflicts;
+		}
+	}
+	for (FuncCall::NamedArg& NamedArg : Call->NamedArgs) {
+		if constexpr (IsGenericFuncT) {
+			if (NamedArg.VarRef->Ty->isGeneric()) {
+				continue;
+			}
+		}
+
+		if (NamedArg.AssignValue->Ty
+			->isNot(NamedArg.VarRef->Ty)) {
+			++NumConflicts;
+		}
+	}
+
+	return true;
+}
+
+template bool june::Analysis::CompareAsNamedArgCandiate<true>
+	(FuncCall* Call, FuncDecl* Canidate, u32& NumConflicts, bool& CanidateHasNameSlotTaken);
+template bool june::Analysis::CompareAsNamedArgCandiate<false>
+	(FuncCall* Call, FuncDecl* Canidate, u32& NumConflicts, bool& CanidateHasNameSlotTaken);
+
 
 void june::Analysis::CheckBinaryOp(BinaryOp* BinOp) {
 	CheckNode(BinOp->LHS);

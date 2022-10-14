@@ -28,16 +28,19 @@ namespace june {
 	struct Expr;
 	struct AstNode;
 	struct RecordType;
+	struct GenericType;
 	class DebugInfoEmitter;
 
-	using ScopeStmts = llvm::SmallVector<AstNode*, 8>;
-	using FuncsList  = llvm::SmallVector<FuncDecl*, 4>;
+	using ScopeStmts   = llvm::SmallVector<AstNode*, 8>;
+	using FuncsList    = llvm::SmallVector<FuncDecl*, 4>;
+	using TypeBindList = llvm::SmallVector<std::tuple<Identifier, Type*>>;
 
 	enum class AstKind {
 
 		ERROR,
 
 		FUNC_DECL,
+		GENERIC_FUNC_DECL,
 		VAR_DECL,
 		RECORD_DECL,
 
@@ -194,6 +197,17 @@ namespace june {
 
 		FuncDecl() : Decl(AstKind::FUNC_DECL) {}
 
+	};
+
+	struct GenericFuncDecl : FuncDecl {
+
+		llvm::DenseMap<Identifier, GenericType*>       GenericTypes;
+		llvm::SmallVector<
+			std::tuple<TypeBindList, llvm::Function*>> BindingCache;
+		
+		GenericFuncDecl() : FuncDecl() {
+			Kind = AstKind::GENERIC_FUNC_DECL;
+		}
 	};
 
 	struct VarDecl : Decl {
@@ -395,6 +409,12 @@ namespace june {
 		
 		llvm::SmallVector<Expr*, 2>    Args;
 		llvm::SmallVector<NamedArg, 2> NamedArgs;
+		
+		// If the function call is to a generic
+		// function then this id refers to the
+		// index of the bindings for the generic
+		// function.
+		u32 TypeBindingId;
 
 		Expr*     Site;
 		FuncDecl* CalledFunc = nullptr;

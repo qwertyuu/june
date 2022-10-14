@@ -2,6 +2,7 @@
 #define JUNE_TYPES_H
 
 #include "Prolog.h"
+#include "Identifier.h"
 #include <string>
 
 #include <llvm/ADT/SmallVector.h>
@@ -14,6 +15,7 @@ namespace june {
 	struct ContainerType;
 	struct RecordType;
 	struct FunctionType;
+	struct GenericType;
 	struct Expr;
 	struct RecordDecl;
 	
@@ -45,6 +47,7 @@ namespace june {
 		NULLPTR,
 		UNDEFINED,
 		FUNCTION,
+		GENERIC_TYPE,
 
 	};
 
@@ -58,12 +61,14 @@ namespace june {
 
 		virtual bool is(Type* T) const;
 		inline bool isNot(Type* T) const { return !is(T); }
+
+		bool isGeneric() const { return Kind == TypeKind::GENERIC_TYPE; }
 	
 		static Type* GetIntTypeBasedOnSize(u32 S, bool Signed, JuneContext& C);
 		static Type* GetFloatTypeBasedOnSize(u32 S, JuneContext& C);
 
 		// Gets the kind (classification of the type)
-		TypeKind GetKind() const { return Kind; }
+		TypeKind GetKind() const;
 
 		// includes characters
 		bool isInt();
@@ -84,11 +89,18 @@ namespace june {
 		// basic types like floats, integers, ...
 		u32 MemSize();
 
+		// Obtain the bound type of the generic
+		// if it is a generic, otherwise returns
+		// self.
+		const Type* UnboxGeneric() const;
+		Type* UnboxGeneric();
+
 		PointerType* AsPointerType();
 		FixedArrayType* AsFixedArrayType();
 		ContainerType* AsContainerType();
 		RecordType* AsRecordType();
 		FunctionType* AsFunctionType();
+		GenericType* AsGenericType();
 
 	private:
 		TypeKind Kind;
@@ -186,7 +198,27 @@ namespace june {
 		std::string ArgsToStr() const;
 
 	};
+
+	//===-------------------------------===//
+	// Generic Type
+	//===-------------------------------===//
+	struct GenericType : public Type {
+
+		u32        Idx;
+		Identifier Name;
+		
+		GenericType()
+			: Type(TypeKind::GENERIC_TYPE) {}
+
+		std::string ToStr() const override;
 	
+		void Bind(Type* TyToBind);
+
+	private:
+		friend class Type;
+		Type* BoundTy = nullptr;
+	};
+
 }
 
 #endif // JUNE_TYPES_H

@@ -6,6 +6,7 @@
 
 #include "Types.h"
 #include "Tokens.h"
+#include "TypeBinding.h"
 
 #include <unordered_set>
 
@@ -230,8 +231,32 @@ void june::IRGen::GenFunc(FuncDecl* Func) {
 
 	if (Func->LLAddress && !(Func->Mods & mods::Mods::NATIVE)) {
 		// -- DEBUG
-		llvm::verifyFunction(*Func->LLAddress);
+		// llvm::verifyFunction(*Func->LLAddress);
 	}
+}
+
+void june::IRGen::GenGenericFunc(GenericFuncDecl* Func, u32 BindingId) {
+	
+	CFunc = Func;
+	
+	Func->LLAddress = std::get<1>(Func->BindingCache[BindingId]);
+	if (!Func->LLAddress) {
+		GenFuncDecl(Func);
+	}
+
+	GenFuncBody(Func);
+
+	if (DisplayLLVMIR) {
+		Func->LLAddress->print(llvm::outs());
+		llvm::outs() << '\n';
+	}
+
+	if (Func->LLAddress) {
+		// -- DEBUG
+		// llvm::verifyFunction(*Func->LLAddress);
+	}
+
+	Func->LLAddress = nullptr;
 }
 
 void june::IRGen::GenGlobalVar(VarDecl* Global) {
@@ -353,6 +378,22 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	}
 
 	Func->LLAddress = LLFunc;
+}
+
+void june::IRGen::GenGenericFuncDecl(GenericFuncDecl* Func, u32 BindingId) {
+	// TODO: Due to recurssion it might be possible
+	// that the generic function already has bindings
+	// so it is actually more correct to save the bindings
+	// that is currently has and then rebind them after the
+	// declaration.
+	llvm::Function* LLFunc = std::get<1>(Func->BindingCache[BindingId]);
+	if (!LLFunc) {
+		BindTypes(Func, std::get<0>(Func->BindingCache[BindingId]));
+		GenFuncDecl(Func);
+		UnbindTypes(Func);
+		std::get<1>(Func->BindingCache[BindingId]) = Func->LLAddress;
+		Func->LLAddress = nullptr;
+	}
 }
 
 void june::IRGen::GenFuncBody(FuncDecl* Func) {
@@ -998,9 +1039,14 @@ llvm::Value* june::IRGen::GenFieldAccessor(FieldAccessor* FA) {
 
 llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 
-	if (Call->CalledFunc)
- 		GenFuncDecl(Call->CalledFunc); 
-
+	if (Call->CalledFunc) {
+		if (Call->CalledFunc->is(AstKind::GENERIC_FUNC_DECL)) {
+			GenGenericFuncDecl(ocast<GenericFuncDecl*>(Call->CalledFunc), Call->TypeBindingId);
+		} else {
+			GenFuncDecl(Call->CalledFunc);
+		}
+	}
+ 	
 	if (Call->CalledFunc && Call->CalledFunc->LLVMIntrinsicID) {
 		return GenLLVMIntrinsicCall(Call);
 	}
@@ -1097,6 +1143,12 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 
 	llvm::Value* CallValue = nullptr;
 	if (Call->CalledFunc) {
+		llvm::Function* LLCalledFunc = Call->CalledFunc->LLAddress;
+		if (Call->CalledFunc->is(AstKind::GENERIC_FUNC_DECL)) {
+			GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(Call->CalledFunc);
+			LLCalledFunc = std::get<1>(GenFunc->BindingCache[Call->TypeBindingId]);
+		}
+
 		// -- DEBUG
 		//llvm::outs() << "Calling Function with name: " << Call->CalledFunc->Name << '\n';
 		//llvm::outs() << "Types passed to function:\n";
@@ -1109,7 +1161,7 @@ llvm::Value* june::IRGen::GenFuncCall(llvm::Value* LLAddr, FuncCall* Call) {
 		//}
 		//llvm::outs() << '\n';
 		
-		CallValue = Builder.CreateCall(Call->CalledFunc->LLAddress, LLArgs);
+		CallValue = Builder.CreateCall(LLCalledFunc, LLArgs);
 	} else {
 		// Call must be on a variable
 		llvm::Value* CallSite = CreateLoad(GenNode(Call->Site));

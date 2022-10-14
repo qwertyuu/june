@@ -21,6 +21,7 @@ namespace june {
 		IRGen(JuneContext& context, bool emitDebugInfo, bool displayLLVMIR);
 
 		void GenFunc(FuncDecl* Func);
+		void GenGenericFunc(GenericFuncDecl* Func, u32 BindingId);
 
 		void GenGlobalVar(VarDecl* Global);
 
@@ -56,6 +57,7 @@ namespace june {
 		void GenGlobalPostponedAssignments();
 
 		void GenFuncDecl(FuncDecl* Func);
+		void GenGenericFuncDecl(GenericFuncDecl* Func, u32 BindingId);
 		void GenFuncBody(FuncDecl* Func);
 		void GenGlobalVarDecl(VarDecl* Global);
 		llvm::Value* GenLocalVarDecl(VarDecl* Var);
