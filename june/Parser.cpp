@@ -228,6 +228,12 @@ june::FuncDecl* june::Parser::ParseFuncDecl(mods::Mod Mods) {
 
 	FuncDecl* PrevCFunc = CFunc;
 	CFunc = Func;
+
+	if (Func->Mods & mods::Mods::NATIVE) {
+		if (!NativeModifierName.empty()) {
+			Func->NativeName = NativeModifierName;
+		}
+	}
 	
 	if (Func->Name.isNull()) {
 		Func->Kind = AstKind::ERROR;
@@ -324,6 +330,16 @@ june::VarDecl* june::Parser::ParseVarDecl(mods::Mod Mods) {
 	Var->Mods = Mods;
 	Var->FU     = FU;
 	Var->Record = CRecord;
+
+	if (Var->Mods & mods::Mods::NATIVE) {
+		if (!NativeModifierName.empty()) {
+			Var->NativeName = NativeModifierName;
+		}
+	}
+
+	if (Var->Mods & mods::Mods::NATIVE) {
+		Context.RequestGen(Var);
+	}
 
 	if (Name.isNull()) {
 		Var->Kind = AstKind::ERROR;
@@ -423,6 +439,7 @@ june::Identifier june::Parser::ParseIdentifier(const c8* ErrorMessage) {
 }
 
 june::mods::Mod june::Parser::ParseModifiers() {
+	NativeModifierName = "";
 	mods::Mod mods = 0;
 	while (true) {
 	switch (CTok.Kind) {
@@ -430,7 +447,28 @@ june::mods::Mod june::Parser::ParseModifiers() {
 		if (mods & mods::NATIVE)
 			Error(CTok, "Duplicate modifier");
 		mods |= mods::NATIVE;
+
 		NextToken(); // Consuming native
+
+		if (CTok.is('(')) {
+			NextToken(); // Consuming '(' token
+			if (CTok.isNot(TokenKind::STRING_LITERAL)) {
+				Error(CTok, "Expected string literal for native function name");
+			} else {
+				NativeModifierName = CTok.GetText();
+				
+				NativeModifierName = NativeModifierName.substr(1);
+				if (!NativeModifierName.empty() && *(NativeModifierName.end()-1) == '"') {
+					NativeModifierName = NativeModifierName.substr(0, NativeModifierName.size() - 1);
+				}
+				if (NativeModifierName.empty()) {
+					Error(CTok, "Native name cannot be empty");
+				}
+			}
+			
+			NextToken(); // Consuming string literal
+			Match(')');
+		}
 		break;
 	}
 	default:
@@ -492,6 +530,8 @@ june::AstNode* june::Parser::ParseLoop() {
 
 june::RangeLoopStmt* june::Parser::ParseRangeLoop(Token LoopTok) {
 	RangeLoopStmt* Loop = NewNode<RangeLoopStmt>(LoopTok);
+	
+	PUSH_SCOPE();
 	if (CTok.isNot(';')) {
 		Loop->Decl = ParseVarDecl(0);
 	}
@@ -506,7 +546,6 @@ june::RangeLoopStmt* june::Parser::ParseRangeLoop(Token LoopTok) {
 		Loop->Inc = ParseExpr();
 	}
 
-	PUSH_SCOPE();
 	ParseScopeStmts(Loop->Scope);
 	POP_SCOPE();
 
@@ -535,7 +574,9 @@ june::IfStmt* june::Parser::ParseIf() {
 	//       declarations inside of if statements
 	If->Cond = ParseExpr();
 
+	PUSH_SCOPE();
 	ParseScopeStmts(If->Scope);
+	POP_SCOPE();
 
 	if (CTok.is(TokenKind::KW_ELSE)) {
 		NextToken(); // Consuming 'else' token
@@ -746,22 +787,17 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 				case TypeKind::I64:
 					Num->SignedIntValue = -Num->SignedIntValue;
 					break;
-				// Unsigned values get converted to signed values
 				case TypeKind::U8:
-					Num->SignedIntValue = -Num->UnsignedIntValue;
-					Num->Ty = Context.I8Type;
-					break;
 				case TypeKind::U16:
-					Num->SignedIntValue = -Num->UnsignedIntValue;
-					Num->Ty = Context.I16Type;
-					break;
 				case TypeKind::U32:
-					Num->SignedIntValue = -Num->UnsignedIntValue;
-					Num->Ty = Context.I32Type;
-					break;
 				case TypeKind::U64:
-					Num->SignedIntValue = -Num->UnsignedIntValue;
-					Num->Ty = Context.I64Type;
+					Num->UnsignedIntValue = -Num->UnsignedIntValue;
+					break;
+				case TypeKind::F32:
+					Num->F32Value = -Num->F32Value;
+					break;
+				case TypeKind::F64:
+					Num->F64Value = -Num->F64Value;
 					break;
 				}
 			} // else '+' operator does not modify
@@ -946,10 +982,11 @@ june::NumberLiteral* june::Parser::ParseIntLiteral() {
 	u32 Idx = 0;
 	u64 IntValue = 0, PrevValue;
 	while (Idx < Text.size()) {
-		c8 C = Text[Idx++];
+		c8 C = Text[Idx];
 		if (C == '\'') continue;
 		if (!IsDigit(C)) break;
-		
+		++Idx;
+
 		PrevValue = IntValue;
 		IntValue = IntValue * 10 + ((u64)C - '0');
 
@@ -981,9 +1018,10 @@ june::NumberLiteral* june::Parser::ParseHexLiteral() {
 	u32 Idx = 2; // Skip 0x
 	u64 IntValue = 0, PrevValue;
 	while (Idx < Text.size()) {
-		c8 C = Text[Idx++];
+		c8 C = Text[Idx];
 		if (C == '\'') continue;
 		if (!IsHex(C)) break;
+		++Idx;
 		
 		PrevValue = IntValue;
 		IntValue = IntValue * 16 + HexToDecimalMapping[C];
@@ -1004,10 +1042,11 @@ june::NumberLiteral* june::Parser::ParseBinLiteral() {
 	u32 Idx = 2; // Skip 0b
 	u64 IntValue = 0, PrevValue;
 	while (Idx < Text.size()) {
-		c8 C = Text[Idx++];
+		c8 C = Text[Idx];
 		if (C == '\'') continue;
 		if (!(C == '0' || C == '1')) break;
-	
+		++Idx;
+
 		PrevValue = IntValue;
 		IntValue = IntValue * 2 + ((u64)C - '0');
 
@@ -1349,7 +1388,17 @@ june::Type* june::Parser::ParseType(bool ReqArrayLengthComptime) {
 		NextToken(); // Consuming '(' token
 
 		llvm::SmallVector<Type*, 4> ParamTypes;
-		if (CTok.isNot(')')) {
+		if (CTok.is(TokenKind::IDENT) && PeekToken(1).is(':')) {
+			bool MoreParams = false;
+			do {
+				ParseIdentifier("Expected identifier for function parameter");
+				Match(':');
+				ParamTypes.push_back(ParseType());
+				MoreParams = CTok.is(',');
+				if (MoreParams)
+					NextToken(); // Consuming ',' token
+			} while (MoreParams);
+		} else if (CTok.isNot(')')) {
 			ParamTypes.push_back(ParseType());
 			while (CTok.is(',')) {
 				NextToken(); // Consuming ',' token

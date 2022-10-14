@@ -185,6 +185,8 @@ namespace june {
 		llvm::Intrinsic::ID LLVMIntrinsicID = 0;
 		llvm::Function* LLAddress = nullptr;
 
+		llvm::StringRef NativeName;
+
 		LexScope Scope;
 
 		FuncDecl() : Decl(AstKind::FUNC_DECL) {}
@@ -206,6 +208,7 @@ namespace june {
 		u32 ParamIdx = -1;
 		bool UsesInferedType = false;
 		bool IsGlobal        = false;
+		llvm::StringRef NativeName;
 
 		VarDecl() : Decl(AstKind::VAR_DECL) {}
 

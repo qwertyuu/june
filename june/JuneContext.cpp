@@ -95,6 +95,8 @@ june::JuneContext::JuneContext()
 
 	LLVMIntrinsicsTable({
 		{ Identifier("memcpy"), llvm::Intrinsic::IndependentIntrinsics::memcpy },
+		{ Identifier("sin"), llvm::Intrinsic::IndependentIntrinsics::sin       },
+		{ Identifier("cos"), llvm::Intrinsic::IndependentIntrinsics::cos       },
 		}),
 
 	TokenKeywordMap(*new llvm::DenseMap<llvm::StringRef, u16>

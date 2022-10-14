@@ -27,6 +27,8 @@ int main(int argc, char* argv[]) {
 				C.DisplayAST = true;
 			} else if (Opt == "stand.alone") {
 				C.StandAlone = true;
+			} else if (Opt == "emit.debug") {
+				C.EmitDebugInfo = true;
 			} else if (Opt.empty()) {
 				june::Logger::GlobalError(llvm::outs(), "empty option");
 				ErrorFound = true;

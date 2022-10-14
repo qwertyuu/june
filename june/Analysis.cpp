@@ -134,9 +134,17 @@ YIELD_ERROR(Var)
 		}
 	}
 
+	if (Var->Mods & mods::Mods::NATIVE && Var->FieldIdx != -1) {
+		VAR_YIELD(Error(Var, "Variables marked 'native' cannot be a field"));
+	}
+
 	if (Var->Assignment) {
 
 		CheckNode(Var->Assignment);
+
+		if (Var->Mods & mods::Mods::NATIVE) {
+			VAR_YIELD(Error(Var, "Variables marked 'native' should not be initialized"));
+		}
 
 		if (Var->Assignment->Ty->is(Context.ErrorType)) {
 			VAR_YIELD();
@@ -755,6 +763,10 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 			YIELD_ERROR(Call);
 		}
 
+		for (u32 i = 0; i < Call->Args.size(); i++) {
+			CreateCast(Call->Args[i], CalledFuncTy->ParamTypes[i]);
+		}
+
 		Call->Ty = CalledFuncTy->RetTy;
 		return;
 	}
@@ -1092,6 +1104,10 @@ YIELD_ERROR(BinOp)
 	case TokenKind::CRT_EQ: case TokenKind::BAR_EQ:
 	case TokenKind::LT_LT_EQ: case TokenKind::GT_GT_EQ: {
 
+		if (!IsLValue(BinOp->LHS)) {
+			// TODO: Report error.
+		}
+
 		switch (BinOp->Op) {
 		case TokenKind::PLUS_EQ: case TokenKind::MINUS_EQ: {
 			if (!RTy->isNumber()) {
@@ -1138,6 +1154,8 @@ YIELD_ERROR(BinOp)
 		default:
 			break;
 		}
+
+		CreateCast(BinOp->RHS, LTy);
 
 		BinOp->Ty = LTy;
 		break;
@@ -1627,14 +1645,19 @@ bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr, bo
 		FixedArrayType* FromArrTy = FromTy->AsFixedArrayType();
 		u32 CompNestLevel = ToArrTy->GetNestingLevel();
 		if (CompNestLevel != FromArrTy->GetNestingLevel()) return false;
-		// Making sure that the length of the destination
-		// is the same or bigger than the length of the
-		// source
-		if (ToArrTy->Length < FromArrTy->Length) return false;
-		for (u32 i = 0; i < CompNestLevel; i++) {
-			ToArrTy = ToArrTy->ElmTy->AsFixedArrayType();
-			FromArrTy = FromArrTy->ElmTy->AsFixedArrayType();
+
+		if (FromExpr && FromExpr->is(AstKind::ARRAY)) {
+			// Making sure that the length of the destination
+			// is the same or bigger than the length of the
+			// source
 			if (ToArrTy->Length < FromArrTy->Length) return false;
+			for (u32 i = 0; i < CompNestLevel; i++) {
+				ToArrTy = ToArrTy->ElmTy->AsFixedArrayType();
+				FromArrTy = FromArrTy->ElmTy->AsFixedArrayType();
+				if (ToArrTy->Length < FromArrTy->Length) return false;
+			}
+		} else {
+			if (ToArrTy->Length != FromArrTy->Length) return false;
 		}
 		return IsAssignableTo(ToArrTy->ElmTy, FromArrTy->ElmTy, nullptr, true);
 	}

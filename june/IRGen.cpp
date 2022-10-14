@@ -233,6 +233,14 @@ void june::IRGen::GenGlobalVar(VarDecl* Global) {
 	
 	GenGlobalVarDecl(Global);
 
+	if (Global->Mods & mods::Mods::NATIVE) {
+		if (DisplayLLVMIR) {
+			Global->LLAddress->print(llvm::outs());
+			llvm::outs() << '\n';
+		}
+		return; // Global variables do not get initialized.
+	}
+
 	llvm::GlobalVariable* LLGVar =
 		llvm::cast<llvm::GlobalVariable>(Global->LLAddress);
 
@@ -319,6 +327,10 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	if (!(Func->Mods & mods::Mods::NATIVE) && !Func->IsMainFunc) {
 		// Adding .june to prevent conflicts with external dependencies.
 		LLFuncName += ".june";
+	}
+
+	if (!Func->NativeName.empty()) {
+		LLFuncName = Func->NativeName.str();
 	}
 
 	// TODO: Linkage
@@ -448,10 +460,24 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 void june::IRGen::GenGlobalVarDecl(VarDecl* Global) {
 	if (Global->LLAddress) return; // Do not generate it twice
 
-	// TODO: Hand over to mangler
-	std::string Name = "g_" + Global->Name.Text.str();
-	Name += "." + std::to_string(Context.NumGeneratedGlobalVars++);
-	Global->LLAddress = MakeGlobalVar(Name, GenType(Global->Ty));
+	std::string Name;
+	if (Global->Mods & mods::Mods::NATIVE) {
+		if (Global->NativeName.empty())
+			Name = std::string(Global->Name.Text);
+		else
+			Name = std::string(Global->NativeName);
+	} else {
+		// TODO: Hand over to mangler
+		Name = "g_" + Global->Name.Text.str();
+		Name += "." + std::to_string(Context.NumGeneratedGlobalVars++);
+	}
+	
+	llvm::GlobalVariable* LLGVar = MakeGlobalVar(Name, GenType(Global->Ty));
+	Global->LLAddress = LLGVar;
+
+	if (Global->Mods & mods::Mods::NATIVE) {
+		LLGVar->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
+	}
 
 	if (EmitDebugInfo)
 		GetDIEmitter(Global)->EmitGlobalVar(Global, Builder);
@@ -2091,6 +2117,9 @@ llvm::Value* june::IRGen::GenMalloc(llvm::Type* LLType, llvm::Value* LLArrSize) 
 	return LLMalloc;
 }
 
+// For reference:
+// https://github.com/llvm/llvm-project/blob/main/clang/lib/CodeGen/CGBuiltin.cpp
+// https://github.com/google/swiftshader/blob/master/src/Reactor/LLVMReactor.cpp
 llvm::Value* june::IRGen::GenLLVMIntrinsicCall(FuncCall* Call) {
 	switch (Call->CalledFunc->LLVMIntrinsicID) {
 	case llvm::Intrinsic::memcpy:
@@ -2099,6 +2128,18 @@ llvm::Value* june::IRGen::GenLLVMIntrinsicCall(FuncCall* Call) {
 			GenRValue(Call->Args[1]), llvm::Align::Align(),
 			GenRValue(Call->Args[2])
 		);
+	case llvm::Intrinsic::sin: {
+		llvm::Value* Arg0 = GenRValue(Call->Args[0]);
+		llvm::Function* LLSinFunc = llvm::Intrinsic::getDeclaration(
+			&LLModule, llvm::Intrinsic::sin, { Arg0->getType() });
+		return Builder.CreateCall(LLSinFunc, { Arg0 });
+	}
+	case llvm::Intrinsic::cos: {
+		llvm::Value* Arg0 = GenRValue(Call->Args[0]);
+		llvm::Function* LLSinFunc = llvm::Intrinsic::getDeclaration(
+			&LLModule, llvm::Intrinsic::cos, { Arg0->getType() });
+		return Builder.CreateCall(LLSinFunc, { Arg0 });
+	}
 	default:
 		assert(!"Failed to implement llvm intrinsic call!");
 		break;

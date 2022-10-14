@@ -57,6 +57,8 @@ namespace june {
 
 		bool ErrorSkipVarDecl = false;
 
+		llvm::StringRef NativeModifierName;
+
 		void ParseImport();
 
 		void ParseScopeStmts(LexScope& Scope);
