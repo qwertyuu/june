@@ -1,5 +1,3 @@
-import F2 (global);
 
 main() {
-	a :Abc = Abc();
 }

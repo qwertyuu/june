@@ -158,7 +158,12 @@ llvm::Type* june::GenType(JuneContext& Context, Type* Ty) {
 		FunctionType* FuncTy = Ty->AsFunctionType();
 		llvm::SmallVector<llvm::Type*, 4> LLParamTypes;
 		for (Type* ParamType : FuncTy->ParamTypes) {
-			LLParamTypes.push_back(GenType(Context, ParamType));
+			llvm::Type* LLTy = GenType(Context, ParamType);
+			if (ParamType->GetKind() == TypeKind::FIXED_ARRAY) {
+				LLParamTypes.push_back(llvm::PointerType::get(LLTy, 0));
+			} else {
+				LLParamTypes.push_back(LLTy);
+			}
 		}
 		llvm::Type* LLRetType = GenType(Context, FuncTy->RetTy);
 		bool IsVarArgs = false;

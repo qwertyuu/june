@@ -237,12 +237,28 @@ llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 			DBuilder->getOrCreateArray(DISubscriptSizes)
 		);
 	}
-
 	case TypeKind::POINTER: {
 		u32 PtrSizeInBits = Context.LLJuneModule
 			                       .getDataLayout()
 			                       .getPointerSizeInBits();
-		return DBuilder->createPointerType(EmitType(Ty->AsPointerType()->ElmTy), PtrSizeInBits, 0);
+		return DBuilder->createPointerType(EmitType(Ty->AsPointerType()->ElmTy), PtrSizeInBits);
+	}
+	case TypeKind::FUNCTION: {
+		llvm::SmallVector<llvm::Metadata*, 4> DIFuncTys;
+		FunctionType* FuncTy = Ty->AsFunctionType();
+
+		llvm::Metadata* DIRetTy = EmitType(FuncTy->RetTy);
+		DIFuncTys.push_back(DIRetTy);
+		for (Type* ParamType : FuncTy->ParamTypes) {
+			DIFuncTys.push_back(EmitType(ParamType));
+		}
+
+		u32 PtrSizeInBits = Context.LLJuneModule
+			                       .getDataLayout()
+			                       .getPointerSizeInBits();
+
+		llvm::DIType* DIFuncTy = DBuilder->createSubroutineType(DBuilder->getOrCreateTypeArray(DIFuncTys));
+		return DBuilder->createPointerType(DIFuncTy, PtrSizeInBits);
 	}
 	case TypeKind::RECORD: {
 		RecordDecl* Record = Ty->AsRecordType()->Record;
