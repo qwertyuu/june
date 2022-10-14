@@ -113,6 +113,8 @@ namespace june {
 			QualifyingRecordType> QualifyingRecordTypes;
 
 		llvm::DenseMap<Identifier, FileUnit*>       Imports;
+		llvm::SmallVector<FileUnit*>                GlobalUsingImports;
+		
 		llvm::DenseMap<Identifier, FuncsList>       GlobalFuncs;
 		llvm::DenseMap<Identifier, VarDecl*>        GlobalVars;
 		llvm::DenseMap<RecordLocation, RecordDecl*> Records;

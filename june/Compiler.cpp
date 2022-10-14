@@ -69,6 +69,10 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		}
 	}
 
+	if (FoundCompileError) {
+		return;
+	}
+
 	if (!StandAlone) {
 
 		// Ensuring that the standard library isn't missing any essential dependencies
@@ -304,8 +308,9 @@ void june::Compiler::AddFileUnit(std::string& RelativePath, std::string& Absolut
 	FU->FL.FullPath = std::move(AbsolutePath);
 
 	if (Verbose) {
-		llvm::outs() << "FileUnit Paths: { key=\"" << FU->FL.PathKey << "\"";
-		llvm::outs() << ", full-path=\"" << FU->FL.FullPath << "\" }\n";
+		Logger::CompileInfo(llvm::outs(),
+			"FileUnit Paths: { key=\"%s\", full-path=\"%s\" }",
+			FU->FL.PathKey, FU->FL.FullPath);
 	}
 
 	if (!StandAlone) {
@@ -316,7 +321,7 @@ void june::Compiler::AddFileUnit(std::string& RelativePath, std::string& Absolut
 	}
 
 	if (FilesNeedingParsing.find(FU->FL.PathKey) != FilesNeedingParsing.end()) {
-		// TODO: Need to report an error about conflicting paths.
+		Logger::GlobalError(llvm::errs(), "Duplicate path-key found: %s", FU->FL.PathKey);
 	}
 	FilesNeedingParsing.insert({ FU->FL.PathKey, FU });
 	Context.FileUnits.insert({ FU->FL.PathKey, FU });
@@ -338,7 +343,8 @@ void june::Compiler::ParseFiles(FileUnit* FU) {
 	}
 
 	if (!ReadFile(FU->FL.FullPath, FU->SBuf.Memory, FU->SBuf.Length)) {
-		// TODO: Report error that the file could not read
+		Logger::GlobalError(llvm::errs(), "Failed to read file: %s", FU->FL.FullPath);
+		return;
 	}
 
 	Parser P(Context, FU, FU->Log);
@@ -348,6 +354,12 @@ void june::Compiler::ParseFiles(FileUnit* FU) {
 
 	// Parsing dependencies
 	for (auto [PathKey, DepFU] : FU->Imports) {
+		ParseFiles(DepFU);
+		if (DepFU->Log.HasError) {
+			FU->Log.HasError = true;
+		}
+	}
+	for (FileUnit* DepFU : FU->GlobalUsingImports) {
 		ParseFiles(DepFU);
 		if (DepFU->Log.HasError) {
 			FU->Log.HasError = true;

@@ -78,6 +78,16 @@ void june::Analysis::ResolveRecordTypes(JuneContext& Context, FileUnit* FU) {
 			}
 		}
 
+		// Absolute search in global using import.
+		if (!FoundRecord) {
+			for (FileUnit* GlobalFU : FU->GlobalUsingImports) {
+				auto FUAbsItr = GlobalFU->Records.find(RelRecLoc);
+				if (FUAbsItr != GlobalFU->Records.end()) {
+					FoundRecord = FUAbsItr->second;
+				}
+			}
+		}
+
 		if (!FoundRecord) {
 			FU->Log.Error(URT.ErrorLoc, "Could not find record type '%s'", RelRecLoc.ToStr());
 		} else {
@@ -504,6 +514,16 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 					IRef->RefKind  = IdentRef::FUNCS;
 				}
 			}
+			// Searching in the global using imports.
+			if (FUToLookup == FU && IRef->RefKind == IdentRef::NOT_FOUND) {
+				for (FileUnit* GlobalFU : FU->GlobalUsingImports) {
+					auto it = GlobalFU->GlobalFuncs.find(IRef->Ident);
+					if (it != GlobalFU->GlobalFuncs.end()) {
+						IRef->FuncsRef = &it->second;
+						IRef->RefKind  = IdentRef::FUNCS;
+					}
+				}
+			}
 		} else {
 			// Looking for member function.
 			auto it = RecordToLookup->Funcs.find(IRef->Ident);
@@ -530,6 +550,16 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 				if (it != FUToLookup->GlobalVars.end()) {
 					IRef->VarRef  = it->second;
 					IRef->RefKind = IdentRef::VAR;
+				}
+			}
+			// Searching in the global using imports.
+			if (FUToLookup == FU && IRef->RefKind == IdentRef::NOT_FOUND) {
+				for (FileUnit* GlobalFU : FU->GlobalUsingImports) {
+					auto it = GlobalFU->GlobalVars.find(IRef->Ident);
+					if (it != GlobalFU->GlobalVars.end()) {
+						IRef->VarRef  = it->second;
+						IRef->RefKind = IdentRef::VAR;
+					}
 				}
 			}
 		} else {
@@ -563,10 +593,20 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 	// Checking if it refers to a record
 	if (IRef->RefKind == IdentRef::NOT_FOUND) {
 		if (FUToLookup /* == FU */) {
-			auto it = FU->Records.find(RecordLocation::CreateRecLocationByRecName(IRef->Ident));
+			RecordLocation RecLoc = RecordLocation::CreateRecLocationByRecName(IRef->Ident);
+			auto it = FU->Records.find(RecLoc);
 			if (it != FU->Records.end()) {
 				IRef->RecordRef = it->second;
 				IRef->RefKind   = IdentRef::RECORD;
+			}
+			if (IRef->RefKind == IdentRef::NOT_FOUND) {
+				for (FileUnit* GlobalFU : FU->GlobalUsingImports) {
+					auto it = GlobalFU->Records.find(RecLoc);
+					if (it != GlobalFU->Records.end()) {
+						IRef->RecordRef = it->second;
+						IRef->RefKind   = IdentRef::RECORD;
+					}
+				}
 			}
 		} else {
 			// Search for a record inside another record.
@@ -611,8 +651,7 @@ void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, F
 		if (!GivePrefToFuncs) {
 			Error(IRef, "Could not find symbol for %s: '%s'",
 				(RecordToLookup ? "field" : "identifier"), IRef->Ident);
-		}
-		else {
+		} else {
 			Error(IRef, "Could not find function for identifier '%s'", IRef->Ident);
 		}
 		YIELD_ERROR(IRef);

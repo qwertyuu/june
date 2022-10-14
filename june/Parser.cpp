@@ -129,16 +129,44 @@ void june::Parser::ParseImport() {
 		}
 	} while (MoreDots);
 
+	bool GlobalUsingImport = false;
+	if (CTok.is('(')) {
+		NextToken(); // Consuming '(' token
+
+		if (CTok.is(TokenKind::IDENT)) {
+			if (CTok.GetText() == "global") {
+				GlobalUsingImport = true;
+				NextToken(); // Consuming 'global' token
+			} else {
+				Error(CTok, "Expected extended import information");
+			}
+		} else {
+			Error(CTok, "Expected extended import information");
+		}
+
+		Match(')');
+	}
+
 	Match(';');
 
-	if (FU->Imports.find(LastKey) != FU->Imports.end()) {
+	if (!GlobalUsingImport && FU->Imports.find(LastKey) != FU->Imports.end()) {
 		Error(ImportTk, "Duplicate import", FilePath);
 		return;
 	}
 
 	auto it = Context.FileUnits.find(FilePath);
 	if (it != Context.FileUnits.end()) {
-		FU->Imports.insert({ LastKey, it->second });
+		if (GlobalUsingImport) {
+			auto findIt = std::find(FU->GlobalUsingImports.begin(),
+				                    FU->GlobalUsingImports.end(), it->second);
+			if (findIt != FU->GlobalUsingImports.end()) {
+				Error(ImportTk, "Duplicate global import", FilePath);
+				return;
+			}
+			FU->GlobalUsingImports.push_back(it->second);
+		} else {
+			FU->Imports.insert({ LastKey, it->second });
+		}
 	} else {
 		Error(ImportTk, "Failed to find import for path key '%s'", FilePath);
 	}

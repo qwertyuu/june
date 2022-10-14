@@ -31,7 +31,7 @@ namespace june {
 		//     }
 		// }
 		//
-		// Then the absolute path is: 'A.B
+		// Then the absolute path is: 'A.B'
 		static RecordLocation CreateRecLocationByRecord(RecordDecl* Record);
 
 		static RecordLocation CreateRecLocationRelToRec(RecordDecl* RelRecord, RecordDecl* Record);

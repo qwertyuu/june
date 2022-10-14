@@ -1,18 +1,5 @@
-
-b(mat :f32[16]) {
-	
-}
-
-a(mat :f32[16], x :f32, y :f32, z :f32) {
-	b(mat);
-	mat[3]  = x;
-	mat[7]  = y;
-	mat[11] = z;
-}
+import F2 (global);
 
 main() {
-	m :f32[15];
-	xx := 1;
-	yy := 1;
-	a(m, +xx, +yy, 0);
+	a :Abc = Abc();
 }
