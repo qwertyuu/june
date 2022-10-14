@@ -131,21 +131,23 @@ june::JuneContext::~JuneContext() {
 
 void june::JuneContext::Init(bool EmitDebugInfo) {
 	
-	TokenKeywordMap.insert({ "i8"    , TokenKind::KW_TYPE_I8   });
-	TokenKeywordMap.insert({ "i16"   , TokenKind::KW_TYPE_I16  });
-	TokenKeywordMap.insert({ "i32"   , TokenKind::KW_TYPE_I32  });
-	TokenKeywordMap.insert({ "i64"   , TokenKind::KW_TYPE_I64  });
-	TokenKeywordMap.insert({ "u8"    , TokenKind::KW_TYPE_U8   });
-	TokenKeywordMap.insert({ "u16"   , TokenKind::KW_TYPE_U16  });
-	TokenKeywordMap.insert({ "u32"   , TokenKind::KW_TYPE_U32  });
-	TokenKeywordMap.insert({ "u64"   , TokenKind::KW_TYPE_U64  });
-	TokenKeywordMap.insert({ "c8"    , TokenKind::KW_TYPE_C8   });
-	TokenKeywordMap.insert({ "c16"   , TokenKind::KW_TYPE_C16  });
-	TokenKeywordMap.insert({ "c32"   , TokenKind::KW_TYPE_C32  });
-	TokenKeywordMap.insert({ "f32"   , TokenKind::KW_TYPE_F32  });
-	TokenKeywordMap.insert({ "f64"   , TokenKind::KW_TYPE_F64  });
-	TokenKeywordMap.insert({ "bool"  , TokenKind::KW_TYPE_BOOL });
-	TokenKeywordMap.insert({ "void"  , TokenKind::KW_TYPE_VOID });
+	TokenKeywordMap.insert({ "i8"    , TokenKind::KW_TYPE_I8     });
+	TokenKeywordMap.insert({ "i16"   , TokenKind::KW_TYPE_I16    });
+	TokenKeywordMap.insert({ "i32"   , TokenKind::KW_TYPE_I32    });
+	TokenKeywordMap.insert({ "i64"   , TokenKind::KW_TYPE_I64    });
+	TokenKeywordMap.insert({ "u8"    , TokenKind::KW_TYPE_U8     });
+	TokenKeywordMap.insert({ "u16"   , TokenKind::KW_TYPE_U16    });
+	TokenKeywordMap.insert({ "u32"   , TokenKind::KW_TYPE_U32    });
+	TokenKeywordMap.insert({ "u64"   , TokenKind::KW_TYPE_U64    });
+	TokenKeywordMap.insert({ "osint" , TokenKind::KW_TYPE_OSINT  });
+	TokenKeywordMap.insert({ "osuint", TokenKind::KW_TYPE_OSUINT });
+	TokenKeywordMap.insert({ "c8"    , TokenKind::KW_TYPE_C8     });
+	TokenKeywordMap.insert({ "c16"   , TokenKind::KW_TYPE_C16    });
+	TokenKeywordMap.insert({ "c32"   , TokenKind::KW_TYPE_C32    });
+	TokenKeywordMap.insert({ "f32"   , TokenKind::KW_TYPE_F32    });
+	TokenKeywordMap.insert({ "f64"   , TokenKind::KW_TYPE_F64    });
+	TokenKeywordMap.insert({ "bool"  , TokenKind::KW_TYPE_BOOL   });
+	TokenKeywordMap.insert({ "void"  , TokenKind::KW_TYPE_VOID   });
 
 	TokenKeywordMap.insert({ "this"    , TokenKind::KW_THIS      });
 	TokenKeywordMap.insert({ "new"     , TokenKind::KW_NEW       });

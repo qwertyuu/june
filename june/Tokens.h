@@ -28,6 +28,8 @@ namespace june {
 			KW_TYPE_U16,
 			KW_TYPE_U32,
 			KW_TYPE_U64,
+			KW_TYPE_OSINT,
+			KW_TYPE_OSUINT,
 			KW_TYPE_C8,
 			KW_TYPE_C16,
 			KW_TYPE_C32,

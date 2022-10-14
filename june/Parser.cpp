@@ -6,7 +6,7 @@
 
 #include "Types.h"
 #include "JuneContext.h"
-
+#include <llvm/IR/Module.h>
 
 namespace june {
 	template<typename N>
@@ -813,6 +813,9 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 				case TypeKind::I16:
 				case TypeKind::I32:
 				case TypeKind::I64:
+				case TypeKind::C8:
+				case TypeKind::C16:
+				case TypeKind::C32:
 					Num->SignedIntValue = -Num->SignedIntValue;
 					break;
 				case TypeKind::U8:
@@ -1366,21 +1369,41 @@ void june::Parser::SetNestingLevelLengths(Array* Arr, u32 CNestingLevel) {
 june::Type* june::Parser::ParseType(bool ReqArrayLengthComptime) {
 	Type* Ty = nullptr;
 	switch (CTok.Kind) {
-	case TokenKind::KW_TYPE_I8:   NextToken(); Ty = Context.I8Type;   break;
-	case TokenKind::KW_TYPE_I16:  NextToken(); Ty = Context.I16Type;  break;
-	case TokenKind::KW_TYPE_I32:  NextToken(); Ty = Context.I32Type;  break;
-	case TokenKind::KW_TYPE_I64:  NextToken(); Ty = Context.I64Type;  break;
-	case TokenKind::KW_TYPE_U8:   NextToken(); Ty = Context.U8Type;   break;
-	case TokenKind::KW_TYPE_U16:  NextToken(); Ty = Context.U16Type;  break;
-	case TokenKind::KW_TYPE_U32:  NextToken(); Ty = Context.U32Type;  break;
-	case TokenKind::KW_TYPE_U64:  NextToken(); Ty = Context.U64Type;  break;
-	case TokenKind::KW_TYPE_C8:   NextToken(); Ty = Context.C8Type;   break;
-	case TokenKind::KW_TYPE_C16:  NextToken(); Ty = Context.C16Type;  break;
-	case TokenKind::KW_TYPE_C32:  NextToken(); Ty = Context.C32Type;  break;
-	case TokenKind::KW_TYPE_F32:  NextToken(); Ty = Context.F32Type;  break;
-	case TokenKind::KW_TYPE_F64:  NextToken(); Ty = Context.F64Type;  break;
-	case TokenKind::KW_TYPE_BOOL: NextToken(); Ty = Context.BoolType; break;
-	case TokenKind::KW_TYPE_VOID: NextToken(); Ty = Context.VoidType; break;
+	case TokenKind::KW_TYPE_I8:     NextToken(); Ty = Context.I8Type;     break;
+	case TokenKind::KW_TYPE_I16:    NextToken(); Ty = Context.I16Type;    break;
+	case TokenKind::KW_TYPE_I32:    NextToken(); Ty = Context.I32Type;    break;
+	case TokenKind::KW_TYPE_I64:    NextToken(); Ty = Context.I64Type;    break;
+	case TokenKind::KW_TYPE_U8:     NextToken(); Ty = Context.U8Type;     break;
+	case TokenKind::KW_TYPE_U16:    NextToken(); Ty = Context.U16Type;    break;
+	case TokenKind::KW_TYPE_U32:    NextToken(); Ty = Context.U32Type;    break;
+	case TokenKind::KW_TYPE_U64:    NextToken(); Ty = Context.U64Type;    break;
+	case TokenKind::KW_TYPE_OSINT: {
+		NextToken();
+		switch (Context.LLJuneModule.getDataLayout().getPointerSize()) {
+		case 1: Ty = Context.I8Type;  break;
+		case 2: Ty = Context.I16Type; break;
+		case 4: Ty = Context.I32Type; break;
+		case 8: Ty = Context.I64Type; break;
+		}
+		break;
+	}
+	case TokenKind::KW_TYPE_OSUINT: {
+		NextToken();
+		switch (Context.LLJuneModule.getDataLayout().getPointerSize()) {
+		case 1: Ty = Context.U8Type;  break;
+		case 2: Ty = Context.U16Type; break;
+		case 4: Ty = Context.U32Type; break;
+		case 8: Ty = Context.U64Type; break;
+		}
+		break;
+	}
+	case TokenKind::KW_TYPE_C8:     NextToken(); Ty = Context.C8Type;     break;
+	case TokenKind::KW_TYPE_C16:    NextToken(); Ty = Context.C16Type;    break;
+	case TokenKind::KW_TYPE_C32:    NextToken(); Ty = Context.C32Type;    break;
+	case TokenKind::KW_TYPE_F32:    NextToken(); Ty = Context.F32Type;    break;
+	case TokenKind::KW_TYPE_F64:    NextToken(); Ty = Context.F64Type;    break;
+	case TokenKind::KW_TYPE_BOOL:   NextToken(); Ty = Context.BoolType;   break;
+	case TokenKind::KW_TYPE_VOID:   NextToken(); Ty = Context.VoidType;   break;
 	case TokenKind::IDENT: {
 		
 		Token StartTok = CTok;

@@ -32,6 +32,19 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 	Context.Init(EmitDebugInfo);
 	Context.CompileAsStandAlone = StandAlone;
 
+	// Initializing the llvm machine early so that system
+	// dependent information can be used parsing/code-generating.
+	if (!InitLLVMNativeTarget()) {
+		FoundCompileError = true;
+		return;
+	}
+
+	if (!LLMachineTarget) {
+		LLMachineTarget = CreateLLVMTargetMache();
+	}
+
+	SetTargetToModule(Context.LLJuneModule, LLMachineTarget);
+
 	if (!StandAlone) {
 		if (const c8* StdLibPath = GetStdLibPath()) {
 			SourceDirectories.push_back(StdLibPath);
@@ -217,16 +230,6 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 
 	// Emitting code
 	u64 EmiteMachineCodeTimeBegin = GetTimeInMilliseconds();
-	if (!InitLLVMNativeTarget()) {
-		FoundCompileError = true;
-		return;
-	}
-
-	if (!LLMachineTarget) {
-		LLMachineTarget = CreateLLVMTargetMache();
-	}
-
-	SetTargetToModule(Context.LLJuneModule, LLMachineTarget);
 
 	std::string ObjFileName = OutputName + ".o";
 

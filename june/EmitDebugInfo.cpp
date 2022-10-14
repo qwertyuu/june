@@ -241,7 +241,7 @@ llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 	case TypeKind::POINTER: {
 		u32 PtrSizeInBits = Context.LLJuneModule
 			                       .getDataLayout()
-			                       .getPointerTypeSizeInBits(GenType(Context, Ty));
+			                       .getPointerSizeInBits();
 		return DBuilder->createPointerType(EmitType(Ty->AsPointerType()->ElmTy), PtrSizeInBits, 0);
 	}
 	case TypeKind::RECORD: {
