@@ -62,6 +62,7 @@ namespace june {
 		bool CheckInnerScope(InnerScopeStmt* InnerScope);
 		void CheckReturn(ReturnStmt* Ret);
 		void CheckRangeLoop(RangeLoopStmt* Loop);
+		void CheckIteratorLoop(IteratorLoopStmt* Loop);
 		void CheckPredicateLoop(PredicateLoopStmt* Loop);
 		bool CheckIf(IfStmt* If);
 		void CheckLoopControl(LoopControlStmt* LoopControl);

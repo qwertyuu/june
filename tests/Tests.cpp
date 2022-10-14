@@ -136,6 +136,8 @@ int main() {
 		}
 		return sum;
 		}());
+	RunTest(SRC("loops6"), 124 + 346 + 22 + 15 + 77);
+	RunTest(SRC("loops7"), 214 + 22 + 55 + 21 + 553 + 2 + 52 + 14);
 	RunTest(SRC("fixedarrays1"), 21 + 55 + 11 + 56 + 3);
 	RunTest(SRC("fixedarrays2"), 412 + 21 + 5 + 6 + 4);
 	RunTest(SRC("fixedarrays3"), 41 + 36 + 412 + 121 + 45 + 56);

@@ -3,8 +3,8 @@ import std.Sys;
 main() {
 	Sys.println("Input two numbers on two seperate lines:");
 
-	numStr1 := Sys.in.readLine();
-	numStr2 := Sys.in.readLine();
+	numStr1 := Sys.stdin.readLine();
+	numStr2 := Sys.stdin.readLine();
 	
 	Sys.println();
 	Sys.println("Read in numbers:");

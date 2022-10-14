@@ -541,6 +541,8 @@ june::AstNode* june::Parser::ParseLoop() {
 	case TokenKind::IDENT:
 		if (PeekToken(1).is(':'))   // loop i :
 			LoopKind = AstKind::RANGE_LOOP;
+		else if (PeekToken(1).is(TokenKind::KW_IN))
+			LoopKind = AstKind::ITERATOR_LOOP;
 		else
 			LoopKind = AstKind::PREDICATE_LOOP;
 		break;
@@ -551,6 +553,8 @@ june::AstNode* june::Parser::ParseLoop() {
 
 	if (LoopKind == AstKind::RANGE_LOOP) {
 		return ParseRangeLoop(LoopTok);
+	} else if (LoopKind == AstKind::ITERATOR_LOOP) {
+		return ParseIteratorLoop(LoopTok);
 	} else {
 		return ParsePredicateLoop(LoopTok);
 	}
@@ -588,6 +592,28 @@ june::PredicateLoopStmt* june::Parser::ParsePredicateLoop(Token LoopTok) {
 	}
 
 	PUSH_SCOPE();
+	ParseScopeStmts(Loop->Scope);
+	POP_SCOPE();
+
+	return Loop;
+}
+
+june::IteratorLoopStmt* june::Parser::ParseIteratorLoop(Token LoopTok) {
+	IteratorLoopStmt* Loop = NewNode<IteratorLoopStmt>(LoopTok);
+
+	PUSH_SCOPE();
+	
+	Loop->VarVal = NewNode<VarDecl>(CTok);
+	Loop->VarVal->Name = ParseIdentifier("Expected identifier for variable in loop");
+	Loop->VarVal->Mods = 0;
+	
+	if (!Loop->VarVal->Name.isNull()) {
+		LocScope->VarDecls.insert({ Loop->VarVal->Name, Loop->VarVal });
+	}
+	
+	Match(TokenKind::KW_IN);
+	Loop->IterOnExpr = ParseExpr();
+
 	ParseScopeStmts(Loop->Scope);
 	POP_SCOPE();
 

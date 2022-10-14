@@ -1,0 +1,10 @@
+// -- Test to make sure that iterator
+//    loops work on arrays
+main() -> i32 {
+	arr := [ 124, 346, 22, 15, 77 ];
+	sum :i32 = 0;
+	loop val in arr {
+		sum += val;
+	}
+	return sum;
+}

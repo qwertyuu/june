@@ -250,6 +250,7 @@ void june::Analysis::CheckScope(const LexScope& LScope, Scope& NewScope) {
 		case AstKind::INNER_SCOPE:
 		case AstKind::RETURN:
 		case AstKind::RANGE_LOOP:
+		case AstKind::ITERATOR_LOOP:
 		case AstKind::PREDICATE_LOOP:
 		case AstKind::IF:
 		case AstKind::FUNC_CALL:
@@ -311,6 +312,9 @@ void june::Analysis::CheckNode(AstNode* Node) {
 		break;
 	case AstKind::RANGE_LOOP:
 		CheckRangeLoop(ocast<RangeLoopStmt*>(Node));
+		break;
+	case AstKind::ITERATOR_LOOP:
+		CheckIteratorLoop(ocast<IteratorLoopStmt*>(Node));
 		break;
 	case AstKind::PREDICATE_LOOP:
 		CheckPredicateLoop(ocast<PredicateLoopStmt*>(Node));
@@ -418,6 +422,23 @@ void june::Analysis::CheckRangeLoop(RangeLoopStmt* Loop) {
 		CheckNode(Loop->Inc);
 	}
 	
+	++LoopDepth;
+	Scope NewScope;
+	CheckScope(Loop->Scope, NewScope);
+	--LoopDepth;
+}
+
+void june::Analysis::CheckIteratorLoop(IteratorLoopStmt* Loop) {
+	CheckNode(Loop->IterOnExpr);
+	YIELD_ERROR_WHEN(Loop->IterOnExpr);
+
+	if (Loop->IterOnExpr->Ty->GetKind() != TypeKind::FIXED_ARRAY) {
+		Error(Loop->IterOnExpr, "Cannot iterate on type: %s", Loop->IterOnExpr->Ty->ToStr());
+		return;
+	}
+
+	Loop->VarVal->Ty = Loop->IterOnExpr->Ty->AsFixedArrayType()->ElmTy;
+
 	++LoopDepth;
 	Scope NewScope;
 	CheckScope(Loop->Scope, NewScope);

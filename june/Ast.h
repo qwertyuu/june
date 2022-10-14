@@ -45,6 +45,7 @@ namespace june {
 		RETURN,
 		RANGE_LOOP,
 		PREDICATE_LOOP,
+		ITERATOR_LOOP,
 		IF,
 		BREAK,
 		CONTINUE,
@@ -267,6 +268,17 @@ namespace june {
 		LexScope   Scope;
 
 		RangeLoopStmt() : AstNode(AstKind::RANGE_LOOP) {}
+
+	};
+
+	// Ex.  'loop val in x'
+	struct IteratorLoopStmt : AstNode {
+
+		VarDecl*   VarVal;
+		Expr*      IterOnExpr;
+		LexScope   Scope;
+
+		IteratorLoopStmt() : AstNode(AstKind::ITERATOR_LOOP) {}
 
 	};
 

@@ -67,6 +67,7 @@ namespace june {
 		llvm::Value* GenInnerScope(InnerScopeStmt* InnerScope);
 		llvm::Value* GenReturn(ReturnStmt* Ret);
 		llvm::Value* GenRangeLoop(RangeLoopStmt* Loop);
+		llvm::Value* GenIteratorLoop(IteratorLoopStmt* Loop);
 		llvm::Value* GenPredicateLoop(PredicateLoopStmt* Loop);
 		void GenLoopCondJump(llvm::BasicBlock* LLCondBB, llvm::BasicBlock* LLBodyBB, llvm::BasicBlock* LLEndBB, Expr* Cond);
 		llvm::Value* GenIf(IfStmt* If);

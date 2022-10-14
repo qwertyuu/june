@@ -1,0 +1,13 @@
+// -- Test to make sure that iterator
+//    loops work on multi-dimensional
+//    arrays
+main() -> i32 {
+	arr := [ [ 214, 22, 55 ], [ 21, 553 ], [ 2, 52, 14 ] ];
+	sum :i32 = 0;
+	loop subArr in arr {
+		loop val in subArr {
+			sum += val;
+		}
+	}
+	return sum;
+}

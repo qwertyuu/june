@@ -115,6 +115,13 @@ namespace june {
 		}
 	}
 
+	void PrintIteratorLoop(const JuneContext& Context, const IteratorLoopStmt* Loop, u32 Depth) {
+		llvm::outs() << "(iterator-loop| var-ident=\"" << Loop->VarVal->Name << "\")\n";
+		PrintIndent(Depth);
+		llvm::outs() << "expr:\n";
+		PrintNode(Context, Loop->IterOnExpr, Depth + 1);
+	}
+
 	void PrintPredicateLoop(const JuneContext& Context, const PredicateLoopStmt* Loop, u32 Depth) {
 		llvm::outs() << "(predicate-loop)";
 		if (Loop->Cond) {
@@ -339,6 +346,9 @@ namespace june {
 			break;
 		case AstKind::RANGE_LOOP:
 			PrintRangeLoop(Context, ocast<const RangeLoopStmt*>(N), Depth);
+			break;
+		case AstKind::ITERATOR_LOOP:
+			PrintIteratorLoop(Context, ocast<const IteratorLoopStmt*>(N), Depth);
 			break;
 		case AstKind::PREDICATE_LOOP:
 			PrintPredicateLoop(Context, ocast<const PredicateLoopStmt*>(N), Depth);

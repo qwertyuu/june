@@ -49,6 +49,7 @@ namespace june {
 
 		// Other
 			
+			KW_IN,
 			KW_THIS,
 			KW_NEW,
 			KW_CAST,

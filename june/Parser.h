@@ -75,6 +75,7 @@ namespace june {
 		ReturnStmt* ParseReturn();
 		AstNode* ParseLoop();
 		RangeLoopStmt* ParseRangeLoop(Token LoopTok);
+		IteratorLoopStmt* ParseIteratorLoop(Token LoopTok);
 		PredicateLoopStmt* ParsePredicateLoop(Token LoopTok);
 		IfStmt* ParseIf();
 		LoopControlStmt* ParseLoopControl();

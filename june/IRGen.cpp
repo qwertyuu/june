@@ -530,6 +530,8 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 		return GenReturn(ocast<ReturnStmt*>(Node));
 	case AstKind::RANGE_LOOP:
 		return GenRangeLoop(ocast<RangeLoopStmt*>(Node));
+	case AstKind::ITERATOR_LOOP:
+		return GenIteratorLoop(ocast<IteratorLoopStmt*>(Node));
 	case AstKind::PREDICATE_LOOP:
 		return GenPredicateLoop(ocast<PredicateLoopStmt*>(Node));
 	case AstKind::IF:
@@ -764,6 +766,73 @@ llvm::Value* june::IRGen::GenRangeLoop(RangeLoopStmt* Loop) {
 		Builder.CreateBr(LLCondBB); // No need to check for terminal since expressions cannot jump.
 		EmitDebugLocation(Loop->Inc);
 	}
+
+	// Finally continuing forward into a new block after the loop
+	GenSetInsertBlock(LLEndBB, &Loop->Scope);
+
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeEnd();
+
+	return nullptr;
+}
+
+llvm::Value* june::IRGen::GenIteratorLoop(IteratorLoopStmt* Loop) {
+
+	llvm::BasicBlock* LLEndBB  = llvm::BasicBlock::Create(LLContext, "loop.end", LLFunc);
+	llvm::BasicBlock* LLBodyBB = llvm::BasicBlock::Create(LLContext, "loop.body", LLFunc);
+	llvm::BasicBlock* LLIncBB  = llvm::BasicBlock::Create(LLContext, "loop.inc", LLFunc);
+	llvm::BasicBlock* LLCondBB = llvm::BasicBlock::Create(LLContext, "loop.cond", LLFunc);
+	llvm::BasicBlock* LLContinueBB = LLIncBB;
+
+	LoopBreakStack.push_back(LLEndBB);
+	LoopContinueStack.push_back(LLContinueBB);
+
+	FixedArrayType* ArrTy = Loop->IterOnExpr->Ty->AsFixedArrayType();
+
+	llvm::Value* LLArrItrPtrAddr = CreateTempAlloca(
+		llvm::PointerType::get(GenType(ArrTy->ElmTy), 0));
+	
+	llvm::Value* LLPtrToArrStart = GetArrayAsPtr1Nesting(GenNode(Loop->IterOnExpr));
+	llvm::Value* LLPtrToArrEnd   = CreateInBoundsGEP(LLPtrToArrStart, { GetLLUInt64(ArrTy->Length, LLContext) });;
+	Builder.CreateStore(LLPtrToArrStart, LLArrItrPtrAddr);
+
+	// Jumping directly into the loop condition
+	Builder.CreateBr(LLCondBB);
+	Builder.SetInsertPoint(LLCondBB);
+
+	// Keep going until end of array
+	llvm::Value* LLCond = Builder.CreateICmpNE(CreateLoad(LLArrItrPtrAddr), LLPtrToArrEnd);
+	Builder.CreateCondBr(LLCond, LLBodyBB, LLEndBB);
+	EmitDebugLocation(Loop);
+
+	// Generating the body of the loop
+	if (EmitDebugInfo)
+		GetDIEmitter()->EmitScopeStart(CFunc->FU, Loop->Scope.StartLoc);
+
+	GenBranchIfNotTerm(LLBodyBB);
+	Builder.SetInsertPoint(LLBodyBB);
+
+	// Creating the variable that is being looped on
+	Loop->VarVal->LLAddress = CreateTempAlloca(GenType(ArrTy->ElmTy));
+	Builder.CreateStore(CreateLoad(CreateLoad(LLArrItrPtrAddr)), Loop->VarVal->LLAddress);
+
+	GenBlock(nullptr, Loop->Scope);
+	
+	LoopBreakStack.pop_back();
+	LoopContinueStack.pop_back();
+
+	// Jump back to the continue block to restart the loop
+	GenBranchIfNotTerm(LLContinueBB, &Loop->Scope);
+
+	// Incrementing the array pointer
+	Builder.SetInsertPoint(LLIncBB);
+
+	llvm::Value* LLArrItrPtr = CreateLoad(LLArrItrPtrAddr);
+	llvm::Value* LLNextPtr = CreateInBoundsGEP(LLArrItrPtr, { GetLLUInt32(1, LLContext) });
+	Builder.CreateStore(LLNextPtr, LLArrItrPtrAddr);
+
+	// Jumping directly into the loop condition
+	Builder.CreateBr(LLCondBB);
 
 	// Finally continuing forward into a new block after the loop
 	GenSetInsertBlock(LLEndBB, &Loop->Scope);
