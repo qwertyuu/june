@@ -1,14 +1,9 @@
-
-f<T>(a :T, u :i32) {
-	y := a + 33;
-}
-
-A :: record {
-
-}
+import std.Sys;
 
 main() {
-	f(55, u = 77);
-	//f(214.0f);
-	//f(214.0f);
+	Sys.println("Hello World!");
+
+	s := String("Hello world!");
+	Sys.println(s);
+	Sys.exit(1);
 }

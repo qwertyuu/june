@@ -17,6 +17,8 @@ namespace june {
 
 	u32 GetBindingsId(GenericFuncDecl* GenFunc, TypeBindList& Bindings);
 
+	void ResetGenericDecl(Decl* D);
+
 }
 
 #endif // JUNE_TYPE_BINDING_H

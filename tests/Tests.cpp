@@ -43,6 +43,7 @@ void RunTest(const c8* TestDirectoryPath, int TestErrorCode) {
 
 	june::Compiler Compiler;
 	Compiler.StandAlone = true;
+	//Compiler.PathToStandardLibrary = JUNE_COMPILER_STDLIB_SOURCE_DIR;
 	//Compiler.EmitDebugInfo = true;
 	//Compiler.Verbose = true;
 	//Compiler.DisplayLLVMIR = true;

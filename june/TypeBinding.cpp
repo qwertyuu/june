@@ -1,11 +1,12 @@
 #include "TypeBinding.h"
 
 #include "Types.h"
+#include <stack>
 
-static u32 PrevBindingId = june::INVALID_BINDING_ID;
+static std::stack<u32> PrevBindingIdStack;
 
 void june::BindTypes(GenericFuncDecl* GenFunc, u32 BindingId) {
-	PrevBindingId = GenFunc->CurBindingId;
+	PrevBindingIdStack.push(GenFunc->CurBindingId);
 	TypeBindList& Bindings = std::get<0>(GenFunc->BindingCache[BindingId]);
 
 	for (auto& Binding : Bindings) {
@@ -17,7 +18,9 @@ void june::BindTypes(GenericFuncDecl* GenFunc, u32 BindingId) {
 }
 
 void june::UnbindTypes(GenericFuncDecl* GenFunc) {
-	if (PrevBindingId == june::INVALID_BINDING_ID) {
+	u32 PrevBindingId = PrevBindingIdStack.top();
+	PrevBindingIdStack.pop();
+	if (PrevBindingId == INVALID_BINDING_ID) {
 		for (auto [_, GenTy] : GenFunc->GenericTypes) {
 			GenTy->Bind(nullptr);
 		}
@@ -52,4 +55,160 @@ u32 june::GetBindingsId(GenericFuncDecl* GenFunc, TypeBindList& Bindings) {
 		++BindingId;
 	}
 	return INVALID_BINDING_ID;
+}
+
+namespace june {
+	void ResetNode(AstNode* Node) {
+		switch (Node->Kind) {
+		case AstKind::IDENT_REF:
+		case AstKind::NUMBER_LITERAL:
+		case AstKind::NULLPTR:
+		case AstKind::BOOL_LITERAL:
+		case AstKind::SIZEOF_TYPE:
+		case AstKind::THIS_REF: {
+			ocast<Expr*>(Node)->CastTy = nullptr;
+			break;
+		}
+		case AstKind::FUNC_DECL:
+		case AstKind::GENERIC_FUNC_DECL: {
+			FuncDecl* Func = ocast<GenericFuncDecl*>(Node);
+			for (AstNode* Stmt : Func->Scope.Stmts) {
+				ResetNode(Stmt);
+			}
+			break;
+		}
+		case AstKind::VAR_DECL: {
+			VarDecl* Var = ocast<VarDecl*>(Node);
+			if (Var->Assignment) {
+				ResetNode(Var->Assignment);
+			}
+			break;
+		}
+		case AstKind::INNER_SCOPE: {
+			InnerScopeStmt* InnerScope = ocast<InnerScopeStmt*>(Node);
+			for (AstNode* Stmt : InnerScope->Scope.Stmts) {
+				ResetNode(Stmt);
+			}
+			break;
+		}
+		case AstKind::RETURN: {
+			ReturnStmt* Ret = ocast<ReturnStmt*>(Node);
+			if (Ret->Val) {
+				ResetNode(Ret->Val);
+			}
+			break;
+		}
+		case AstKind::RANGE_LOOP: {
+			RangeLoopStmt* Loop = ocast<RangeLoopStmt*>(Node);
+			if (Loop->Decl)
+				ResetNode(Loop->Decl);
+			if (Loop->Cond)
+				ResetNode(Loop->Cond);
+			if (Loop->Inc)
+				ResetNode(Loop->Inc);
+			break;
+		}
+		case AstKind::ITERATOR_LOOP: {
+			IteratorLoopStmt* Loop = ocast<IteratorLoopStmt*>(Node);
+			ResetNode(Loop->IterOnExpr);
+			for (AstNode* Stmt : Loop->Scope.Stmts) {
+				ResetNode(Stmt);
+			}
+			break;
+		}
+		case AstKind::PREDICATE_LOOP: {
+			PredicateLoopStmt* Loop = ocast<PredicateLoopStmt*>(Node);
+			if (Loop->Cond)
+				ResetNode(Loop->Cond);
+			for (AstNode* Stmt : Loop->Scope.Stmts) {
+				ResetNode(Stmt);
+			}
+			break;
+		}
+		case AstKind::IF: {
+			IfStmt* If = ocast<IfStmt*>(Node);
+			if (If->Cond)
+				ResetNode(If->Cond);
+			for (AstNode* Stmt : If->Scope.Stmts) {
+				ResetNode(Stmt);
+			}
+			if (If->Else)
+				ResetNode(If->Else);
+			break;
+		}
+		case AstKind::CONTINUE:
+		case AstKind::BREAK:
+			break;
+		case AstKind::FIELD_ACCESSOR: {
+			FieldAccessor* FA = ocast<FieldAccessor*>(Node);
+			FA->IsArrayLength = false;
+			FA->CastTy = nullptr;
+			ResetNode(FA->Site);
+			break;
+		}
+		case AstKind::FUNC_CALL: {
+			FuncCall* Call = ocast<FuncCall*>(Node);
+			for (Expr* Arg : Call->Args) {
+				ResetNode(Arg);
+			}
+			Call->CalledFunc = nullptr;
+			Call->IsConstructorCall = false;
+			Call->CastTy = nullptr;
+			break;
+		}
+		case AstKind::BINARY_OP: {
+			BinaryOp* BinOp = ocast<BinaryOp*>(Node);
+			ResetNode(BinOp->LHS);
+			ResetNode(BinOp->RHS);
+			BinOp->CastTy = nullptr;
+			break;
+		}
+		case AstKind::UNARY_OP: {
+			UnaryOp* UOP = ocast<UnaryOp*>(Node);
+			ResetNode(UOP->Val);
+			UOP->CastTy = nullptr;
+			break;
+		}
+		case AstKind::ARRAY: {
+			Array* Arr = ocast<Array*>(Node);
+			for (u32 i = 0; i < Arr->NumElements; i++) {
+				ResetNode(Arr->GetElement(i));
+			}
+			Arr->CastTy = nullptr;
+			break;
+		}
+		case AstKind::ARRAY_ACCESS: {
+			ArrayAccess* AA = ocast<ArrayAccess*>(Node);
+			ResetNode(AA->Site);
+			AA->CastTy = nullptr;
+			break;
+		}
+		case AstKind::TYPE_CAST: {
+			TypeCast* Cast = ocast<TypeCast*>(Node);
+			ResetNode(Cast->Val);
+			Cast->CastTy = nullptr;
+			break;
+		}
+		case AstKind::HEAP_ALLOC_TYPE: {
+			HeapAllocType* HeapAlloc = ocast<HeapAllocType*>(Node);
+			HeapAlloc->CastTy = nullptr;
+			break;
+		}
+		case AstKind::TERNARY_COND: {
+			TernaryCond* Cond = ocast<TernaryCond*>(Node);
+			ResetNode(Cond->Cond);
+			ResetNode(Cond->Val1);
+			ResetNode(Cond->Val2);
+			Cond->CastTy = nullptr;
+			break;
+		}
+		default:
+			assert(!"Unimplemented node reset");
+			break;
+		}
+	}
+}
+
+void june::ResetGenericDecl(Decl* D) {
+	ResetNode(D);
 }

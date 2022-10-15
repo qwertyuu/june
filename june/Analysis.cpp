@@ -231,6 +231,8 @@ void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
 }
 
 void june::Analysis::CheckGenericFuncDecl(GenericFuncDecl* GenFunc, u32 BindingId) {
+	// TODO: Probably don't want to reset if it has never been checked before.
+	ResetGenericDecl(GenFunc);
 	BindTypes(GenFunc, BindingId);
 	CheckFuncDecl(GenFunc);
 	UnbindTypes(GenFunc);
@@ -984,7 +986,6 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 			YIELD_ERROR(Call);
 		}
 
-		UnbindTypes(GenFunc);
 		Call->TypeBindingId = Context.RequestGen(TypeBindings, GenFunc);
 
 		// Have to temporarily bind the types
@@ -1010,6 +1011,8 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	Call->CalledFunc = CalledFunc;
 	if (!CalledFunc->is(AstKind::GENERIC_FUNC_DECL)) {		
 		Context.RequestGen(CalledFunc);
+	} else {
+		UnbindTypes(ocast<GenericFuncDecl*>(CalledFunc));
 	}
 
 	if (Call->Ty->GetKind() == TypeKind::RECORD) {

@@ -43,6 +43,11 @@ println<T>(v :T) {
 	println();
 }
 
+println(v :c8*) {
+	print(v);
+	println();
+}
+
 /*
  * Runs at startup to ensure
  * certain functionality is ran
