@@ -239,12 +239,16 @@ void june::IRGen::GenGenericFunc(GenericFuncDecl* Func, u32 BindingId) {
 	
 	CFunc = Func;
 	
+	BindTypes(Func, BindingId);
+
 	Func->LLAddress = std::get<1>(Func->BindingCache[BindingId]);
 	if (!Func->LLAddress) {
 		GenFuncDecl(Func);
 	}
 
 	GenFuncBody(Func);
+
+	UnbindTypes(Func);
 
 	if (DisplayLLVMIR) {
 		Func->LLAddress->print(llvm::outs());
@@ -381,14 +385,9 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 }
 
 void june::IRGen::GenGenericFuncDecl(GenericFuncDecl* Func, u32 BindingId) {
-	// TODO: Due to recurssion it might be possible
-	// that the generic function already has bindings
-	// so it is actually more correct to save the bindings
-	// that is currently has and then rebind them after the
-	// declaration.
 	llvm::Function* LLFunc = std::get<1>(Func->BindingCache[BindingId]);
 	if (!LLFunc) {
-		BindTypes(Func, std::get<0>(Func->BindingCache[BindingId]));
+		BindTypes(Func, BindingId);
 		GenFuncDecl(Func);
 		UnbindTypes(Func);
 		std::get<1>(Func->BindingCache[BindingId]) = Func->LLAddress;

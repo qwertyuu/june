@@ -205,6 +205,8 @@ namespace june {
 		llvm::SmallVector<
 			std::tuple<TypeBindList, llvm::Function*>> BindingCache;
 		
+		u32 CurBindingId = 0xFFFF'FFFF;
+
 		GenericFuncDecl() : FuncDecl() {
 			Kind = AstKind::GENERIC_FUNC_DECL;
 		}

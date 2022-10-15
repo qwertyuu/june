@@ -230,6 +230,12 @@ void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
 	}
 }
 
+void june::Analysis::CheckGenericFuncDecl(GenericFuncDecl* GenFunc, u32 BindingId) {
+	BindTypes(GenFunc, BindingId);
+	CheckFuncDecl(GenFunc);
+	UnbindTypes(GenFunc);
+}
+
 void june::Analysis::CheckScope(const LexScope& LScope, Scope& NewScope) {
 	NewScope.Parent = LocScope;
 	LocScope = &NewScope;
@@ -962,9 +968,28 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 			}
 		}
 
+		if (TypeBindings.size() != GenFunc->GenericTypes.size()) {
+			// There are unbound types.
+			std::string UnboundTypesNames = "";
+			for (auto [GenName, GenType] : GenFunc->GenericTypes) {
+				if (!IsGenericTypeNameBound(TypeBindings, GenName)) {
+					if (!UnboundTypesNames.empty()) {
+						UnboundTypesNames += ", ";
+					}
+					UnboundTypesNames += GenName.Text.str();
+				}
+			}
+			Error(Call, "Call to generic function did not bind all the generic types. Missing bindings for: [ %s ]",
+				UnboundTypesNames);
+			YIELD_ERROR(Call);
+		}
+
+		UnbindTypes(GenFunc);
+		Call->TypeBindingId = Context.RequestGen(TypeBindings, GenFunc);
+
 		// Have to temporarily bind the types
 		// properly create casting.
-		BindTypes(GenFunc, TypeBindings);
+		BindTypes(GenFunc, Call->TypeBindingId);
 	}
 
 	// TODO: VarArgs will require further work to get this to work right
@@ -983,11 +1008,7 @@ void june::Analysis::CheckFuncCall(FuncCall* Call) {
 	}
 
 	Call->CalledFunc = CalledFunc;
-	if (CalledFunc->is(AstKind::GENERIC_FUNC_DECL)) {
-		GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(CalledFunc);
-		UnbindTypes(GenFunc);
-		Call->TypeBindingId = Context.RequestGen(TypeBindings, GenFunc);
-	} else {
+	if (!CalledFunc->is(AstKind::GENERIC_FUNC_DECL)) {		
 		Context.RequestGen(CalledFunc);
 	}
 

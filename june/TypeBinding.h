@@ -9,7 +9,7 @@ namespace june {
 
 	constexpr u32 INVALID_BINDING_ID = 0xFFFF'FFFF;
 
-	void BindTypes(GenericFuncDecl* GenFunc, TypeBindList& Bindings);
+	void BindTypes(GenericFuncDecl* GenFunc, u32 BindingId);
 
 	void UnbindTypes(GenericFuncDecl* GenFunc);
 

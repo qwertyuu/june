@@ -21,6 +21,7 @@ namespace june {
 		static void ReportInvalidFUStmts(FileUnit* FU);
 
 		void CheckFuncDecl(FuncDecl* Func);
+		void CheckGenericFuncDecl(GenericFuncDecl* GenFunc, u32 BindingId);
 
 		void CheckVarDecl(VarDecl* Var);
 

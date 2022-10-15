@@ -21,16 +21,6 @@ print(msg :c8*, length :u32) {
 	writeToHandle(Win32.GetStdHandle(-11), msg, length);
 }
 
-println(msg :c8*) {
-	print(msg);
-	println();
-}
-
-println() {
-	ln :c8 = '\n';
-	print(&ln, 1);
-}
-
 print(msg :c8*) {
 	print(msg, Mem.strlen(msg));
 }
@@ -39,17 +29,17 @@ print(msg :String) {
 	print(msg.buffer, msg.length);
 }
 
-println(msg :String) {
-	print(msg);
-	println();
-}
-
 print(i :i32) {
 	print(String.from(i));
 }
 
-println(i :i32) {
-	print(i);
+println() {
+	ln :c8 = '\n';
+	print(&ln, 1);
+}
+
+println<T>(v :T) {
+	print(v);
 	println();
 }
 

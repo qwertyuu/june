@@ -200,15 +200,15 @@ june::AstNode* june::Parser::ParseStmt() {
 		llvm::SmallVector<Identifier> Generics = ParseGenerics();
 		if (!Generics.empty()) {
 			// Variable declarations cannot have generics
-			if (PeekToken(1).is('(')) {
+			if (CTok.is('(')) {
 				Stmt = ParseFuncDecl(NameTok, Mods, Generics);
 			} else {
 				Stmt = ParseRecordDecl(NameTok, Mods);
 			}
 		} else {
-			if (PeekToken(1).is('(')) {
+			if (CTok.is('(')) {
 				Stmt = ParseFuncDecl(NameTok, Mods, Generics);
-			} else if (PeekToken(1).is(TokenKind::COL_COL)) {
+			} else if (CTok.is(TokenKind::COL_COL)) {
 				Stmt = ParseRecordDecl(NameTok, Mods);
 			} else {
 				Stmt = ParseVarDecl(NameTok, Mods); Match(';');
@@ -574,7 +574,12 @@ llvm::SmallVector<june::Identifier> june::Parser::ParseGenerics() {
 	if (CTok.isNot('>')) {
 		bool MoreGenerics = false;
 		do {
-			Generics.push_back(ParseIdentifier("Expected identifier for generic name"));
+			Token GenericNameTok = CTok;
+			Identifier Generic = ParseIdentifier("Expected identifier for generic name");
+			if (std::find(Generics.begin(), Generics.end(), Generic) != Generics.end()) {
+				Error(GenericNameTok, "Duplicate generic");
+			}
+			Generics.push_back(Generic);
 			MoreGenerics = CTok.is(',');
 			if (MoreGenerics) {
 				NextToken(); // Consuming ',' token

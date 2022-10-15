@@ -2,7 +2,12 @@
 
 #include "Types.h"
 
-void june::BindTypes(GenericFuncDecl* GenFunc, TypeBindList& Bindings) {
+static u32 PrevBindingId = june::INVALID_BINDING_ID;
+
+void june::BindTypes(GenericFuncDecl* GenFunc, u32 BindingId) {
+	PrevBindingId = GenFunc->CurBindingId;
+	TypeBindList& Bindings = std::get<0>(GenFunc->BindingCache[BindingId]);
+
 	for (auto& Binding : Bindings) {
 		GenericType* GenTy = GenFunc->GenericTypes.find(std::get<0>(Binding))->second;
 		// -- DEBUG
@@ -12,13 +17,18 @@ void june::BindTypes(GenericFuncDecl* GenFunc, TypeBindList& Bindings) {
 }
 
 void june::UnbindTypes(GenericFuncDecl* GenFunc) {
-	for (auto [_, GenTy] : GenFunc->GenericTypes) {
-		GenTy->Bind(nullptr);
+	if (PrevBindingId == june::INVALID_BINDING_ID) {
+		for (auto [_, GenTy] : GenFunc->GenericTypes) {
+			GenTy->Bind(nullptr);
+		}
+	} else {
+		TypeBindList& PrevBindings = std::get<0>(GenFunc->BindingCache[PrevBindingId]);
+		for (auto& Binding : PrevBindings) {
+			GenericType* GenTy = GenFunc->GenericTypes.find(std::get<0>(Binding))->second;
+			GenTy->Bind(std::get<1>(Binding));
+		}
 	}
 }
-
-// What I really need. Some way to check type bindings so i can map between certain bindings
-// and the instances of those bindings.
 
 bool june::IsGenericTypeNameBound(TypeBindList& Bindings, Identifier GenericName) {
 	auto it = std::find_if(Bindings.begin(), Bindings.end(), [=](std::tuple<Identifier, Type*>& Binding) {

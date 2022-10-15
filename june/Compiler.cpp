@@ -148,14 +148,11 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			continue;
 		}
 
-		if (D->is(AstKind::GENERIC_FUNC_DECL)) {
-			GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(D);
-			BindTypes(GenFunc, std::get<0>(GenFunc->BindingCache[DGen.TypeBindingId]));
-		}
-
 		Analysis A(Context, D->FU->Log);
-		if (D->is(AstKind::FUNC_DECL) || D->is(AstKind::GENERIC_FUNC_DECL)) {
+		if (D->is(AstKind::FUNC_DECL)) {
 			A.CheckFuncDecl(ocast<FuncDecl*>(D));
+		} else if (D->is(AstKind::GENERIC_FUNC_DECL)) {
+			A.CheckGenericFuncDecl(ocast<GenericFuncDecl*>(D), DGen.TypeBindingId);
 		} // else if VAR_DECL  : should already have been checked.
 		
 		if (D->FU->Log.HasError) {
@@ -173,11 +170,6 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			} else {
 				Gen.GenGlobalVar(ocast<VarDecl*>(D));
 			}
-		}
-
-		if (D->is(AstKind::GENERIC_FUNC_DECL)) {
-			GenericFuncDecl* GenFunc = ocast<GenericFuncDecl*>(D);
-			UnbindTypes(GenFunc);
 		}
 	}
 
