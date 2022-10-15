@@ -1616,6 +1616,11 @@ YIELD_ERROR(UOP)
 			if (IRef->RefKind == IdentRef::FUNCS) {
 				FuncDecl* Func = (*IRef->FuncsRef)[0];
 
+				if (Func->is(AstKind::GENERIC_FUNC_DECL)) {
+					Error(UOP, "Cannot get the address of a generic function");
+					YIELD_ERROR(UOP);
+				}
+
 				llvm::SmallVector<Type*, 4> ParamTypes;
 				if (Func->Record) {
 					// It is a member function so the first argument is an argument to
@@ -1986,10 +1991,10 @@ bool june::Analysis::IsLValue(Expr* E) {
 		UnaryOp* UOP = ocast<UnaryOp*>(E);
 		return UOP->Op == '*'; // Can assign to dereferences
 	}
-	if (!(K == AstKind::IDENT_REF || K == AstKind::FIELD_ACCESSOR)) {
-		return false;
+	if (K == AstKind::IDENT_REF || K == AstKind::FIELD_ACCESSOR || K == AstKind::ARRAY_ACCESS) {
+		return true;
 	}
-	return true;
+	return false;
 }
 
 bool june::Analysis::IsComparable(Type* Ty) {

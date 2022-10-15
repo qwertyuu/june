@@ -1,9 +1,12 @@
-import std.Sys;
+y :i32* = new i32;
+
+f() -> i32* {
+	return y;
+}
 
 main() {
-	Sys.println("Hello World!");
+	
+	a :i32[44];
+	v :i32* = &a[0];
 
-	s := String("Hello world!");
-	Sys.println(s);
-	Sys.exit(1);
 }

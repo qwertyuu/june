@@ -43,6 +43,8 @@ println<T>(v :T) {
 	println();
 }
 
+// Explicit implementation to prevent
+// array based character templating.
 println(v :c8*) {
 	print(v);
 	println();
