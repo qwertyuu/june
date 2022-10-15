@@ -91,7 +91,14 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 
 		// Ensuring that the standard library isn't missing any essential dependencies
 		if (!Context.StringFU) {
-			Logger::GlobalError(llvm::errs(), "Standard library missing 'String' class");
+			Logger::GlobalError(llvm::errs(), "Standard library missing 'String' file");
+			FoundCompileError = true;
+			return;
+		}
+
+		if (!Context.SysFU) {
+			Logger::GlobalError(llvm::errs(), "Standard library missing 'Sys' file");
+			FoundCompileError = true;
 			return;
 		}
 
@@ -112,6 +119,16 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		FoundCompileError = true;
 		Logger::GlobalError(llvm::errs(), "Could not find entry point function");
 		return;
+	}
+
+	if (!StandAlone) {
+		auto it = Context.SysFU->GlobalFuncs.find(Identifier("initialize"));
+		if (it == Context.SysFU->GlobalFuncs.end()) {
+			Logger::GlobalError(llvm::errs(), "Standard library missing 'initialize' function from 'Sys' file");
+			FoundCompileError = true;
+			return;
+		}
+		Context.RequestGen(it->second[0]);
 	}
 
 	// Computing compile time values.
@@ -326,6 +343,8 @@ void june::Compiler::AddFileUnit(std::string& RelativePath, std::string& Absolut
 		// TODO: make more efficient
 		if (FU->FL.PathKey == "std.lang.String") {
 			Context.StringFU = FU;
+		} else if (FU->FL.PathKey == "std.Sys") {
+			Context.SysFU = FU;
 		}
 	}
 

@@ -3,8 +3,6 @@ import std.util.Random;
 
 main() {
 	
-	Sys.initialize();
-
 	Sys.println("Guess a number between 0-10");
 	guess :i32 = Sys.stdin.readInt();
 

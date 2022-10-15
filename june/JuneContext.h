@@ -83,8 +83,10 @@ namespace june {
 		llvm::DenseMap<Type*, PointerType*> StandardPointerCache;
 
 		llvm::StringMap<FileUnit*> FileUnits;
-		FileUnit* StringFU = nullptr;
-		FuncDecl* MainEntryFunc = nullptr;
+		FileUnit* StringFU       = nullptr;
+		FileUnit* SysFU          = nullptr;
+		FuncDecl* MainEntryFunc  = nullptr;
+		
 
 		// Maps TokenKinds to Precedence of a binary operator
 		llvm::DenseMap<u16, u16> BinaryOpsPrecedence;
@@ -109,7 +111,8 @@ namespace june {
 		u32                NumGeneratedLLGlobals    = 0;
 		u32                NumGeneratedGlobalArrays = 0;
 		u32                NumGeneratedGlobalVars   = 0;
-		llvm::Function*    JuneInitGlobalsFuncs;
+		llvm::Function*    JuneInitGlobalsFunc;
+		llvm::Function*    JuneStdLibInitFunc;
 		llvm::DenseMap<RecordDecl*, llvm::Function*>    DefaultRecordInitFuncs;
 		llvm::DenseMap<Identifier, llvm::Intrinsic::ID> LLVMIntrinsicsTable;
 		llvm::SmallVector<VarDecl*, 4>                  GlobalPostponedAssignments;

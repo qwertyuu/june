@@ -457,8 +457,13 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	}
 
 	if (Func->IsMainFunc) {
-		Context.JuneInitGlobalsFuncs = GenGlobalInitFuncDecl();
-		Builder.CreateCall(Context.JuneInitGlobalsFuncs);
+		Context.JuneInitGlobalsFunc = GenGlobalInitFuncDecl();
+		Builder.CreateCall(Context.JuneInitGlobalsFunc);
+		if (!Context.CompileAsStandAlone) {
+			FuncDecl* SysInitFunc = Context.SysFU->GlobalFuncs.find(Identifier("initialize"))->second[0];
+			GenFuncDecl(SysInitFunc);
+			Builder.CreateCall(SysInitFunc->LLAddress);
+		}
 	}
 
 	ScopeStmts& Stmts = Func->Scope.Stmts;
@@ -620,9 +625,9 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 }
 
 void june::IRGen::GenGlobalInitFunc() {
-	llvm::BasicBlock* LLEntryBlock = llvm::BasicBlock::Create(LLContext, "entry.block", Context.JuneInitGlobalsFuncs);
+	llvm::BasicBlock* LLEntryBlock = llvm::BasicBlock::Create(LLContext, "entry.block", Context.JuneInitGlobalsFunc);
 
-	LLFunc = Context.JuneInitGlobalsFuncs;
+	LLFunc = Context.JuneInitGlobalsFunc;
 	Builder.SetInsertPoint(LLEntryBlock);
 
 	GenGlobalPostponedAssignments();
@@ -630,7 +635,7 @@ void june::IRGen::GenGlobalInitFunc() {
 	Builder.CreateRetVoid();
 
 	if (DisplayLLVMIR) {
-		Context.JuneInitGlobalsFuncs->print(llvm::outs());
+		Context.JuneInitGlobalsFunc->print(llvm::outs());
 		llvm::outs() << '\n';
 	}
 }
