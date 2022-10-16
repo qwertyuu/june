@@ -1,12 +1,13 @@
-y :i32* = new i32;
+#if OS_WINDOWS
+a := 12354;
+#endif  // This should be fine!
 
-f() -> i32* {
-	return y;
-}
+#if false
+#if OS_WINDOWS
+a := 3145;
+#endif // -- OS_WINDOWS
+#endif // End of true!
 
 main() {
-	
-	a :i32[44];
-	v :i32* = &a[0];
-
+	a  = 22;
 }

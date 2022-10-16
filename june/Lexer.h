@@ -4,6 +4,7 @@
 #include "Tokens.h"
 #include "Logger.h"
 
+#include <stack>
 
 namespace june {
 
@@ -27,11 +28,14 @@ namespace june {
 		u32                LineNumber = 1;
 		const SourceBuf&   Buf;
 		Logger&            Log;
-		u32                EncounteredIfPreprocessorStack = 0;
+
+		std::stack<u32> EncounteredIfPreprocessorStack;
 
 		// Continues eating characters until a new line.
 		void EatTillEndOfLine();
 		void EatLine();
+
+		void EatWhitespaceOrComments();
 
 		// Comments of the form:
 		// '/* This may span
@@ -59,6 +63,7 @@ namespace june {
 		llvm::StringRef GetPredirective();
 		void HandlePredirectiveIf();
 		bool ParsePredirectiveCond();
+		void FinishPredirective();
 
 		inline Token CreateTokenAndEat(u16 Kind, const c8* TokStart) {
 			++CurPtr;

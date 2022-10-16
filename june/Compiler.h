@@ -34,7 +34,7 @@ namespace june {
 		void AddLib(const c8* LibName) { Libraries.push_back(LibName); }
 		void AddLibPath(const c8* LibPath) { LibarySearchPaths.push_back(LibPath); }
 
-		void SetOutputName(const std::string& Name) { OutputName = std::move(Name); }
+		void SetOutputName(const std::string& Name) { OutputName = Name; }
 
 	private:
 		llvm::StringMap<FileUnit*> FilesNeedingParsing;

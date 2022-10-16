@@ -334,7 +334,7 @@ void june::Compiler::AddFileUnit(const std::string& RelativePath, const std::str
 	std::string& PathKey = FU->FL.PathKey;
 	PathKey = std::move(RelativePath.substr(0, RelativePath.size() - 5));
 	std::replace(PathKey.begin(), PathKey.end(), '/', '.');
-	FU->FL.FullPath = std::move(AbsolutePath);
+	FU->FL.FullPath = AbsolutePath;
 
 	if (Verbose) {
 		Logger::CompileInfo(llvm::outs(),

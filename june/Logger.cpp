@@ -47,6 +47,10 @@ void june::Logger::Error(SourceLoc Loc, const std::function<void()>& Printer) {
 	std::string Backwards = ReplaceTabsWithSpaces(RangeFromWindow(Loc.Text.begin(), -40));
 	std::string Forwards  = ReplaceTabsWithSpaces(RangeFromWindow(Loc.Text.begin() + Loc.Text.size() - 1, +40));
 	
+	if (Between == "\n") {
+		Between = "";
+	}
+
 	assert(Between.find('\n', 0)   == std::string::npos && "New Line in display!");
 	assert(Backwards.find('\n', 0) == std::string::npos && "New Line in display!");
 	assert(Forwards.find('\n', 0)  == std::string::npos && "New Line in display!");

@@ -146,8 +146,24 @@ restartLex:
 			goto restartLex;
 		}
 
-		if (EncounteredIfPreprocessorStack != 0) {
-			Error(CurPtr - 1, "Unexpected end of file. Expected closing #endif directive");
+		if (!EncounteredIfPreprocessorStack.empty()) {
+			std::string IfLines = "";
+			if (EncounteredIfPreprocessorStack.size() == 1) {
+				IfLines = std::to_string(EncounteredIfPreprocessorStack.top());
+			} else {
+				IfLines += "[ ";
+				while (!EncounteredIfPreprocessorStack.empty()) {
+					IfLines += std::to_string(EncounteredIfPreprocessorStack.top());
+					EncounteredIfPreprocessorStack.pop();
+					if (!EncounteredIfPreprocessorStack.empty()) {
+						IfLines += ", ";
+					}
+				}
+				IfLines += " ]";
+			}
+
+			Error(CurPtr - 2, "Unexpected end of file. Expected closing #endif directive(s): Ifs declared at: %s",
+				IfLines);
 		}
 
 		--CurPtr; // In case the token is requested more than once.
@@ -188,6 +204,30 @@ void june::Lexer::EatLine() {
 		++LineNumber;
 		++CurPtr;
 		++CurPtr;
+	}
+}
+
+void june::Lexer::EatWhitespaceOrComments() {
+	while (true) {
+		switch (*CurPtr) {
+		case ' ':
+		case '\t':
+		case '\v':
+		case '\f':
+			++CurPtr; // Eat whitespace
+			break;
+		case '/':
+			if (*(CurPtr + 1) == '/') {
+				EatTillEndOfLine();
+				return;
+			} else if (*(CurPtr + 1) == '*') {
+				SkipMultilineComment();
+				return;
+			}
+			break;
+		default:
+			return;
+		}
 	}
 }
 
@@ -381,13 +421,13 @@ void june::Lexer::HandlePredirectiveStart() {
 	if (DirectiveType == "if") {
 		HandlePredirectiveIf();
 	} else if (DirectiveType == "endif") {
-		if (EncounteredIfPreprocessorStack == 0) {
+		if (EncounteredIfPreprocessorStack.empty()) {
 			Error(DirectiveType.begin(), "Unexpected #endif");
 			EatTillEndOfLine();
 		} else {
-			--EncounteredIfPreprocessorStack;
+			EncounteredIfPreprocessorStack.pop();
 		}
-		// TODO: What if garbage at end of #endif.
+		FinishPredirective();
 	} else {
 		Error(DirectiveType.begin(), "Unknown preprocessor directive type");
 		EatTillEndOfLine();
@@ -410,23 +450,28 @@ llvm::StringRef june::Lexer::GetPredirective() {
 }
 
 void june::Lexer::HandlePredirectiveIf() {
+	EncounteredIfPreprocessorStack.push(LineNumber);
+	
 	bool Cond = ParsePredirectiveCond();
-	++EncounteredIfPreprocessorStack;
-	if (Cond) {
+	FinishPredirective();
+	
+	if (Cond) {		
 		// continue parsing as normal.
 		return;
 	} else {
 		// Skip tokens until end of pre-directive if.
 		while (true) {
 			if (*CurPtr == '#') {
-				// TODO: If it is another if then need to take into account
 				llvm::StringRef DirectiveType = GetPredirective();
 				
 				if (DirectiveType == "endif") {
-					// TODO: Make sure there is not garbage after the enedif
-					--EncounteredIfPreprocessorStack;
+					EncounteredIfPreprocessorStack.pop();
 					EatLine();
 					return; // Continue parsing as normal!
+				} else if (DirectiveType == "if") {
+					EncounteredIfPreprocessorStack.push(LineNumber);
+					EatLine();
+					continue;
 				} else {
 					EatLine();	
 					continue;
@@ -463,9 +508,24 @@ bool june::Lexer::ParsePredirectiveCond() {
 			EatLine();
 			return false;
 		}
+	} else if (Tok.is(TokenKind::KW_TRUE)) {
+		return true;
+	} else if (Tok.is(TokenKind::KW_FALSE)) {
+		return false;
 	} else {
 		Log.Error(Tok.Loc, "Unexpected token for preprocessor expression");
 		EatLine();
 		return false;
+	}
+}
+
+void june::Lexer::FinishPredirective() {
+	EatWhitespaceOrComments();
+	if (*CurPtr == '\n' || (*CurPtr == '\r' && *(CurPtr + 1) == '\n') ||
+		*CurPtr == 0) {
+		// preprocessor ended properly.
+	} else {
+		Error(CurPtr, "Unexpected characters at end of preprocessor directive");
+		EatTillEndOfLine();
 	}
 }
