@@ -9,3 +9,20 @@ project ("june")
 add_subdirectory ("june")
 add_subdirectory ("tests")
 add_subdirectory ("driver")
+
+if (NOT MSVC)
+	# If not using MSVC then let's manually create the output
+	# directories for where things should be built.
+
+	file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/out")
+	file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/out/lib")
+	file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/out/bin")
+
+	set_target_properties(june tests driver
+		PROPERTIES
+		ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/lib"
+		LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/lib"
+		RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/bin"
+	)
+endif()
+

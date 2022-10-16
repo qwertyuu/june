@@ -62,7 +62,9 @@ void june::Parser::Parse() {
 	}
 
 	while (CTok.isNot(TokenKind::TK_EOF)) {
-		AstNode* Node = ParseStmt();
+		AstNode* Node = nullptr; ParseOptStmt(Node);
+		if (!Node) continue;
+
 		switch (Node->Kind) {
 		case AstKind::RECORD_DECL:
 			break;
@@ -177,16 +179,25 @@ void june::Parser::ParseScopeStmts(LexScope& Scope) {
 	Scope.StartLoc = CTok.Loc;
 	Match('{');
 	while (CTok.isNot('}') && CTok.isNot(TokenKind::TK_EOF)) {
-		Scope.Stmts.push_back(ParseStmt());
+		AstNode* Stmt = nullptr; ParseOptStmt(Stmt);
+		if (Stmt) {
+			Scope.Stmts.push_back(Stmt);
+		}
 	}
 	Scope.EndLoc = CTok.Loc;
 	Match('}');
 }
 
-june::AstNode* june::Parser::ParseStmt() {
-	AstNode* Stmt;
+void june::Parser::ParseOptStmt(AstNode*& Stmt) {
 	while (CTok.is(';'))
 		NextToken(); // Consume any extra ';'
+	if (CTok.isNot('}') && !CTok.is(TokenKind::TK_EOF)) {
+		Stmt = ParseStmt();
+	}
+}
+
+june::AstNode* june::Parser::ParseStmt() {
+	AstNode* Stmt;
 	switch (CTok.Kind) {
 	case TokenKind::KW_RETURN: Stmt = ParseReturn(); Match(';'); break;
 	case TokenKind::KW_LOOP:   Stmt = ParseLoop();               break;
@@ -494,7 +505,9 @@ june::RecordDecl* june::Parser::ParseRecordDecl(Token NameTok, mods::Mod Mods) {
 
 	Match('{');
 	while (CTok.isNot('}') && CTok.isNot(TokenKind::TK_EOF)) {
-		AstNode* Stmt = ParseStmt();
+		AstNode* Stmt = nullptr; ParseOptStmt(Stmt);
+		if (!Stmt) continue;
+		
 		if (Stmt->is(AstKind::VAR_DECL)) {
 			Record->FieldsHaveAssignment |=
 				ocast<VarDecl*>(Stmt)->Assignment != nullptr;

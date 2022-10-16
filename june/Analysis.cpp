@@ -525,7 +525,7 @@ void june::Analysis::CheckIdentRef(IdentRef* IRef, bool GivePrefToFuncs) {
 }
 
 void june::Analysis::CheckIdentRefCommon(IdentRef* IRef, bool GivePrefToFuncs, FileUnit* FUToLookup, RecordDecl* RecordToLookup) {
-	assert(((u32)FUToLookup ^ (u32)RecordToLookup) && "Cannot lookup info in a file unit and a record at the same time!");
+	assert(((u64)FUToLookup ^ (u64)RecordToLookup) && "Cannot lookup info in a file unit and a record at the same time!");
 	
 	auto SearchForFuncs = [&]() {
 		if (FUToLookup) {

@@ -35,7 +35,7 @@ void june::ComptimeGen::ComputeArrayDimSize(ComptimeValue& CV) {
 
 	// TODO: Wrong LLModule. Need to pass it a module pertaining to comptime values
 	// TODO: Print message
-	IRGen Gen(Context, nullptr, false);
+	IRGen Gen(Context, false, false);
 	llvm::Constant* LLLength = llvm::cast<llvm::Constant>(Gen.GenNode(AT->LengthAsExpr));
 
 	if (!AT->LengthAsExpr->Ty->isInt()) {

@@ -27,10 +27,11 @@ namespace june {
 		u32                LineNumber = 1;
 		const SourceBuf&   Buf;
 		Logger&            Log;
+		u32                EncounteredIfPreprocessorStack = 0;
 
-		// Comments of the form '//'. Continues
-		// eating characters until a new line.
-		void SkipSlashSlashComment();
+		// Continues eating characters until a new line.
+		void EatTillEndOfLine();
+		void EatLine();
 
 		// Comments of the form:
 		// '/* This may span
@@ -53,6 +54,11 @@ namespace june {
 
 		// Char literals
 		Token NextChar();
+
+		void HandlePredirectiveStart();
+		llvm::StringRef GetPredirective();
+		void HandlePredirectiveIf();
+		bool ParsePredirectiveCond();
 
 		inline Token CreateTokenAndEat(u16 Kind, const c8* TokStart) {
 			++CurPtr;

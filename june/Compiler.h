@@ -34,7 +34,7 @@ namespace june {
 		void AddLib(const c8* LibName) { Libraries.push_back(LibName); }
 		void AddLibPath(const c8* LibPath) { LibarySearchPaths.push_back(LibPath); }
 
-		void SetOutputName(std::string& Name) { OutputName = std::move(Name); }
+		void SetOutputName(const std::string& Name) { OutputName = std::move(Name); }
 
 	private:
 		llvm::StringMap<FileUnit*> FilesNeedingParsing;
@@ -48,7 +48,7 @@ namespace june {
 		llvm::SmallVector<const c8*, 8> LibarySearchPaths;
 
 		void CollectDirectoryFiles(const std::filesystem::path& DirectoryPath, u64 PrimaryPathLen);
-		void AddFileUnit(std::string& RelativePath, std::string& AbsolutePath);
+		void AddFileUnit(const std::string& RelativePath, const std::string& AbsolutePath);
 
 		void ParseNextFiles();
 

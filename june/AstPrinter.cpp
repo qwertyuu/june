@@ -446,6 +446,13 @@ void june::PrintFileUnit(const JuneContext& Context, const FileUnit* FU) {
 			}
 		}
 	}
+	if (!FU->GlobalVars.empty()) {
+		llvm::outs() << "\nGlobal Varables:";
+		for (const auto& [_, Global] : FU->GlobalVars) {
+			llvm::outs() << "\n";
+			PrintNode(Context, Global, 1);
+		}
+	}
 	if (!FU->Records.empty()) {
 		llvm::outs() << "\nRecords:";
 		for (const auto& [_, Record] : FU->Records) {

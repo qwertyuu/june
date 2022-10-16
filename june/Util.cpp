@@ -6,7 +6,9 @@
 
 #include <fstream>
 
-#ifdef _WIN32
+#include <llvm/Support/raw_ostream.h>
+
+#ifdef OS_WINDOWS
 #include <Windows.h>
 #endif
 
@@ -14,9 +16,17 @@
 #include <chrono>
 
 void june::SetTerminalColor(u32 ColorId) {
-#ifdef _WIN32
+#ifdef OS_WINDOWS
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), ColorId);
-#endif	
+#elif defined(__unix__)
+	switch (ColorId) {
+	case TerminalColorDefault  : llvm::outs() << "\033[0m";    break;
+	case TerminalColorRed      : llvm::outs() << "\033[0;31m"; break;
+	case TerminalColorGreen    : llvm::outs() << "\033[0;32m"; break;
+	case TerminalColorYellow   : llvm::outs() << "\033[0;33m"; break;
+	case TerminalColorLightBlue: llvm::outs() << "\033[0;34m"; break;
+	}
+#endif
 }
 
 u64 june::GetTimeInMilliseconds() {
@@ -46,9 +56,13 @@ bool june::ReadFile(const std::string& Path, c8*& Buffer, u64& Size) {
 
 std::string june::FormatDateTime(const c8* Format, u32 TimeStamp) {
 	std::ostringstream ss;
-	std::time_t t = TimeStamp;
+	const std::time_t t = TimeStamp;
 	std::tm tm;
+#ifdef _MSC_VER
 	localtime_s(&tm, &t);
+#else
+	localtime_r(&t, &tm);
+#endif
 	ss << std::put_time(&tm, Format);
 	std::string FormattedTime(ss.str());
 	return FormattedTime;

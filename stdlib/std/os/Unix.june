@@ -1,0 +1,11 @@
+#if OS_UNIX
+
+native write(fildes :i32, buf :void*, nbytes :osint);
+
+native _exit(status :i32);
+
+native read(fildes :i32, buf :void*, nbyte :osint) -> osint;
+
+native close(fildes :i32) -> i32;
+
+#endif

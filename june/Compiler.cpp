@@ -51,7 +51,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 			SourceDirectories.push_back(StdLibPath);
 		} else {
 			Logger::GlobalError(llvm::errs(),
-				"Environment variable missing for june's standard library");
+				"Environment variable missing for june's standard library. Please set variable 'JuneStdLibPath' to point towards the standard library");
 			FoundCompileError = true;
 			return;
 		}
@@ -59,7 +59,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 
 	// Creating FileUnits for the .june files
 	for (const c8* SourceDirectory : SourceDirectories) {
-		std::filesystem::path& DirectoryPath = std::filesystem::path(SourceDirectory);
+		std::filesystem::path DirectoryPath = std::filesystem::path(SourceDirectory);
 		if (!std::filesystem::exists(DirectoryPath)) {
 			Logger::GlobalError(llvm::errs(),
 				"Source directory \"%s\" does not exist", SourceDirectory);
@@ -69,7 +69,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		// TODO: Check permissions?
 		
 		if (std::filesystem::is_directory(DirectoryPath)) {
-			std::string& Path = DirectoryPath.generic_string();
+			std::string Path = DirectoryPath.generic_string();
 			CollectDirectoryFiles(DirectoryPath, Path.length() + (Path.back() == '/' ? 0 : 1));
 		} else {
 			// The user specified an absolute path to a file.
@@ -246,7 +246,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 	// llvm::verifyModule(Context.LLJuneModule);
 
 	if (Verbose) {
-		Context.LLJuneModule.dump();
+		// TODO: Not found on linux? Context.LLJuneModule.dump();
 	}
 	
 	u64 ParsedIn = (GetTimeInMilliseconds() - ParseTimeBegin);
@@ -280,7 +280,10 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		ClangCommand += " -g ";
 	ClangCommand += LibPaths + Libs + ObjFileName;
 	ClangCommand += " -o ";
-	ClangCommand += OutputName + ".exe";
+	ClangCommand += OutputName;
+#ifdef _WIN32
+	ClangCommand += ".exe";
+#endif
 	//ClangCommand += " -Xlinker /SUBSYSTEM:CONSOLE";
 
 	llvm::outs() << ClangCommand << "\n";
@@ -306,11 +309,11 @@ void june::Compiler::CollectDirectoryFiles(const std::filesystem::path& Director
 	namespace fs = std::filesystem;
 	for (const auto& entry : fs::directory_iterator(DirectoryPath)) {
 		if (entry.is_regular_file()) {
-			std::string& path = entry.path().generic_string();
+			const std::string& path = entry.path().generic_string();
 			if (path.substr(path.find_last_of('.') + 1) == "june") {
 				
-				std::string& RelativePath = path.substr(PrimaryPathLen);
-				std::string& AbsolutePath = fs::absolute(entry.path()).generic_string();
+				const std::string& RelativePath = path.substr(PrimaryPathLen);
+				const std::string& AbsolutePath = fs::absolute(entry.path()).generic_string();
 
 				AddFileUnit(RelativePath, AbsolutePath);
 
@@ -321,7 +324,7 @@ void june::Compiler::CollectDirectoryFiles(const std::filesystem::path& Director
 	}
 }
 
-void june::Compiler::AddFileUnit(std::string& RelativePath, std::string& AbsolutePath) {
+void june::Compiler::AddFileUnit(const std::string& RelativePath, const std::string& AbsolutePath) {
 	
 	FileUnit* FU = new FileUnit(llvm::errs(), RelativePath);
 	if (EmitDebugInfo) {

@@ -124,8 +124,7 @@ void june::Logger::CompileInfo(llvm::raw_ostream& OS, const std::function<void()
 llvm::StringRef june::Logger::RangeFromWindow(const c8* Loc, s32 Direction) {
 	const c8* MemPtr = Loc; // Pointing to character start.
 	s32 Moved = 0;
-	// While inside the memory
-	while (MemPtr >= Buf.Memory && MemPtr < Buf.Memory + Buf.Length) {
+	while (true) {
 		if (*MemPtr == '\n') {
 			// Pointer is at a new line.
 			if (Direction < 0) ++MemPtr; // Moving in the negative direction so move forward one
@@ -142,15 +141,14 @@ llvm::StringRef june::Logger::RangeFromWindow(const c8* Loc, s32 Direction) {
 			} // else \r in middle of memory for some reason
 		}
 
-		if (Direction < 0) --Moved;
-		else               ++Moved;
-
+		++Moved;
+	
 		if (MemPtr == Buf.Memory || MemPtr == Buf.Memory + Buf.Length - 1) {
 			// Hit one end of the buffer so there is nothing more to do
 			break;
 		}
 
-		if (abs(Moved) == abs(Direction)) {
+		if (Moved == abs(Direction)) {
 			// Moved enough.
 			break;
 		}
@@ -159,11 +157,13 @@ llvm::StringRef june::Logger::RangeFromWindow(const c8* Loc, s32 Direction) {
 		if (Direction < 0) --MemPtr;
 		else               ++MemPtr;
 	}
-	// No movement then return an empty string
+	
 	if (Moved == 0) return llvm::StringRef("");
 	if (Direction < 0) {
-		return llvm::StringRef(MemPtr, abs(Moved+1));
+		//    abcd
+		//    ^ <-- moved 3 but length is 4
+		return llvm::StringRef(MemPtr, Moved-1);
 	} else {
-		return llvm::StringRef(Loc+1, Moved);
+		return llvm::StringRef(Loc+1, Moved-1);
 	}
 }

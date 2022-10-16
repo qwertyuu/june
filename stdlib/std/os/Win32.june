@@ -1,3 +1,5 @@
+#if OS_WINDOWS
+
 /*===----------------------------------------===*\
  *                                              *
  * Win32: winnt.h                               *
@@ -117,3 +119,5 @@ native QueryPerformanceCounter(lpPerformanceCount :i64*) -> bool;
 INVALID_HANDLE_VALUE :void* = cast(void*) -1L;
 
 native CloseHandle(hObject :void*) -> i32;
+
+#endif

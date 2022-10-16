@@ -64,6 +64,7 @@ namespace june {
 
 		void ParseScopeStmts(LexScope& Scope);
 
+		void ParseOptStmt(AstNode*& Stmt);
 		AstNode* ParseStmt();
 
 		FuncDecl* ParseFuncDecl(Token NameTok, mods::Mod Mods, llvm::SmallVector<Identifier>& Generics);

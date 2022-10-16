@@ -15,6 +15,18 @@ restartLex:
 	// Start of the token in the text
 	const c8* TokStart = CurPtr;
 
+	if (*CurPtr == '#') {
+		if (CurPtr == Buf.Memory || *(CurPtr-1) == '\n') {
+			HandlePredirectiveStart();
+		}
+
+		// Checking for EOF
+		if (CurPtr == Buf.Memory + Buf.Length)
+			return CreateToken(TokenKind::TK_EOF, TokStart);
+		else if (*CurPtr == '#')
+			goto restartLex;  // Immediately encounters another preprocessor so let's start over
+	}
+
 	switch (*CurPtr++) {
 	// Whitespace
 	case ' ':
@@ -115,19 +127,27 @@ restartLex:
 		else                return CreateToken('!', TokStart);
 	case '/':
 		if (*CurPtr == '/') {
-			SkipSlashSlashComment();
+			EatTillEndOfLine();
 			goto restartLex;
 		} else if (*CurPtr == '*') {
 			SkipMultilineComment();
 			goto restartLex;
 		} else if (*CurPtr == '=') return CreateTokenAndEat(TokenKind::SLASH_EQ, TokStart);	
 		else                       return CreateToken('/', TokStart);
+	case '#': {
+		Error(CurPtr - 1, "Preprocessor directives should go at the start of a line");
+		goto restartLex;
+	}
 	// End of file.
 	case 0:
 		
 		if (TokStart != Buf.Memory + Buf.Length) {
 			Error(CurPtr - 1, "Null character found in middle of file");
 			goto restartLex;
+		}
+
+		if (EncounteredIfPreprocessorStack != 0) {
+			Error(CurPtr - 1, "Unexpected end of file. Expected closing #endif directive");
 		}
 
 		--CurPtr; // In case the token is requested more than once.
@@ -138,7 +158,7 @@ restartLex:
 	}
 }
 
-void june::Lexer::SkipSlashSlashComment() {
+void june::Lexer::EatTillEndOfLine() {
 	// Keeps eating characters until the new line
 	while (true) {
 		switch (*CurPtr) {
@@ -156,6 +176,18 @@ void june::Lexer::SkipSlashSlashComment() {
 			++CurPtr;
 			break;
 		}
+	}
+}
+
+void june::Lexer::EatLine() {
+	EatTillEndOfLine();
+	if (*CurPtr == '\n') {
+		++LineNumber;
+		++CurPtr;
+	} else if (*CurPtr == '\r') {
+		++LineNumber;
+		++CurPtr;
+		++CurPtr;
 	}
 }
 
@@ -340,4 +372,100 @@ june::Token june::Lexer::NextChar() {
 	}
 
 	return CreateToken(TokenKind::CHAR_LITERAL, TokStart);
+}
+
+void june::Lexer::HandlePredirectiveStart() {
+	llvm::StringRef DirectiveType = GetPredirective();
+	if (DirectiveType.empty()) return;
+
+	if (DirectiveType == "if") {
+		HandlePredirectiveIf();
+	} else if (DirectiveType == "endif") {
+		if (EncounteredIfPreprocessorStack == 0) {
+			Error(DirectiveType.begin(), "Unexpected #endif");
+			EatTillEndOfLine();
+		} else {
+			--EncounteredIfPreprocessorStack;
+		}
+		// TODO: What if garbage at end of #endif.
+	} else {
+		Error(DirectiveType.begin(), "Unknown preprocessor directive type");
+		EatTillEndOfLine();
+	}
+}
+
+llvm::StringRef june::Lexer::GetPredirective() {
+	++CurPtr; // Eating the '#' character
+	
+	const c8* DirectiveTypeStart = CurPtr;
+	while (IsAlpha(*CurPtr)) ++CurPtr;
+
+	llvm::StringRef DirectiveType = MakeText(DirectiveTypeStart);
+	if (DirectiveType.empty()) {
+		Error(DirectiveTypeStart-1, "Empty preprocessor directive type");
+		EatLine();
+	}
+
+	return DirectiveType;
+}
+
+void june::Lexer::HandlePredirectiveIf() {
+	bool Cond = ParsePredirectiveCond();
+	++EncounteredIfPreprocessorStack;
+	if (Cond) {
+		// continue parsing as normal.
+		return;
+	} else {
+		// Skip tokens until end of pre-directive if.
+		while (true) {
+			if (*CurPtr == '#') {
+				// TODO: If it is another if then need to take into account
+				llvm::StringRef DirectiveType = GetPredirective();
+				
+				if (DirectiveType == "endif") {
+					// TODO: Make sure there is not garbage after the enedif
+					--EncounteredIfPreprocessorStack;
+					EatLine();
+					return; // Continue parsing as normal!
+				} else {
+					EatLine();	
+					continue;
+				}
+			} else if (*CurPtr == 0) {
+				Error(CurPtr, "Unexpected end of file. Expected #endif preprocessor directive");
+				return;
+			} else {
+				// Line did not start with preprocessor so just continue till next line
+				EatLine();
+			}
+		}
+	}
+}
+
+bool june::Lexer::ParsePredirectiveCond() {
+	Token Tok = NextToken();
+	if (Tok.is(TokenKind::IDENT)) {
+		llvm::StringRef PreprocessorIdent = Tok.GetText();
+		if (PreprocessorIdent == "OS_UNIX") {
+#ifdef __unix__
+			return true;
+#else
+			return false;
+#endif
+		} else if (PreprocessorIdent == "OS_WINDOWS") {
+#ifdef OS_WINDOWS
+			return true;
+#else
+			return false;
+#endif
+		} else {
+			Log.Error(Tok.Loc, "Unknown preprocessor variable");
+			EatLine();
+			return false;
+		}
+	} else {
+		Log.Error(Tok.Loc, "Unexpected token for preprocessor expression");
+		EatLine();
+		return false;
+	}
 }

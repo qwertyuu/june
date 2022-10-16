@@ -1,19 +1,33 @@
 import std.os.Win32;
+import std.os.Unix;
 import std.lang.String;
 import std.io.File;
 import std.io.FileFlags;
 import std.Sys;
 
 InStream :: record {
-	
-	handle :void*;
 
+#if OS_WINDOWS	
+	handle :void*;
+#endif
+#if OS_UNIX
+	handle :i32;
+#endif
+
+#if OS_WINDOWS
 	InStream(handle :void*) {
 		this.handle = handle;
 	}
+#endif
+#if OS_UNIX
+	InStream(handle :i32) {
+		this.handle = handle;
+	}
+#endif
 
 	InStream(file :File) {
-		
+
+#if OS_WINDOWS	
 		accessFlags := 0u;
 		shareFlags  := 0u;
 		createFlags := 0u;
@@ -53,19 +67,42 @@ InStream :: record {
 			Sys.println("Failed to open file");
 			Sys.exit(1);
 		}
+#endif
+
 	}
 
 	read(buffer :c8*, len :u32) -> u32 {
 		numberOfBytersRead :u32;
+#if OS_WINDOWS
 		Win32.ReadFile(handle, buffer, len, &numberOfBytersRead, null);
+#endif
+#if OS_UNIX
+		numberOfBytersRead = cast(u32) Unix.read(handle, buffer, len);
+#endif
 		return numberOfBytersRead;
 	}
 
 	readLine() -> String {
 		buffer :c8[1024];
+#if OS_WINDOWS
 		amountRead :i32 = read(buffer, buffer.length);
 		// -2 because \r\n
 		return String(buffer, amountRead - 2);
+#endif
+#if OS_UNIX
+		// Reading character by character until a new line character
+		// is found.
+		amountRead :i32;
+		ptr :c8* = buffer;
+		loop i := 0; i < buffer.length; i++ {
+			if read(ptr, 1) == 0 || *ptr == '\n' {
+				break;
+			}
+			++ptr;
+			++amountRead;
+		}
+		return String(buffer, amountRead);
+#endif
 	}
 
 	readInt() -> i32 {
@@ -73,6 +110,11 @@ InStream :: record {
 	}
 
 	close() {
+#if OS_WINDOWS
 		Win32.CloseHandle(handle);
+#endif
+#if OS_UNIX
+		Unix.close(handle);
+#endif
 	}
 }

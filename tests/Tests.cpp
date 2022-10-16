@@ -35,6 +35,10 @@ llvm::SmallVector<const c8*, 4> FailedTests;
 
 void RunTest(const c8* TestDirectoryPath, int TestErrorCode) {
 
+#ifdef __unix__
+	assert(!"Cannot properly run tests on unix because error code range is 0-255");
+#endif
+
 	llvm::outs() << "Testing: \"" << TestDirectoryPath << "\"\n";
 	llvm::outs() << "----------------------------\n";
 
@@ -46,8 +50,8 @@ void RunTest(const c8* TestDirectoryPath, int TestErrorCode) {
 	//Compiler.PathToStandardLibrary = JUNE_COMPILER_STDLIB_SOURCE_DIR;
 	//Compiler.EmitDebugInfo = true;
 	//Compiler.Verbose = true;
-	//Compiler.DisplayLLVMIR = true;
-	//Compiler.DisplayAST = true;
+	Compiler.DisplayLLVMIR = true;
+	Compiler.DisplayAST = true;
 	Compiler.Compile(SourceDirectories);
 
 	if (!Compiler.FoundCompileError) {
@@ -89,10 +93,10 @@ int main() {
 
 	//RunStdLibTest(LIB_SRC("guessing"));
 	
-	RunTest(SRC("main/Main1.june"), 0);
-	RunTest(SRC("main/Main2.june"), 55);
+	//RunTest(SRC("main/Main1.june"), 0);
+	//RunTest(SRC("main/Main2.june"), 55);
 	RunTest(SRC("exprs/Exprs1.june"), 214 + 41 / 2 - 663 * 3);
-	RunTest(SRC("exprs/Exprs2.june"), []() {
+	/*RunTest(SRC("exprs/Exprs2.june"), []() {
 		s32 b = 22;
 		s32 sum = 44 * 3 + 55 - 421 * b;
 		s32 g = 4;
@@ -168,7 +172,7 @@ int main() {
 	RunTest(SRC("varfunccall/VarFuncCall3.june"), 6578 + 12);
 	RunTest(SRC("varfunccall/VarFuncCall4.june"), 1241 + 778);
 	RunTest(SRC("generics/Generics1.june"), 16 + 6);
-	RunTest(SRC("generics/Generics2.june"), 558);
+	RunTest(SRC("generics/Generics2.june"), 558);*/
 	//RunTest(SRC("playground"), 0);
 
 	if (Succeeded + Failed > 0) {

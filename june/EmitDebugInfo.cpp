@@ -228,7 +228,7 @@ llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 		} while (MoreSubscripts);
 
 		return DBuilder->createArrayType(
-			ArrTy->GetTotalLinearLength() * Context.LLJuneModule
+			ArrTy->GetTotalLinearLength() * (u64) Context.LLJuneModule
 												   .getDataLayout()
 												   .getTypeSizeInBits(
 													   GenType(Context, ArrTy->GetBaseType())),

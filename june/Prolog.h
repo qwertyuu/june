@@ -15,4 +15,8 @@ using s64 = long long;
 
 #define ocast static_cast
 
+#if defined(_WIN32) || defined(WIN32)
+#define OS_WINDOWS 1
+#endif
+
 #endif // JUNE_PROLOG_H

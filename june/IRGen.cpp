@@ -376,9 +376,10 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	);
 
 	if (Func->Mods & mods::NATIVE) {
+#ifdef _WIN32
 		LLFunc->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
-		// TODO: the user should be allowed to set the calling convention in code.
-		LLFunc->setCallingConv(llvm::CallingConv::X86_StdCall); // TODO Windows only!
+		LLFunc->setCallingConv(llvm::CallingConv::X86_StdCall);
+#endif
 	}
 
 	Func->LLAddress = LLFunc;
@@ -526,7 +527,9 @@ void june::IRGen::GenGlobalVarDecl(VarDecl* Global) {
 	Global->LLAddress = LLGVar;
 
 	if (Global->Mods & mods::Mods::NATIVE) {
+#ifdef _WIN32
 		LLGVar->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
+#endif
 	}
 
 	if (EmitDebugInfo)
@@ -2252,12 +2255,14 @@ llvm::Value* june::IRGen::GenMalloc(llvm::Type* LLType, llvm::Value* LLArrSize) 
 // https://github.com/google/swiftshader/blob/master/src/Reactor/LLVMReactor.cpp
 llvm::Value* june::IRGen::GenLLVMIntrinsicCall(FuncCall* Call) {
 	switch (Call->CalledFunc->LLVMIntrinsicID) {
-	case llvm::Intrinsic::memcpy:
+	case llvm::Intrinsic::memcpy: {
+		llvm::Align LLAlignment = llvm::Align();
 		return Builder.CreateMemCpy(
-			GenRValue(Call->Args[0]), llvm::Align::Align(),
-			GenRValue(Call->Args[1]), llvm::Align::Align(),
+			GenRValue(Call->Args[0]), LLAlignment,
+			GenRValue(Call->Args[1]), LLAlignment,
 			GenRValue(Call->Args[2])
 		);
+	}
 	case llvm::Intrinsic::sin: {
 		llvm::Value* Arg0 = GenRValue(Call->Args[0]);
 		llvm::Function* LLSinFunc = llvm::Intrinsic::getDeclaration(
