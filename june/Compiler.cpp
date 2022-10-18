@@ -275,15 +275,16 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		Libs += std::string("-L") + std::string(LibPath) + " ";
 	}
 
+#ifdef _WIN32
+	OutputName += ".exe";
+#endif
+
 	std::string ClangCommand = "clang ";
 	if (EmitDebugInfo)
 		ClangCommand += " -g ";
 	ClangCommand += LibPaths + Libs + ObjFileName;
 	ClangCommand += " -o ";
 	ClangCommand += OutputName;
-#ifdef _WIN32
-	ClangCommand += ".exe";
-#endif
 	//ClangCommand += " -Xlinker /SUBSYSTEM:CONSOLE";
 
 	llvm::outs() << ClangCommand << "\n";
@@ -303,6 +304,12 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 		std::cout << "Total time:        " << std::fixed << std::setprecision(4) << (TotalTime / 1000.0) << " seconds." << '\n';
 		std::cout << '\n';
 	}
+
+
+	llvm::outs() << "Wrote program to: "
+		         << std::filesystem::absolute(std::filesystem::current_path()).generic_string().c_str()
+		         << '/' << OutputName << '\n';
+	
 }
 
 void june::Compiler::CollectDirectoryFiles(const std::filesystem::path& DirectoryPath, u64 PrimaryPathLen) {

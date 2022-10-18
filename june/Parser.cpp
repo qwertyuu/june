@@ -982,7 +982,7 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 		Expr* E = ParseExpr();
 		if (!E->is(AstKind::ERROR) && CTok.isNot(','))
 			Match(')');
-		if (CTok.is(',')) {
+		else if (!E->is(AstKind::ERROR) && CTok.is(',')) {
 			// Tuples!
 			Tuple* Tup = NewNode<Tuple>(STok);
 			Tup->Values.push_back(E);

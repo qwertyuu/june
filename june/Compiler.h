@@ -24,7 +24,7 @@ namespace june {
 		bool StandAlone        = false;
 		bool EmitDebugInfo     = false;
 		const c8* PathToStandardLibrary = nullptr;
-
+		
 		Compiler();
 		
 		~Compiler();
