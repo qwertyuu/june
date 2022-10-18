@@ -16,13 +16,17 @@ main() {
 * Tested with both `MSVC` on **windows** and on **arch linux**.
 * When compiling with `MSVC` you may need to set cmake's LLVM_DIR variable.
 
+#### Building on Windows
+
+On windows, when you use Visual Studio, you should just be able to compile the project.
+
 ### Linux
 * Must have `LLVM 14`, `clang`, `gcc`, `cmake` and `make` installed.
 * Tested with Ubuntu 20.04 with `gcc`
 
-## Building the source
+## Building on Linux
 
-Assuming you have all dependencies from above, run `cmake . && make`.
+Run `cmake . && make`
 
 This will produce a directory called `out` containing the `bin` and `lib` folders. The built `june` driver will be in `out/bin`.
 
