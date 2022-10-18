@@ -165,8 +165,8 @@ int main() {
 			for (const c8* Test : FailedTests) {
 				llvm::outs() << "\"" << Test << "\"" << '\n';
 			}
+			return 1;
 		}
-		return 1;
 	}
 
 	return 0;
