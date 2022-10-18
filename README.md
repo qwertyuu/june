@@ -9,7 +9,7 @@ main() {
 }
 ```
 
-## requirements (building from source)
+## Dependencies (building from source)
 
 ### Windows
 * Must have `LLVM 14`, `clang`, `MSVC`, `cmake` and `make` installed.
@@ -22,7 +22,7 @@ main() {
 
 ## Building the source
 
-Assuming you have all requirements from above, run `cmake . && make`.
+Assuming you have all dependencies from above, run `cmake . && make`.
 
 This will produce a directory called `out` containing the `bin` and `lib` folders. The built `june` driver will be in `out/bin`.
 
