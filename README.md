@@ -13,7 +13,6 @@ main() {
 
 ### Windows
 * Must have `LLVM 14`, `clang`, `MSVC`, `cmake` and `make` installed.
-* Tested with both `MSVC` on **windows** and on **arch linux**.
 * When compiling with `MSVC` you may need to set cmake's LLVM_DIR variable.
 
 #### Building on Windows
