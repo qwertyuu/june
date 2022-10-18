@@ -257,7 +257,7 @@ void june::IRGen::GenGenericFunc(GenericFuncDecl* Func, u32 BindingId) {
 
 	if (Func->LLAddress) {
 		// -- DEBUG
-		// llvm::verifyFunction(*Func->LLAddress);
+		//llvm::verifyFunction(*Func->LLAddress);
 	}
 
 	Func->LLAddress = nullptr;
@@ -573,6 +573,7 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 	case AstKind::VAR_DECL:
 		return GenLocalVarDecl(ocast<VarDecl*>(Node));
 	case AstKind::INNER_SCOPE:
+	case AstKind::ELSE_SCOPE:
 		return GenInnerScope(ocast<InnerScopeStmt*>(Node));
 	case AstKind::RETURN:
 		return GenReturn(ocast<ReturnStmt*>(Node));

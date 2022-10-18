@@ -1,9 +1,0 @@
-#if OS_UNIX
-a := 154;
-#elif OS_WINDOWS
-a := 522;
-#endif
-
-main() {
-	
-}

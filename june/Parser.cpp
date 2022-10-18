@@ -738,6 +738,7 @@ june::IfStmt* june::Parser::ParseIf() {
 		} else {
 			// Else on its own
 			If->Else = ParseInnerScope();
+			If->Else->Kind = AstKind::ELSE_SCOPE;
 		}
 	}
 

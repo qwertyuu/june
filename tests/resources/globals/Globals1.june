@@ -1,7 +1,9 @@
+import Tests;
+
 // -- Test to make sure that simple global
 //    declaration and access works.
 a :i32 = 44;
 
-main() -> i32 {
-	return a;
+main() {
+	Tests.print(a);
 }

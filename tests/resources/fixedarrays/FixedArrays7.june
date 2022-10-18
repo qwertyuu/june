@@ -1,11 +1,12 @@
-func(a :i32[5]) -> i32 {
-	sum :i32 = 0;
+import Tests;
+
+func(a :i32[5]) {
 	loop i :i32 = 0; i < 5; i++ {
-		sum += a[i];
+		Tests.print(a[i]);
+		Tests.print(" ");
 	}
-	return sum;
 }
 
-main() -> i32 {
-	return func([ 1, 2, 3, 4, 5 ]);
+main() {
+	func([ 1, 2, 3, 4, 5 ]);
 }

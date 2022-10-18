@@ -84,7 +84,8 @@ namespace june {
 			}
 			break;
 		}
-		case AstKind::INNER_SCOPE: {
+		case AstKind::INNER_SCOPE:
+		case AstKind::ELSE_SCOPE: {
 			InnerScopeStmt* InnerScope = ocast<InnerScopeStmt*>(Node);
 			for (AstNode* Stmt : InnerScope->Scope.Stmts) {
 				ResetNode(Stmt);

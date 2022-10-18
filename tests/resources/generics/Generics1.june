@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure creating
 //    and calling a generic function
 //    works.
@@ -5,6 +7,8 @@ square<T>(v :T) -> T {
 	return v * v;
 }
 
-main() -> i32 {
-	return square(4) + cast(i32) square(2.5f);
+main() {
+	Tests.print(square(4));
+	Tests.print(" ");
+	Tests.print(cast(i32) square(2.5f));
 }

@@ -1,11 +1,13 @@
+import Tests;
+
 // -- Test to make sure that simple predicate based
 //    loops works
-main() -> i32 {
+main() {
 	total :i32 = 0;
 	i     :i32 = 0;
 	loop i < 15 {
 		total += 1;
 		++i;
 	}
-	return total;
+	Tests.print(total);
 }

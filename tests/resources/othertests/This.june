@@ -1,3 +1,5 @@
+import Tests;
+
 A :: record {
 	i :i32 = 252;
 
@@ -6,7 +8,7 @@ A :: record {
 	}
 }
 
-main() -> i32 {
+main() {
 	a :A;
-	return a.g();
+	Tests.print(a.g());
 }

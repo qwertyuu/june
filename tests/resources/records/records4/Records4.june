@@ -1,13 +1,17 @@
+import Tests;
+
 // -- Test to make sure that the compiler
 //    can find the primary record from another
 //    file.
 import Data;
 
-main() -> i32 {
+main() {
 	d :Data = Data(
 		a = 14,
 		b = 56,
 	);
 
-	return d.a + d.b;
+	Tests.print(d.a);
+	Tests.print(" ");
+	Tests.print(d.b);
 }

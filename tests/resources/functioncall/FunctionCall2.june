@@ -1,9 +1,11 @@
+import Tests;
+
 // -- Test to make sure that calling functions
 //    with named arguments work.
 f(a :i32, b :i32, c :i32, d :i32) -> i32 {
 	return a + b + c + d;
 }
 
-main() -> i32 {
-	return f(425, c = 22, b = 41, d = 53);
+main() {
+	Tests.print(f(425, c = 22, b = 41, d = 53));
 }

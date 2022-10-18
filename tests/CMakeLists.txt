@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION ${PROJECT_CMAKE_VERSION})
 set(CMAKE_CXX_STANDARD ${PROJECT_CXX_STANDARD})
 
 # Add source to this project's executable.
-add_executable (tests "Tests.cpp")
+add_executable (tests "Tests.cpp" "TestProcessUtil.h" "TestProcessUtil.cpp")
 
 target_compile_definitions(tests PUBLIC JUNE_COMPILER_TEST_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}/tests/resources/\")
 target_compile_definitions(tests PUBLIC JUNE_COMPILER_STDLIB_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}/stdlib/\")

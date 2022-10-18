@@ -1,11 +1,13 @@
+import Tests;
+
 A :: record {
 	j :i32;
 }
 
-f(a :A) -> i32 {
-	return a.j;
+f(a :A) {
+	Tests.print(a.j);
 }
 
-main() -> i32 {
-	return f(A(j = 55));
+main() {
+	f(A(j = 55));
 }

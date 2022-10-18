@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure that sizeof
 //    operator works.
 Data :: record {
@@ -6,7 +8,12 @@ Data :: record {
 	y  :f64;
 }
 
-main() -> i32 {
-	return sizeof(i32) + sizeof(i8) +
-	       sizeof(Data) + sizeof(f64);
+main() {
+	Tests.print(sizeof(i32));
+	Tests.print(" ");
+	Tests.print(sizeof(i8));
+	Tests.print(" ");
+	Tests.print(sizeof(Data));
+	Tests.print(" ");
+	Tests.print(sizeof(f64));
 }

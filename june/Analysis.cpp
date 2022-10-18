@@ -223,7 +223,7 @@ void june::Analysis::CheckFuncDecl(FuncDecl* Func) {
 	CFunc   = Func;
 	CRecord = Func->Record;
 
-	Scope FuncScope;
+	Scope FuncScope(Func);
 	CheckScope(Func->Scope, FuncScope);
 	if (!FuncScope.AllPathsReturn && Func->RetTy->isNot(Context.VoidType)) {
 		Error(Func, "Function missing return statement");
@@ -257,6 +257,7 @@ void june::Analysis::CheckScope(const LexScope& LScope, Scope& NewScope) {
 		case AstKind::FUNC_DECL:
 		case AstKind::VAR_DECL:
 		case AstKind::INNER_SCOPE:
+		case AstKind::ELSE_SCOPE:
 		case AstKind::RETURN:
 		case AstKind::RANGE_LOOP:
 		case AstKind::ITERATOR_LOOP:
@@ -314,6 +315,7 @@ void june::Analysis::CheckNode(AstNode* Node) {
 		CheckVarDecl(ocast<VarDecl*>(Node));
 		break;
 	case AstKind::INNER_SCOPE:
+	case AstKind::ELSE_SCOPE:
 		CheckInnerScope(ocast<InnerScopeStmt*>(Node));
 		break;
 	case AstKind::RETURN:
@@ -381,7 +383,7 @@ void june::Analysis::CheckNode(AstNode* Node) {
 }
 
 bool june::Analysis::CheckInnerScope(InnerScopeStmt* InnerScope) {
-	Scope NewScope;
+	Scope NewScope(InnerScope);
 	CheckScope(InnerScope->Scope, NewScope);
 	return NewScope.AllPathsReturn;
 }
@@ -389,6 +391,10 @@ bool june::Analysis::CheckInnerScope(InnerScopeStmt* InnerScope) {
 void june::Analysis::CheckReturn(ReturnStmt* Ret) {
 	LocScope->FoundTerminal  = true;
 	LocScope->AllPathsReturn = true;
+
+	if (CFunc->NumReturns == 1 && LocScope->Node->isNot(AstKind::INNER_SCOPE)) {
+		++CFunc->NumReturns;
+	}
 
 	if (Ret->Val) {
 		CheckNode(Ret->Val);
@@ -432,7 +438,7 @@ void june::Analysis::CheckRangeLoop(RangeLoopStmt* Loop) {
 	}
 	
 	++LoopDepth;
-	Scope NewScope;
+	Scope NewScope(Loop);
 	CheckScope(Loop->Scope, NewScope);
 	--LoopDepth;
 }
@@ -449,7 +455,7 @@ void june::Analysis::CheckIteratorLoop(IteratorLoopStmt* Loop) {
 	Loop->VarVal->Ty = Loop->IterOnExpr->Ty->AsFixedArrayType()->ElmTy;
 
 	++LoopDepth;
-	Scope NewScope;
+	Scope NewScope(Loop);
 	CheckScope(Loop->Scope, NewScope);
 	--LoopDepth;
 }
@@ -465,7 +471,7 @@ void june::Analysis::CheckPredicateLoop(PredicateLoopStmt* Loop) {
 	}
 	
 	++LoopDepth;
-	Scope NewScope;
+	Scope NewScope(Loop);
 	CheckScope(Loop->Scope, NewScope);
 	--LoopDepth;
 }
@@ -478,7 +484,7 @@ bool june::Analysis::CheckIf(IfStmt* If) {
 		}
 	}
 
-	Scope IfBodyScope;
+	Scope IfBodyScope(If);
 	CheckScope(If->Scope, IfBodyScope);
 	bool AllPathsReturn = If->Else && IfBodyScope.AllPathsReturn;
 

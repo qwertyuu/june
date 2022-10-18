@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure that record
 //    instantiation and field accessing
 //    works.
@@ -6,10 +8,12 @@ Data :: record {
 	b :i32;
 }
 
-main() -> i32 {
+main() {
 	data :Data = Data(
 		a = 14,
 		b = 15
 	);
-	return data.a + data.b;
+	Tests.print(data.a);
+	Tests.print(" ");
+	Tests.print(data.b);
 }

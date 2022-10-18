@@ -1,7 +1,0 @@
-// -- Test to make sure that importing
-//    other files works
-import OtherFile;
-
-main() -> i32 {
-	return OtherFile.addFunc(4, 65);
-}

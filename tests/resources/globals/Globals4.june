@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure that arrays
 //    of records work as global variables.
 Data :: record {
@@ -7,6 +9,14 @@ Data :: record {
 
 arr :Data[5];
 
-main() -> i32 {
-	return arr[0].a + arr[1].a + arr[2].b + arr[3].b + arr[4].b;
+main() {
+	Tests.print(arr[0].a);
+	Tests.print(" ");
+	Tests.print(arr[1].a);
+	Tests.print(" ");
+	Tests.print(arr[2].b);
+	Tests.print(" ");
+	Tests.print(arr[3].b);
+	Tests.print(" ");
+	Tests.print(arr[4].b);
 }

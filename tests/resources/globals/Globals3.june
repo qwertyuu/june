@@ -1,3 +1,5 @@
+import Tests;
+
 Data :: record {
 	a :i32 = 22;
 	b :i32 = 1111;
@@ -6,6 +8,12 @@ Data :: record {
 data1 :Data;
 data2 :Data = Data(a = 34, b = 66);
 
-main() -> i32 {
-	return data1.a + data1.b + data2.a + data2.b;
+main() {
+	Tests.print(data1.a);
+	Tests.print(" ");
+	Tests.print(data1.b);
+	Tests.print(" ");
+	Tests.print(data2.a);
+	Tests.print(" ");
+	Tests.print(data2.b);
 }

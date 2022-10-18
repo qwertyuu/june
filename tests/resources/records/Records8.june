@@ -1,3 +1,5 @@
+import Tests;
+
 A :: record {
 	B :: record {
 		m :i32 = 14;
@@ -7,7 +9,9 @@ A :: record {
 	j :B;
 }
 
-main() -> i32 {
+main() {
 	a :A;
-	return a.j.m + a.j.c;
+	Tests.print(a.j.m);
+	Tests.print(" ");
+	Tests.print(a.j.c);
 }

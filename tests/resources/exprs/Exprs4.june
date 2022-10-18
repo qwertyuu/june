@@ -1,6 +1,8 @@
+import Tests;
+
 // -- Test to make sure that pre and post-incrementing
 //    works
-main() -> i32 {
+main() {
 	g :i32 = 0;
 	++g;
 	--g;
@@ -9,5 +11,5 @@ main() -> i32 {
 	g = g--;
 	g = g++;
 	g = g++;
-	return g;
+	Tests.print(g);
 }

@@ -78,7 +78,7 @@ void june::Compiler::Compile(llvm::SmallVector<const c8*, 1>& SourceDirectories)
 					"Expected source file with extension type .june for file: \"%s\"", SourceDirectory);
 				return;
 			}
-			AddFileUnit(std::string(SourceDirectory),
+			AddFileUnit(DirectoryPath.filename().generic_string(),
 				        std::filesystem::absolute(DirectoryPath).generic_string());
 		}
 	}

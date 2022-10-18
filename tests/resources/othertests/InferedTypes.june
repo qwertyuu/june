@@ -1,12 +1,24 @@
+import Tests;
+
 H :: record {
 	y := 11;
 	b := y + 365;
 }
 
-main() -> i32 {
+main() {
 	a := 214;
 	h := H();
 	b := [ 14, 65, 11 ];
 
-	return a + h.y + h.b + b[0] + b[1] + b[2];
+	Tests.print(a);
+	Tests.print(" ");
+	Tests.print(h.y);
+	Tests.print(" ");
+	Tests.print(h.b);
+	Tests.print(" ");
+	Tests.print(b[0]);
+	Tests.print(" ");
+	Tests.print(b[1]);
+	Tests.print(" ");
+	Tests.print(b[2]);
 }

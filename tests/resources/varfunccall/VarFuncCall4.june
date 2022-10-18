@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure that calling
 //    variable functions can be stored
 //    inside of arrays and then called.
@@ -9,11 +11,13 @@ b() -> i32 {
 	return 778;
 }
 
-main() -> i32 {
+main() {
 	
 	funcs :`() -> i32`[2];
 	funcs[0] = &a;
 	funcs[1] = &b;
 	
-	return funcs[0]() + funcs[1]();
+	Tests.print(funcs[0]());
+	Tests.print(" ");
+	Tests.print(funcs[1]());
 }

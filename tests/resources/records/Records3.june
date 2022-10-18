@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure that records
 //    can contain another record as
 //    a field.
@@ -11,7 +13,7 @@ Data :: record {
 	b :i32;
 }
 
-main() -> i32 {
+main() {
 	d :Data = Data(
 		a = A(
 			f1 = 124,
@@ -20,5 +22,9 @@ main() -> i32 {
 		b = 25
 	);
 
-	return d.a.f1 + d.a.f2 + d.b;
+	Tests.print(d.a.f1);
+	Tests.print(" ");
+	Tests.print(d.a.f2);
+	Tests.print(" ");
+	Tests.print(d.b);
 }

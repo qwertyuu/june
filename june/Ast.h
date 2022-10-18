@@ -45,6 +45,7 @@ namespace june {
 		RECORD_DECL,
 
 		INNER_SCOPE,
+		ELSE_SCOPE,
 		RETURN,
 		RANGE_LOOP,
 		PREDICATE_LOOP,
@@ -184,8 +185,8 @@ namespace june {
 		// will be non-null.
 		RecordDecl* Record = nullptr;
 
-		bool IsMainFunc         = false;
-		u32 NumReturns = 0;
+		bool IsMainFunc = false;
+		u32 NumReturns  = 0;
 
 		// Zero means it is not a LLVMIntrinsic.
 		llvm::Intrinsic::ID LLVMIntrinsicID = 0;

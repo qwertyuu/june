@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure that nested
 //    records work.
 OuterRecord :: record {
@@ -8,7 +10,7 @@ OuterRecord :: record {
 	}
 }
 
-main() -> i32 {
+main() {
 
 	obj :OuterRecord.InnerRecord = OuterRecord.InnerRecord(
 		field1 = 1415,
@@ -16,5 +18,9 @@ main() -> i32 {
 		field3 = 76534,
 	);
 
-	return obj.field1 + obj.field2 + obj.field3;
+	Tests.print(obj.field1);
+	Tests.print(" ");
+	Tests.print(obj.field2);
+	Tests.print(" ");
+	Tests.print(obj.field3);
 }

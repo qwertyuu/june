@@ -1,4 +1,6 @@
+import Tests;
+
 // -- Test to make sure basic expressions compile
-main() -> i32 {
-	return 214 + 41/2 - 663 * 3;
+main() {
+	Tests.print(214 + 41/2 - 663 * 3);
 }

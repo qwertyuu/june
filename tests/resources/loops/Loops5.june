@@ -1,7 +1,8 @@
+import Tests;
+
 // -- Test to make sure that 'break' and
 //    'continue' statements work.
-main() -> i32 {
-	sum :i32 = 0;
+main() {
 	loop i :i32 = 0; ; i++ {
 		if i > 50 {
 			break;
@@ -9,7 +10,7 @@ main() -> i32 {
 		if i % 2 == 0 {
 			continue;
 		}
-		sum += i;
+		Tests.print(i);
+		Tests.print(" ");
 	}
-	return sum;
 }

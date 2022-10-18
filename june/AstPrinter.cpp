@@ -359,6 +359,7 @@ namespace june {
 			PrintRecordDecl(Context, ocast<const RecordDecl*>(N), Depth);
 			break;
 		case AstKind::INNER_SCOPE:
+		case AstKind::ELSE_SCOPE:
 			PrintInnerScope(Context, ocast<const InnerScopeStmt*>(N), Depth);
 			break;
 		case AstKind::RETURN:

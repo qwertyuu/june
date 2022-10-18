@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure records
 //    call their default initialization
 //    function when declared.
@@ -7,8 +9,9 @@ Data :: record {
 	b :i32 = 325;
 }
 
-main() -> i32 {
+main() {
 	d1 :Data;
-	d2 :Data;
-	return d1.a + d1.b + d2.a + d2.b;
+	Tests.print(d1.a);
+	Tests.print(" ");
+	Tests.print(d1.b); 
 }

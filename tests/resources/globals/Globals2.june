@@ -1,8 +1,12 @@
+import Tests;
+
 // -- Test to make sure that non-foldable
 //    global initialization works.
 a :i32 = 32;
 b :i32 = a + 154;
 
-main() -> i32 {
-	return a + b;
+main() {
+	Tests.print(a);
+	Tests.print(" ");
+	Tests.print(b);
 }

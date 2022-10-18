@@ -1,3 +1,5 @@
+import Tests;
+
 // -- Test to make sure that calling
 //    variable functions with parameters
 //    works.
@@ -5,8 +7,8 @@ g(a :i32) -> i32 {
 	return a;
 }
 
-main() -> i32 {
+main() {
 	f := &g;
 
-	return g(15323);
+	Tests.print(g(15323));
 }

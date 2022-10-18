@@ -1,13 +1,15 @@
+import Tests;
+
 // -- Test to make sure functions can be
 //    stored in variables and called.
 f() -> i32 {
 	return 11;
 }
 
-main() -> i32 {
+main() {
 	
 	y : () -> i32 = &f;
 	res := y();
 
-	return res;
+	Tests.print(res);
 }

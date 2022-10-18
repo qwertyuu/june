@@ -52,6 +52,11 @@ namespace june {
 			// if a function definitatively
 			// returns.
 			bool AllPathsReturn = false;
+
+			Scope(AstNode* node)
+				: Node(node) {}
+				
+			AstNode* Node = nullptr;
 		} *LocScope = nullptr;
 
 		// Every time a loop is entered this is incremented,

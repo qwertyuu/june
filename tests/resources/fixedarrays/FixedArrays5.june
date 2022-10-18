@@ -1,13 +1,13 @@
+import Tests;
+
 // -- Test to make sure that the .length
 //    operator works on sub-arrays.
-main() -> i32 {
+main() {
 	a :i32[7][3] = [ [ 253, 23 ], [ 13 ] ];
-	sum :i32 = 0;
 	loop i :i32 = 0; i < a.length; ++i {
 		loop j :i32 = 0; j < a[i].length; ++j {
-			sum += a[i][j];
+			Tests.print(a[i][j]);
+			Tests.print(" ");
 		}
 	}
-
-	return sum;
 }
