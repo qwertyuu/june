@@ -339,6 +339,16 @@ namespace june {
 		PrintNode(Context, Ternary->Val2, Depth + 1);
 	}
 
+	void PrintTuple(const JuneContext& Context, const Tuple* Tup, u32 Depth) {
+		llvm::outs() << "(tuple)\n";
+		PrintIndent(Depth);
+		llvm::outs() << "values:";
+		for (Expr* Value : Tup->Values) {
+			llvm::outs() << '\n';
+			PrintNode(Context, Value, Depth + 1);
+		}
+	}
+
 	void PrintErrorNode() {
 		llvm::outs() << "(error)";
 	}
@@ -425,6 +435,9 @@ namespace june {
 			break;
 		case AstKind::TERNARY_COND:
 			PrintTernaryCond(Context, ocast<const TernaryCond*>(N), Depth);
+			break;
+		case AstKind::TUPLE:
+			PrintTuple(Context, ocast<const Tuple*>(N), Depth);
 			break;
 		case AstKind::ERROR:
 			PrintErrorNode();

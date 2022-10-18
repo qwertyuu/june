@@ -260,6 +260,10 @@ llvm::DIType* june::DebugInfoEmitter::EmitType(Type* Ty) {
 		llvm::DIType* DIFuncTy = DBuilder->createSubroutineType(DBuilder->getOrCreateTypeArray(DIFuncTys));
 		return DBuilder->createPointerType(DIFuncTy, PtrSizeInBits);
 	}
+	case TypeKind::TUPLE: {
+		// TODO:
+		return nullptr;
+	}
 	case TypeKind::RECORD: {
 		RecordDecl* Record = Ty->AsRecordType()->Record;
 		auto it = Context.DIRecordTys.find(Record);

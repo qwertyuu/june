@@ -977,10 +977,25 @@ june::Expr* june::Parser::ParsePrimaryExpr() {
 	}
 	// ---- Other ----
 	case '(': {
+		Token STok = CTok;
 		NextToken(); // Consuming '(' token
 		Expr* E = ParseExpr();
-		if (!E->is(AstKind::ERROR))
+		if (!E->is(AstKind::ERROR) && CTok.isNot(','))
 			Match(')');
+		if (CTok.is(',')) {
+			// Tuples!
+			Tuple* Tup = NewNode<Tuple>(STok);
+			Tup->Values.push_back(E);
+			while (CTok.is(',')) {
+				NextToken(); // Consuming ',' token
+				E = ParseExpr();
+				Tup->Values.push_back(E);
+				if (E->is(AstKind::ERROR))
+					return Tup;
+			}
+			Match(')');
+			return Tup;
+		}
 		return E;
 	}
 	case '[':
@@ -1573,6 +1588,7 @@ june::Type* june::Parser::ParseType(bool ReqArrayLengthComptime) {
 		break;
 	}
 	case '(': {
+		Token STok = CTok;
 		NextToken(); // Consuming '(' token
 
 		llvm::SmallVector<Type*, 4> ParamTypes;
@@ -1595,9 +1611,16 @@ june::Type* june::Parser::ParseType(bool ReqArrayLengthComptime) {
 		}
 
 		Match(')');
-		Match(TokenKind::MINUS_GT);
-		Type* RetTy = ParseType();
-		Ty = FunctionType::Create(RetTy, ParamTypes);
+		if (CTok.is(TokenKind::MINUS_GT)) {
+			NextToken();
+			Type* RetTy = ParseType();
+			Ty = FunctionType::Create(RetTy, ParamTypes);
+		} else {
+			if (ParamTypes.size() < 2) {
+				Error(STok, "Tuple types must have at least two value types");
+			} 
+			Ty = TupleType::Create(ParamTypes);
+		}
 
 		break;
 	}

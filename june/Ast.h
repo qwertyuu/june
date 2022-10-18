@@ -69,6 +69,7 @@ namespace june {
 		HEAP_ALLOC_TYPE,
 		THIS_REF,
 		TERNARY_COND,
+		TUPLE
 
 	};
 
@@ -592,6 +593,15 @@ namespace june {
 
 		TernaryCond()
 			: Expr(AstKind::TERNARY_COND) {}
+
+	};
+
+	struct Tuple : Expr {
+
+		llvm::SmallVector<Expr*, 2> Values;
+
+		Tuple()
+			: Expr(AstKind::TUPLE) {}
 
 	};
 }

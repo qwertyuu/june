@@ -194,6 +194,11 @@ june::FunctionType* june::Type::AsFunctionType() {
 	return ocast<FunctionType*>(UnboxGeneric());
 }
 
+june::TupleType* june::Type::AsTupleType() {
+	assert(GetKind() == TypeKind::TUPLE && "Not a tuple type");
+	return ocast<TupleType*>(UnboxGeneric());
+}
+
 june::GenericType* june::Type::AsGenericType() {
 	assert(Kind == TypeKind::GENERIC_TYPE && "Not a generic type");
 	return ocast<GenericType*>(this);
@@ -327,6 +332,39 @@ std::string june::FunctionType::ArgsToStr() const {
 	for (u32 i = 0; i < ParamTypes.size(); i++) {
 		s += ParamTypes[i]->ToStr();
 		if (i + 1 != ParamTypes.size()) {
+			s += ", ";
+		}
+	}
+	return s + ")";
+}
+
+//===-------------------------------===//
+// Tuple Type
+//===-------------------------------===//
+
+june::TupleType* june::TupleType::Create(llvm::SmallVector<Type*, 4>& SubTypes) {
+	TupleType* TupleTy = new TupleType;
+	TupleTy->SubTypes = std::move(SubTypes);
+	return TupleTy;
+}
+
+bool june::TupleType::is(Type* T) const {
+	if (T->GetKind() != TypeKind::TUPLE) return false;
+	TupleType* TT = T->AsTupleType();
+	if (SubTypes.size() != TT->SubTypes.size()) return false;
+	for (u32 i = 0; i < SubTypes.size(); i++) {
+		if (SubTypes[i]->isNot(TT->SubTypes[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
+std::string june::TupleType::ToStr() const {
+	std::string s = "(";
+	for (u32 i = 0; i < SubTypes.size(); i++) {
+		s += SubTypes[i]->ToStr();
+		if (i + 1 != SubTypes.size()) {
 			s += ", ";
 		}
 	}

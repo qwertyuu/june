@@ -157,6 +157,10 @@ int main() {
 	RunTest(SRC("varfunccall/VarFuncCall4.june"), "1241 778");
 	RunTest(SRC("generics/Generics1.june"), "16 6");
 	RunTest(SRC("generics/Generics2.june"), "156 402");
+	RunTest(SRC("tuples/Tuples1.june"), "343 11");
+	RunTest(SRC("tuples/Tuples2.june"), "1 2 3 4");
+	RunTest(SRC("tuples/Tuples3.june"), "14 888 99 3");
+	RunTest(SRC("tuples/Tuples4.june"), "66 11 42");
 	
 	if (Succeeded + Failed > 0) {
 		llvm::outs() << "Passed/Tested (" << Succeeded << "/" << (Succeeded + Failed) << ")\n";

@@ -1,0 +1,9 @@
+import Tests;
+
+main() {
+	t :(i32, i32) = (343, 11);
+	
+	Tests.print(t[0]);
+	Tests.print(" ");
+	Tests.print(t[1]);
+}

@@ -1,0 +1,15 @@
+import Tests;
+
+func() -> (i32, i32, i32) {
+	return (66, 11, 42);
+}
+
+main() {
+	t := func();
+
+	Tests.print(t[0]);
+	Tests.print(" ");
+	Tests.print(t[1]);
+	Tests.print(" ");
+	Tests.print(t[2]);
+}

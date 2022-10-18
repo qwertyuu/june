@@ -11,6 +11,7 @@ namespace june {
 
 	struct Type;
 	struct FixedArrayType;
+	struct TupleType;
 
 	llvm::Type* GenType(JuneContext& Context, Type* Ty);
 	llvm::Type* GenRecordType(JuneContext& Context, RecordDecl* Record);
@@ -87,7 +88,8 @@ namespace june {
 		llvm::Value* GenTypeCast(TypeCast* Cast);
 		llvm::Value* GenHeapAllocType(HeapAllocType* HeapAlloc);
 		llvm::Value* GenTernaryCond(TernaryCond* Ternary);
-		
+		llvm::Value* GenTuple(Tuple* Tup, llvm::Value* LLAddr);
+
 		llvm::Value* GenAssignment(llvm::Value* LLAddr, Expr* Val);
 
 		void GenBlock(llvm::BasicBlock* LLBB, LexScope& Scope);
@@ -99,6 +101,7 @@ namespace june {
 		inline llvm::Value* CreateAlloca(Type* Ty, const c8* Name = "");
 
 		void GenDefaultValue(Type* Ty, llvm::Value* LLAddr);
+		bool GenDefaultTupleValue(TupleType* TupleTy, llvm::Value* LLAddr);
 		void GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy,
 			                             llvm::Value* LLArrStartPtr,
 			                             llvm::Value* LLTotalLinearLength);

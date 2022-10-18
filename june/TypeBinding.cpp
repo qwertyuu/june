@@ -203,6 +203,14 @@ namespace june {
 			Cond->CastTy = nullptr;
 			break;
 		}
+		case AstKind::TUPLE: {
+			Tuple* Tup = ocast<Tuple*>(Node);
+			for (Expr* Val : Tup->Values) {
+				ResetNode(Val);
+			}
+			Tup->CastTy = nullptr;
+			break;
+		}
 		default:
 			assert(!"Unimplemented node reset");
 			break;

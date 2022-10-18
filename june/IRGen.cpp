@@ -170,6 +170,18 @@ llvm::Type* june::GenType(JuneContext& Context, Type* Ty) {
 		bool IsVarArgs = false;
 		return llvm::PointerType::get(llvm::FunctionType::get(LLRetType, LLParamTypes, IsVarArgs), 0);
 	}
+	case TypeKind::TUPLE: {
+		
+		std::vector<llvm::Type*> LLStructValTypes;
+		
+		TupleType* TupleTy = Ty->AsTupleType();
+		for (Type* ValTy : TupleTy->SubTypes) {
+			LLStructValTypes.push_back(GenType(Context, ValTy));
+		}
+		llvm::StructType* LLStructTy = llvm::StructType::get(Context.LLContext, LLStructValTypes);
+		
+		return LLStructTy;
+	}
 	default:
 		assert(!"Unimplemented GenType() case");
 		return nullptr;
@@ -335,8 +347,12 @@ void june::IRGen::GenFuncDecl(FuncDecl* Func) {
 	if (RVO) {
 		// Instead of returning the structure we pass a reference
 		// into the function of the structure and return void.
-		LLParamTypes.push_back(llvm::PointerType::get(
-			GenRecordType(Context, Func->RetTy->AsRecordType()->Record), 0));
+		if (Func->RetTy->GetKind() == TypeKind::RECORD) {
+			LLParamTypes.push_back(llvm::PointerType::get(
+				GenRecordType(Context, Func->RetTy->AsRecordType()->Record), 0));
+		} else {
+			LLParamTypes.push_back(llvm::PointerType::get(GenType(Func->RetTy), 0));
+		}
 	}
 
 	for (VarDecl* Param : Func->Params) {
@@ -622,6 +638,8 @@ llvm::Value* june::IRGen::GenNode(AstNode* Node) {
 		return LLThis;
 	case AstKind::TERNARY_COND:
 		return GenTernaryCond(ocast<TernaryCond*>(Node));
+	case AstKind::TUPLE:
+		return GenTuple(ocast<Tuple*>(Node), nullptr);
 	default:
 		assert(!"Unimplemented generation case!");
 		return nullptr;
@@ -1741,14 +1759,18 @@ void june::IRGen::FillFixedArrayViaGEP(Array* Arr, llvm::Value* LLArr, FixedArra
 
 llvm::Value* june::IRGen::GenArrayAccess(ArrayAccess* AA) {
 
-	llvm::Value* LLIndex = GenRValue(AA->Index);
 	llvm::Value* LLSite  = GenNode(AA->Site);
 
 	if (AA->Site->Ty->GetKind() == TypeKind::FIXED_ARRAY) {
+		llvm::Value* LLIndex = GenRValue(AA->Index);
 		return GetArrayIndexAddress(LLSite, LLIndex);
 	} else if (AA->Site->Ty->GetKind() == TypeKind::POINTER) {
 		LLSite = CreateLoad(LLSite);
+		llvm::Value* LLIndex = GenRValue(AA->Index);
 		return CreateGEP(LLSite, LLIndex);
+	} else if (AA->Site->Ty->GetKind() == TypeKind::TUPLE) {
+		u32 Idx = ocast<NumberLiteral*>(AA->Index)->UnsignedIntValue;
+		return CreateStructGEP(LLSite, Idx);
 	} else {
 		assert(!"Unreachable!");
 		return nullptr;
@@ -1791,6 +1813,19 @@ llvm::Value* june::IRGen::GenTernaryCond(TernaryCond* Ternary) {
 	return Builder.CreateSelect(LLCond, LLVal1, LLVal2);
 }
 
+llvm::Value* june::IRGen::GenTuple(Tuple* Tup, llvm::Value* LLAddr) {
+	if (!LLAddr) {
+		LLAddr = CreateTempAlloca(GenType(Tup->Ty));
+	}
+
+	for (u32 i = 0; i < Tup->Values.size(); i++) {
+		llvm::Value* LLValAddr = CreateStructGEP(LLAddr, i);
+		GenAssignment(LLValAddr, Tup->Values[i]);
+	}
+
+	return LLAddr;
+}
+
 llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 	llvm::Value* LLRValToStore = nullptr;
 	if (Val->Kind == AstKind::ARRAY) {
@@ -1813,6 +1848,8 @@ llvm::Value* june::IRGen::GenAssignment(llvm::Value* LLAddr, Expr* Val) {
 		} else {
 			LLRValToStore = GenRValue(Val);
 		}
+	} else if (Val->Kind == AstKind::TUPLE) {
+		GenTuple(ocast<Tuple*>(Val), LLAddr);
 	} else {
 		LLRValToStore = GenRValue(Val);
 	}
@@ -1942,6 +1979,10 @@ void june::IRGen::GenDefaultValue(Type* Ty, llvm::Value* LLAddr) {
 			GenDefaultRecordInitCall(Record, LLAddr);
 			return;
 		}
+	} else if (Ty->GetKind() == TypeKind::TUPLE) {
+		if (GenDefaultTupleValue(Ty->AsTupleType(), LLAddr)) {
+			return;
+		}
 	} else if (Ty->GetKind() == TypeKind::FIXED_ARRAY) {
 		FixedArrayType* ArrTy = Ty->AsFixedArrayType();
 		Type* ArrBaseTy = ArrTy->GetBaseType();
@@ -1953,6 +1994,25 @@ void june::IRGen::GenDefaultValue(Type* Ty, llvm::Value* LLAddr) {
 		}
 	}
 	Builder.CreateStore(GenZeroedValue(Ty), LLAddr);
+}
+
+bool june::IRGen::GenDefaultTupleValue(TupleType* TupleTy, llvm::Value* LLAddr) {
+	bool RecordsNeedDefaultInitCall = false;
+	u32 IdxCount = 0;
+	for (Type* ValTy : TupleTy->SubTypes) {
+		if (ValTy->GetKind() == TypeKind::RECORD) {
+			RecordDecl* Record = ValTy->AsRecordType()->Record;
+			if (Record->FieldsHaveAssignment) {
+				GenDefaultRecordInitCall(Record, CreateStructGEP(LLAddr, IdxCount));
+				RecordsNeedDefaultInitCall = true;
+			}
+		} else if (ValTy->GetKind() == TypeKind::TUPLE) {
+			RecordsNeedDefaultInitCall
+				|= GenDefaultTupleValue(ValTy->AsTupleType(), CreateStructGEP(LLAddr, IdxCount));
+		}
+		++IdxCount;
+	}
+	return RecordsNeedDefaultInitCall;
 }
 
 void june::IRGen::GenRecordArrayObjsInitCalls(FixedArrayType* ArrTy,
@@ -2018,6 +2078,7 @@ llvm::Constant* june::IRGen::GenZeroedValue(Type* Ty) {
 	case TypeKind::FIXED_ARRAY:
 		return llvm::ConstantAggregateZero::get(GenType(Ty));
 	case TypeKind::RECORD:
+	case TypeKind::TUPLE:
 		return llvm::ConstantAggregateZero::get(GenType(Ty));
 	default:
 		assert(!"Failed to implement GenZeroedValue() value for type");
@@ -2299,7 +2360,7 @@ june::FixedArrayType* june::IRGen::GetArrayDestTy(Array* Arr) {
 
 llvm::Constant* june::IRGen::GenGlobalConstVal(VarDecl* Global) {
 	Type* Ty = Global->Ty;
-	if (Ty->GetKind() == TypeKind::RECORD) {
+	if (Ty->GetKind() == TypeKind::RECORD || Ty->GetKind() == TypeKind::TUPLE) {
 		// TODO: For now im just zero initializing
 		//       the struct but if all the fields are
 		//       foldable then it should create a non-zeroed
@@ -2337,7 +2398,8 @@ bool june::IRGen::FuncNeedsRVO(FuncDecl* Func) {
 	// Valid reasons for using RVO
 	// 1. The structure is big
 	// 2. The structure has a destructor
-	if (Func->RetTy->GetKind() != TypeKind::RECORD) {
+	if (Func->RetTy->GetKind() != TypeKind::RECORD &&
+		Func->RetTy->GetKind() != TypeKind::TUPLE) {
 		return false;
 	}
 	// TODO: Come up with a better size indication.

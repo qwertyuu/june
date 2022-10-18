@@ -376,6 +376,9 @@ void june::Analysis::CheckNode(AstNode* Node) {
 	case AstKind::TERNARY_COND:
 		CheckTernaryCond(ocast<TernaryCond*>(Node));
 		break;
+	case AstKind::TUPLE:
+		CheckTuple(ocast<Tuple*>(Node));
+		break;
 	default:
 		assert(!"Unimplemented node check");
 		break;
@@ -1720,6 +1723,26 @@ void june::Analysis::CheckArrayAccess(ArrayAccess* AA) {
 	YIELD_ERROR_WHEN_M(AA, AA->Site);
 
 	TypeKind K = AA->Site->Ty->GetKind();
+	if (K == TypeKind::TUPLE) {
+		if (AA->Index->isNot(AstKind::NUMBER_LITERAL)) {
+			Error(AA, "Indexing on tuples requires the index expression to be a simple integer");
+			YIELD_ERROR(AA);
+		}
+
+		TupleType* TupleTy = AA->Site->Ty->AsTupleType();
+
+		NumberLiteral* IndexNum = ocast<NumberLiteral*>(AA->Index);
+		if (IndexNum->UnsignedIntValue > TupleTy->SubTypes.size()) {
+			Error(AA, "Index exceeds the number of values for the tuple");
+			YIELD_ERROR(AA);
+		}
+
+		Type* ValTy = TupleTy->SubTypes[IndexNum->UnsignedIntValue];
+		AA->Ty = ValTy;
+		return;
+	}
+
+
 	if (!(K == TypeKind::FIXED_ARRAY || K == TypeKind::POINTER)) {
 		Error(AA, "Cannot index non-array or pointer type. Type was '%s'",
 			AA->Site->Ty->ToStr());
@@ -1792,6 +1815,27 @@ void june::Analysis::CheckTernaryCond(TernaryCond* Ternary) {
 	CreateCast(Ternary->Val2, Ternary->Val1->Ty);
 
 	Ternary->Ty = Ternary->Val1->Ty;
+}
+
+void june::Analysis::CheckTuple(Tuple* Tup) {
+
+	llvm::SmallVector<Type*, 4> SubTypes;
+	Tup->IsFoldable = false;
+	
+	bool EncounteredValError = false;
+	for (Expr* Val : Tup->Values) {
+		CheckNode(Val);
+		if (Val->Ty->is(Context.ErrorType)) {
+			EncounteredValError = true;
+		}
+		SubTypes.push_back(Val->Ty);
+	}
+
+	if (EncounteredValError) {
+		YIELD_ERROR(Tup);
+	}
+
+	Tup->Ty = TupleType::Create(SubTypes);
 }
 
 bool june::Analysis::IsAssignableTo(Type* ToTy, Expr* FromExpr) {
@@ -1924,6 +1968,8 @@ bool june::Analysis::IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr, bo
 		}
 		return IsAssignableTo(ToArrTy->ElmTy, FromArrTy->ElmTy, nullptr, true);
 	}
+	case TypeKind::TUPLE:
+		return FromTy->is(ToTy);
 	case TypeKind::RECORD:
 		return FromTy->is(ToTy);
 	case TypeKind::VOID:

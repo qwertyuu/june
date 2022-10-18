@@ -1,0 +1,13 @@
+import Tests;
+
+main() {
+	t := (1, 2, 3, 4);
+	
+	Tests.print(t[0]);
+	Tests.print(" ");
+	Tests.print(t[1]);
+	Tests.print(" ");
+	Tests.print(t[2]);
+	Tests.print(" ");
+	Tests.print(t[3]);
+}

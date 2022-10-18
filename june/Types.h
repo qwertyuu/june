@@ -15,6 +15,7 @@ namespace june {
 	struct ContainerType;
 	struct RecordType;
 	struct FunctionType;
+	struct TupleType;
 	struct GenericType;
 	struct Expr;
 	struct RecordDecl;
@@ -47,6 +48,7 @@ namespace june {
 		NULLPTR,
 		UNDEFINED,
 		FUNCTION,
+		TUPLE,
 		GENERIC_TYPE,
 
 	};
@@ -100,6 +102,7 @@ namespace june {
 		ContainerType* AsContainerType();
 		RecordType* AsRecordType();
 		FunctionType* AsFunctionType();
+		TupleType* AsTupleType();
 		GenericType* AsGenericType();
 
 	private:
@@ -196,6 +199,24 @@ namespace june {
 		std::string ToStr() const override;
 
 		std::string ArgsToStr() const;
+
+	};
+
+	//===-------------------------------===//
+	// Tuple Type
+	//===-------------------------------===//
+	struct TupleType : public Type {
+
+		llvm::SmallVector<Type*, 4> SubTypes;
+		
+		TupleType()
+			: Type(TypeKind::TUPLE) {}
+
+		static TupleType* Create(llvm::SmallVector<Type*, 4>& SubTypes);
+
+		bool is(Type* T) const override;
+
+		std::string ToStr() const override;
 
 	};
 

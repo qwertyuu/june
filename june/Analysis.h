@@ -95,6 +95,7 @@ namespace june {
 		void CheckHeapAllocType(HeapAllocType* HeapAlloc);
 		void CheckThisRef(ThisRef* This);
 		void CheckTernaryCond(TernaryCond* Ternary);
+		void CheckTuple(Tuple* Tup);
 
 		bool IsAssignableTo(Type* ToTy, Expr* FromExpr);
 		bool IsAssignableTo(Type* ToTy, Type* FromTy, Expr* FromExpr, bool LossenNumConversion);
