@@ -2,6 +2,7 @@
 #define JUNE_TEST_PROCESS_UTIL_H
 
 #include <string>
+#include <tuple>
 #include "Prolog.h"
 
 std::tuple<std::string, bool> RunProcess(c8* Process);

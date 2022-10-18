@@ -71,7 +71,30 @@ std::tuple<std::string, bool> RunProcess(c8* Process) {
 	CloseHandle(ProcessInfo.hProcess);
 	CloseHandle(ProcessInfo.hThread);
 	return std::make_tuple(ProcessResult, true);
+#elif defined(__unix__)
+	
+	std::string ProcessForUnix = Process;
+	ProcessForUnix = "./" + ProcessForUnix;
+	FILE* Pipe = popen(ProcessForUnix.c_str(), "r");
+	if (!Pipe) {
+		return std::make_tuple("", false);	
+	}
+
+	std::string ProcessResult = "";
+	c8 Buffer[128];
+	try {
+		while (fgets(Buffer, sizeof(Buffer), Pipe) != nullptr) {
+			ProcessResult += Buffer;
+		}
+	} catch (...) {
+		pclose(Pipe);
+		return std::make_tuple("", false);
+	}
+
+	pclose(Pipe);
+	return std::make_tuple(ProcessResult, true);
 #else
-	return std::make_tuple(ProcessResult, false);
+	assert(!"Not supported");
+	return std::make_tuple("", false);
 #endif
 }
