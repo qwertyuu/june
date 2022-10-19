@@ -277,6 +277,11 @@ void june::IRGen::GenGenericFunc(GenericFuncDecl* Func, u32 BindingId) {
 
 void june::IRGen::GenGlobalVar(VarDecl* Global) {
 	
+	if (Global->Mods & mods::COMPTIME) {
+		// Computed on request.
+		return;
+	}
+
 	GenGlobalVarDecl(Global);
 
 	if (Global->Mods & mods::Mods::NATIVE) {
@@ -441,7 +446,9 @@ void june::IRGen::GenFuncBody(FuncDecl* Func) {
 	
 	// Allocating space for the variables
 	for (VarDecl* Var : Func->AllocVars) {	
-		GenAlloca(Var);
+		if (!(Var->Mods & mods::Mods::COMPTIME)) {
+			GenAlloca(Var);
+		}
 	}
 
 	// Storing the incoming variables
@@ -538,7 +545,7 @@ void june::IRGen::GenGlobalVarDecl(VarDecl* Global) {
 		Name = "g_" + Global->Name.Text.str();
 		Name += "." + std::to_string(Context.NumGeneratedGlobalVars++);
 	}
-	
+
 	llvm::GlobalVariable* LLGVar = MakeGlobalVar(Name, GenType(Global->Ty));
 	Global->LLAddress = LLGVar;
 
@@ -553,10 +560,15 @@ void june::IRGen::GenGlobalVarDecl(VarDecl* Global) {
 }
 
 llvm::Value* june::IRGen::GenLocalVarDecl(VarDecl* Var) {
-	assert(Var->LLAddress && "The address should have been generated at the start of the function!");
-	if (EmitDebugInfo)
-		GetDIEmitter(Var)->EmitLocalVar(Var, Builder);
-	return GenVarDecl(GetAddressOfVar(Var), Var);
+	if (Var->Mods & mods::Mods::COMPTIME) {
+		// Computed on request. TODO: Might want to still generate here in case of variables being declared as part of expressions
+		return nullptr;
+	} else {
+		assert(Var->LLAddress && "The address should have been generated at the start of the function!");
+		if (EmitDebugInfo)
+			GetDIEmitter(Var)->EmitLocalVar(Var, Builder);
+		return GenVarDecl(GetAddressOfVar(Var), Var);
+	}
 }
 
 llvm::Value* june::IRGen::GenVarDecl(llvm::Value* LLAddr, VarDecl* Var) {
@@ -713,10 +725,14 @@ llvm::Value* june::IRGen::GenRValue(AstNode* Node) {
 			}
 		}
 
+		if (ocast<Expr*>(Node)->IsComptimeCompat) {
+			break; // Don't load compile time variables
+		}
+
 		// Want to make sure not to load an array
 		// since arrays should always be taken as
 		// l-values.
-		if (ocast<IdentRef*>(Node)->Ty->GetKind() != TypeKind::FIXED_ARRAY) {
+		if (ocast<Expr*>(Node)->Ty->GetKind() != TypeKind::FIXED_ARRAY) {
 			LLValue = CreateLoad(LLValue);
 		}
 		break;
@@ -1006,6 +1022,20 @@ llvm::Value* june::IRGen::GenLoopControl(LoopControlStmt* LoopControl) {
 }
 
 llvm::Value* june::IRGen::GenIdentRef(IdentRef* IRef) {
+	if (IRef->VarRef->Mods & mods::Mods::COMPTIME) {
+		VarDecl* Var = IRef->VarRef;
+		if (!Var->LLComptimeVal) {
+			if (!Var->Assignment->IsFoldable) {
+				// TODO: If the expression is not foldable then
+				// it should be evaluted in an anoyomous function
+				assert(!"Not handled yet");
+			} else {
+				Var->LLComptimeVal = llvm::cast<llvm::Constant>(GenNode(Var->Assignment));
+			}
+		}
+		return Var->LLComptimeVal;
+	}
+
 	return GetAddressOfVar(IRef->VarRef);
 }
 

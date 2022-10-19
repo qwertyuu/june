@@ -78,7 +78,28 @@ void RunTest(const c8* TestDirectoryPath, s32 Value) {
 	RunTest(TestDirectoryPath, std::to_string(Value));
 }
 
+void RunPlayground() {
+	llvm::SmallVector<const c8*, 1> SourceDirectories;
+	SourceDirectories.push_back(SRC("playground"));
+
+	june::Compiler Compiler;
+	//Compiler.StandAlone = true;
+	Compiler.PathToStandardLibrary = JUNE_COMPILER_STDLIB_SOURCE_DIR;
+	//Compiler.EmitDebugInfo = true;
+	//Compiler.Verbose = true;
+	Compiler.DisplayLLVMIR = true;
+	//Compiler.DisplayAST = true;
+	Compiler.Compile(SourceDirectories);
+
+	if (!Compiler.FoundCompileError) {
+
+		system("program");
+	}
+}
+
 int main() {
+
+	//RunPlayground();
 
 	RunTest(SRC("exprs/Exprs1.june"), 214 + 41 / 2 - 663 * 3);
 	RunTest(SRC("exprs/Exprs2.june"), []() {
