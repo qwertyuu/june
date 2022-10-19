@@ -1247,18 +1247,38 @@ llvm::Value* june::IRGen::GenBinaryOp(BinaryOp* BinOp) {
 	case '+': {
 		llvm::Value* LLLHS = GenRValue(BinOp->LHS);
 		llvm::Value* LLRHS = GenRValue(BinOp->RHS);
-		if (BinOp->Ty->isInt()) {
-			return Builder.CreateAdd(LLLHS, LLRHS);
+
+		if (BinOp->Ty->GetKind() == TypeKind::POINTER) {
+			llvm::Value* PtrAddr = BinOp->LHS->Ty->GetKind() == TypeKind::POINTER ? LLLHS : LLRHS;
+			llvm::Value* Add     = BinOp->LHS->Ty->GetKind() == TypeKind::POINTER ? LLRHS : LLLHS;
+
+			llvm::SmallVector<llvm::Value*, 1> GEPAdd = { Add };
+			return CreateInBoundsGEP(PtrAddr, GEPAdd);
+		} else {
+			if (BinOp->Ty->isInt()) {
+				return Builder.CreateAdd(LLLHS, LLRHS);
+			}
+			return Builder.CreateFAdd(LLLHS, LLRHS);
 		}
-		return Builder.CreateFAdd(LLLHS, LLRHS);
 	}
 	case '-': {
 		llvm::Value* LLLHS = GenRValue(BinOp->LHS);
 		llvm::Value* LLRHS = GenRValue(BinOp->RHS);
-		if (BinOp->Ty->isInt()) {
-			return Builder.CreateSub(LLLHS, LLRHS);
+
+		if (BinOp->Ty->GetKind() == TypeKind::POINTER) {
+			// Pointer arithmetic.
+
+			llvm::Value* PtrAddr = LLLHS;
+			llvm::Value* Sub = Builder.CreateNeg(LLRHS);
+
+			llvm::SmallVector<llvm::Value*, 1> GEPAdd = { Sub };
+			return CreateInBoundsGEP(PtrAddr, GEPAdd);
+		} else {
+			if (BinOp->Ty->isInt()) {
+				return Builder.CreateSub(LLLHS, LLRHS);
+			}
+			return Builder.CreateFSub(LLLHS, LLRHS);
 		}
-		return Builder.CreateFSub(LLLHS, LLRHS);
 	}
 	case '*': {
 		llvm::Value* LLLHS = GenRValue(BinOp->LHS);
@@ -1292,20 +1312,35 @@ llvm::Value* june::IRGen::GenBinaryOp(BinaryOp* BinOp) {
 		llvm::Value* LLLHS = GenNode(BinOp->LHS);
 		llvm::Value* LLRHS = GenRValue(BinOp->RHS);
 
-		llvm::Value* LLLHSRV = CreateLoad(LLLHS);
-		llvm::Value* V = BinOp->Ty->isInt() ? Builder.CreateAdd(LLLHSRV, LLRHS)
-											: Builder.CreateFAdd(LLLHSRV, LLRHS);
-		Builder.CreateStore(V, LLLHS);
-		return V;
+		if (BinOp->Ty->GetKind() == TypeKind::POINTER) {
+			llvm::SmallVector<llvm::Value*, 1> LLIdx = { LLRHS };
+			llvm::Value* V = CreateInBoundsGEP(CreateLoad(LLLHS), LLIdx);
+			Builder.CreateStore(V, LLLHS);
+			return V;
+		} else {
+			llvm::Value* LLLHSRV = CreateLoad(LLLHS);
+			llvm::Value* V = BinOp->Ty->isInt() ? Builder.CreateAdd(LLLHSRV, LLRHS)
+				                                : Builder.CreateFAdd(LLLHSRV, LLRHS);
+			Builder.CreateStore(V, LLLHS);
+			return V;
+		}
 	}
 	case TokenKind::MINUS_EQ: { // -=
 		llvm::Value* LLLHS = GenNode(BinOp->LHS);
 		llvm::Value* LLRHS = GenRValue(BinOp->RHS);
-		llvm::Value* LLLHSRV = CreateLoad(LLLHS);
-		llvm::Value* V = BinOp->Ty->isInt() ? Builder.CreateSub(LLLHSRV, LLRHS)
-											: Builder.CreateFSub(LLLHSRV, LLRHS);
-		Builder.CreateStore(V, LLLHS);
-		return V;
+
+		if (BinOp->Ty->GetKind() == TypeKind::POINTER) {
+			llvm::SmallVector<llvm::Value*, 1> LLIdx = { Builder.CreateNeg(LLRHS) };
+			llvm::Value* V = CreateInBoundsGEP(CreateLoad(LLLHS), LLIdx);
+			Builder.CreateStore(V, LLLHS);
+			return V;
+		} else {
+			llvm::Value* LLLHSRV = CreateLoad(LLLHS);
+			llvm::Value* V = BinOp->Ty->isInt() ? Builder.CreateSub(LLLHSRV, LLRHS)
+												: Builder.CreateFSub(LLLHSRV, LLRHS);
+			Builder.CreateStore(V, LLLHS);
+			return V;
+		}
 	}
 	case TokenKind::STAR_EQ: { // *=
 		llvm::Value* LLLHS = GenNode(BinOp->LHS);

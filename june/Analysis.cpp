@@ -1417,13 +1417,24 @@ YIELD_ERROR(BinOp)
 			YIELD_ERROR(BinOp);
 		}
 
+		bool UsesPointerArithmetic = false;
 		switch (BinOp->Op) {
 		case TokenKind::PLUS_EQ: case TokenKind::MINUS_EQ: {
-			if (!RTy->isNumber()) {
-				OPERATOR_CANNOT_APPLY(RTy);
-			}
-			if (!LTy->isNumber()) {
-				OPERATOR_CANNOT_APPLY(LTy);
+			if (LTy->GetKind() == TypeKind::POINTER) {
+				// Pointer arithmetic case
+				if (!RTy->isInt()) {
+					Error(BinOp->RHS, "Pointer arithmetic expects integers");
+					YIELD_ERROR(BinOp);
+				}
+
+				UsesPointerArithmetic = true;
+			} else {
+				if (!RTy->isNumber()) {
+					OPERATOR_CANNOT_APPLY(RTy);
+				}
+				if (!LTy->isNumber()) {
+					OPERATOR_CANNOT_APPLY(LTy);
+				}
 			}
 			break;
 		}
@@ -1464,33 +1475,70 @@ YIELD_ERROR(BinOp)
 			break;
 		}
 
-		CreateCast(BinOp->RHS, LTy);
+		if (!UsesPointerArithmetic) {
+			if (!IsAssignableTo(LTy, BinOp->RHS)) {
+				Error(BinOp, "Cannot assign value of type '%s' to variable of type '%s'",
+					RTy->ToStr(), LTy->ToStr());
+				YIELD_ERROR(BinOp);
+			}
+
+			CreateCast(BinOp->RHS, LTy);
+		}
 
 		BinOp->Ty = LTy;
 		break;
 	}
 	case '+': case '-': {
-		if (!(LTy->isNumber())) {
+		// Pointers are included so that pointer arithmetic
+		// can be done.
+		if (!(LTy->isNumber() || LTy->GetKind() == TypeKind::POINTER)) {
 			OPERATOR_CANNOT_APPLY(LTy);
 		}
-		if (!(RTy->isNumber())) {
+		if (!(RTy->isNumber() || RTy->GetKind() == TypeKind::POINTER)) {
 			OPERATOR_CANNOT_APPLY(RTy);
 		}
 
-		Type* ToType;
-		if (LTy->isInt() && RTy->isInt()) {
-			u32 LargerMemSize = max(LTy->MemSize(), RTy->MemSize());
-			bool IsSigned = LTy->isSigned() || RTy->isSigned();
-			ToType = Type::GetIntTypeBasedOnSize(LargerMemSize, IsSigned, Context);
+		if (LTy->GetKind() == TypeKind::POINTER || RTy->GetKind() == TypeKind::POINTER) {
+			// Pointer arithmetic
+
+			if (BinOp->Op == '-' && LTy->isNumber()) {
+				Error(BinOp->LHS, "Cannot subtract a pointer from a number");
+				YIELD_ERROR(BinOp);
+			}
+
+			if (LTy->GetKind() == TypeKind::POINTER) {
+				if (!RTy->isInt()) {
+					Error(BinOp->RHS, "Pointer arithmetic expects integers");
+					YIELD_ERROR(BinOp);
+				}
+				
+				BinOp->Ty = LTy;
+			} else {
+				if (!LTy->isInt()) {
+					Error(BinOp->LHS, "Pointer arithmetic expects integers");
+					YIELD_ERROR(BinOp);
+				}
+				
+				BinOp->Ty = RTy;
+			}
 		} else {
-			// At least one is a float
-			u32 LargerMemSize = max(LTy->MemSize(), RTy->MemSize());
-			ToType = Type::GetFloatTypeBasedOnSize(LargerMemSize, Context);
-		}
+			// Not pointer arithmetic
+
+			Type* ToType;
+			if (LTy->isInt() && RTy->isInt()) {
+				u32 LargerMemSize = max(LTy->MemSize(), RTy->MemSize());
+				bool IsSigned = LTy->isSigned() || RTy->isSigned();
+				ToType = Type::GetIntTypeBasedOnSize(LargerMemSize, IsSigned, Context);
+			} else {
+				// At least one is a float
+				u32 LargerMemSize = max(LTy->MemSize(), RTy->MemSize());
+				ToType = Type::GetFloatTypeBasedOnSize(LargerMemSize, Context);
+			}
 		
-		CreateCast(BinOp->LHS, ToType);
-		CreateCast(BinOp->RHS, ToType);
-		BinOp->Ty = ToType;
+			CreateCast(BinOp->LHS, ToType);
+			CreateCast(BinOp->RHS, ToType);
+			BinOp->Ty = ToType;
+		}
 		break;
 	}
 	case '*': case '/': {
