@@ -2,15 +2,15 @@ import Tests;
 
 A :: record {
 	B :: record {
-		m :i32 = 14;
-		c :i32 = 124;
+		m: i32 = 14;
+		c: i32 = 124;
 	}
 
-	j :B;
+	j: B;
 }
 
 main() {
-	a :A;
+	a: A;
 	Tests.print(a.j.m);
 	Tests.print(" ");
 	Tests.print(a.j.c);

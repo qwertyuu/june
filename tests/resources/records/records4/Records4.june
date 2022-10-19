@@ -6,7 +6,7 @@ import Tests;
 import Data;
 
 main() {
-	d :Data = Data(
+	d: Data = Data(
 		a = 14,
 		b = 56,
 	);

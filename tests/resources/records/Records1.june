@@ -4,12 +4,12 @@ import Tests;
 //    instantiation and field accessing
 //    works.
 Data :: record {
-	a :i32;
-	b :i32;
+	a: i32;
+	b: i32;
 }
 
 main() {
-	data :Data = Data(
+	data: Data = Data(
 		a = 14,
 		b = 15
 	);

@@ -3,9 +3,9 @@ import Tests;
 // -- Test to make sure that the .length
 //    operator works on arrays.
 main() {
-	a :i32[5] = [ 214, 452, 12, 32, 11 ];
-	sum :i32 = 0;
-	loop i :i32 = 0; i < a.length; i++ {
+	a: i32[5] = [ 214, 452, 12, 32, 11 ];
+	sum: i32 = 0;
+	loop i: i32 = 0; i < a.length; i++ {
 		Tests.print(a[i]);
 		Tests.print(" ");
 	}

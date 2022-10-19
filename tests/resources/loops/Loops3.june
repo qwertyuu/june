@@ -4,8 +4,8 @@ import Tests;
 //    the increment at the end of the
 //    loop works
 main() {
-	sum :i32 = 0;
-	loop i :i32 = 0; i < 5; {
+	sum: i32 = 0;
+	loop i: i32 = 0; i < 5; {
 		sum += i;
 		++i;
 	}

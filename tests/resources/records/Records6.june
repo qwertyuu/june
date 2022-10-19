@@ -1,14 +1,14 @@
 import Tests;
 
 Data :: record {
-	a :i32 = 25;
-	b :i32 = 55;
+	a: i32 = 25;
+	b: i32 = 55;
 }
 
 main() {
-	arr :Data[5][5];
-	sum :i32 = 0;
-	loop i :i32 = 0; i < 5; i++ {
+	arr: Data[5][5];
+	sum: i32 = 0;
+	loop i: i32 = 0; i < 5; i++ {
 		loop j :i32 = 0; j < 5; j++ {
 			Tests.print(arr[i][j].a);
 			Tests.print(" ");

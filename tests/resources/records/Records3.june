@@ -4,17 +4,17 @@ import Tests;
 //    can contain another record as
 //    a field.
 A :: record {
-	f1 :i32;
-	f2 :i32;
+	f1: i32;
+	f2: i32;
 }
 
 Data :: record {
-	a :A;
-	b :i32;
+	a: A;
+	b: i32;
 }
 
 main() {
-	d :Data = Data(
+	d: Data = Data(
 		a = A(
 			f1 = 124,
 			f2 = 66

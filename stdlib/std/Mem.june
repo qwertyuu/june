@@ -5,7 +5,7 @@
  *
  * Warning: This is not a safe function. Use with caution.
  */
-native memcpy(dest :void*, src :void*, count :i64);
+native memcpy(dest: void*, src: void*, count: i64);
 
 /*
  * Counts the number of characters until
@@ -14,9 +14,9 @@ native memcpy(dest :void*, src :void*, count :i64);
  * @return  length of the null terminated
  *          c-string.
  */
-strlen(str :c8*) -> u32 {
-	len :u32 = 0;
-	ptr :c8* = str;
+strlen(str: c8*) -> u32 {
+	len: u32 = 0;
+	ptr: c8* = str;
 	loop *ptr != '\0' {
 		++ptr;
 		++len;
@@ -24,6 +24,6 @@ strlen(str :c8*) -> u32 {
 	return len;
 }
 
-combine32BitInts(low :i32, high :i32) -> i64 {
+combine32BitInts(low: i32, high: i32) -> i64 {
 	return 0;
 }

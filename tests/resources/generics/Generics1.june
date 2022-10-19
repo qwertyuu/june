@@ -3,7 +3,7 @@ import Tests;
 // -- Test to make sure creating
 //    and calling a generic function
 //    works.
-square<T>(v :T) -> T {
+square<T>(v: T) -> T {
 	return v * v;
 }
 

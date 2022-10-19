@@ -3,9 +3,9 @@ import Tests;
 // -- Test to make sure that sizeof
 //    operator works.
 Data :: record {
-	x0 :i32;
-	x1 :i32;
-	y  :f64;
+	x0: i32;
+	x1: i32;
+	y:  f64;
 }
 
 main() {

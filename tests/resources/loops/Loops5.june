@@ -3,7 +3,7 @@ import Tests;
 // -- Test to make sure that 'break' and
 //    'continue' statements work.
 main() {
-	loop i :i32 = 0; ; i++ {
+	loop i: i32 = 0; ; i++ {
 		if i > 50 {
 			break;
 		}

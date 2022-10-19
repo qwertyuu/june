@@ -3,8 +3,8 @@ import Tests;
 // -- Test to make sure that declaring and accessing
 //    an array works.
 main() {
-	a :i32[5] = [ 21, 55, 11, 56, 3 ];
-	loop i :i32 = 0; i < 5; i++ {
+	a: i32[5] = [ 21, 55, 11, 56, 3 ];
+	loop i: i32 = 0; i < 5; i++ {
 		Tests.print(a[i]);
 		Tests.print(" ");
 	}

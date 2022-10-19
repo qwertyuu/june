@@ -1,10 +1,10 @@
 import Tests;
 
 A :: record {
-	j :i32;
+	j: i32;
 }
 
-f(a :A) {
+f(a: A) {
 	Tests.print(a.j);
 }
 

@@ -3,7 +3,7 @@ import Tests;
 // -- Test to make sure that pre and post-incrementing
 //    works
 main() {
-	g :i32 = 0;
+	g: i32 = 0;
 	++g;
 	--g;
 	++g;

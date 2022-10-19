@@ -1,10 +1,10 @@
 import Tests;
 
 main() {
-	x :i32 = 5437;
-	y :i32 = 61;
-	a :i32* = [ 12, 465, x, 12, y ];
-	loop i :i32 = 0; i < 5; i++ {
+	x: i32 = 5437;
+	y: i32 = 61;
+	a: i32* = [ 12, 465, x, 12, y ];
+	loop i: i32 = 0; i < 5; i++ {
 		Tests.print(a[i]);
 		Tests.print(" ");
 	}

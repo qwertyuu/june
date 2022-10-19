@@ -13,7 +13,7 @@ b() -> i32 {
 
 main() {
 	
-	funcs :`() -> i32`[2];
+	funcs: `() -> i32`[2];
 	funcs[0] = &a;
 	funcs[1] = &b;
 	

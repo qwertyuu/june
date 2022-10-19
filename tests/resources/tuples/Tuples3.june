@@ -1,12 +1,12 @@
 import Tests;
 
 A :: record {
-	a :i32 = 14;
-	b :i32 = 35;
+	a: i32 = 14;
+	b: i32 = 35;
 }
 
 main() {
-	t :(A, i32, i32) = (A(b = 888), 99, 3);
+	t: (A, i32, i32) = (A(b = 888), 99, 3);
 	
 	Tests.print(t[0].a);
 	Tests.print(" ");

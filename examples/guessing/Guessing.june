@@ -4,7 +4,7 @@ import std.util.Random;
 main() {
 	
 	Sys.println("Guess a number between 0-10");
-	guess :i32 = Sys.stdin.readInt();
+	guess: i32 = Sys.stdin.readInt();
 
 	rand := Random();
 	answer := rand.nextInt(10);

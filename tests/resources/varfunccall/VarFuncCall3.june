@@ -13,8 +13,8 @@ A :: record {
 
 main() {
 	
-	f : (A*) -> i32 = &A.m;
+	f: (A*) -> i32 = &A.m;
 
-	y :A;
+	y: A;
 	Tests.print(f(&y));
 }

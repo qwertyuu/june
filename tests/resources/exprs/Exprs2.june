@@ -3,9 +3,9 @@ import Tests;
 // -- Test to validate that arithmetic works with
 //    variables.
 main() {
-	b :i32 = 22;
-	sum :i32 = 44 * 3 + 55 - 421 * b;
-	g :i32 = 4;
+	b: i32 = 22;
+	sum: i32 = 44 * 3 + 55 - 421 * b;
+	g: i32 = 4;
 	sum /= g + 1;
 	sum *= 3 - 1;
 	sum = sum * sum;

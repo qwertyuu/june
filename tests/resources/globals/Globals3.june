@@ -1,12 +1,12 @@
 import Tests;
 
 Data :: record {
-	a :i32 = 22;
-	b :i32 = 1111;
+	a: i32 = 22;
+	b: i32 = 1111;
 }
 
-data1 :Data;
-data2 :Data = Data(a = 34, b = 66);
+data1: Data;
+data2: Data = Data(a = 34, b = 66);
 
 main() {
 	Tests.print(data1.a);

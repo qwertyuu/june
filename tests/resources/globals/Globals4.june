@@ -3,11 +3,11 @@ import Tests;
 // -- Test to make sure that arrays
 //    of records work as global variables.
 Data :: record {
-	a :i32 = 154;
-	b :i32 = 11;
+	a: i32 = 154;
+	b: i32 = 11;
 }
 
-arr :Data[5];
+arr: Data[5];
 
 main() {
 	Tests.print(arr[0].a);

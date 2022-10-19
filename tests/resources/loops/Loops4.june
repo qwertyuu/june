@@ -3,8 +3,8 @@ import Tests;
 // -- Test to make sure that simple predicate based
 //    loops works
 main() {
-	total :i32 = 0;
-	i     :i32 = 0;
+	total: i32 = 0;
+	i:     i32 = 0;
 	loop i < 15 {
 		total += 1;
 		++i;

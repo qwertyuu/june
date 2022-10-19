@@ -44,9 +44,9 @@ FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS := 0x00400000;
  *                                              *
 \*===----------------------------------------===*/
 
-native GetStdHandle(nStdHandle :u32) -> void*;
+native GetStdHandle(nStdHandle: u32) -> void*;
 
-native SetStdHandle(nStdHandle :u32, hHandle :void*) -> i32;
+native SetStdHandle(nStdHandle: u32, hHandle: void*) -> i32;
 
 /*===----------------------------------------===*\
  *                                              *
@@ -54,27 +54,27 @@ native SetStdHandle(nStdHandle :u32, hHandle :void*) -> i32;
  *                                              *
 \*===----------------------------------------===*/
 
-native WriteFile(hFile                  :void*,
-                 lpBuffer               :void*,
-                 nNumberOfBytesToWrite  :u32,
-                 lpNumberOfBytesWritten :u32*,
-                 lpOverlapped           :void*   /* Ignored data structure */
+native WriteFile(hFile:                  void*,
+                 lpBuffer:               void*,
+                 nNumberOfBytesToWrite:  u32,
+                 lpNumberOfBytesWritten: u32*,
+                 lpOverlapped:           void*   /* Ignored data structure */
                  ) -> i32;
 
-native ReadFile(hFile                  :void*,
-                lpBuffer               :void*,
-                nNumberOfBytesToWrite  :u32,
-                lpNumberOfBytesWritten :u32*,
-                lpOverlapped           :void*   /* Ignored data structure */
+native ReadFile(hFile:                  void*,
+                lpBuffer:               void*,
+                nNumberOfBytesToWrite:  u32,
+                lpNumberOfBytesWritten: u32*,
+                lpOverlapped:           void*   /* Ignored data structure */
                 ) -> i32;
 
-native CreateFileA(lpFileName            :c8*,
-                   dwDesiredAccess       :u32,
-                   dwShareMode           :u32,
-                   lpSecurityAttributes  :void*, // TODO: Support for security attributes?
-                   dwCreationDisposition :u32,
-                   dwFlagsAndAttributes  :u32,
-                   hTemplateFile         :void*
+native CreateFileA(lpFileName:            c8*,
+                   dwDesiredAccess:       u32,
+                   dwShareMode:           u32,
+                   lpSecurityAttributes:  void*, // TODO: Support for security attributes?
+                   dwCreationDisposition: u32,
+                   dwFlagsAndAttributes:  u32,
+                   hTemplateFile:         void*
                    ) -> void*;
 
 // TODO: Will want to replace with comptime values once supported!
@@ -90,7 +90,7 @@ TRUNCATE_EXISTING := 5;
  *                                              *
 \*===----------------------------------------===*/
 
-native Sleep(dwMilliseconds :u32);
+native Sleep(dwMilliseconds: u32);
 
 /*===----------------------------------------===*\
  *                                              *
@@ -98,7 +98,7 @@ native Sleep(dwMilliseconds :u32);
  *                                              *
 \*===----------------------------------------===*/
 
-native ExitProcess(uExitCode :u32);
+native ExitProcess(uExitCode: u32);
 
 /*===----------------------------------------===*\
  *                                              *
@@ -106,8 +106,8 @@ native ExitProcess(uExitCode :u32);
  *                                              *
 \*===----------------------------------------===*/
 
-native QueryPerformanceFrequency(lpFrequency :i64*) -> bool;
-native QueryPerformanceCounter(lpPerformanceCount :i64*) -> bool;
+native QueryPerformanceFrequency(lpFrequency: i64*) -> bool;
+native QueryPerformanceCounter(lpPerformanceCount: i64*) -> bool;
 
 /*===----------------------------------------===*\
  *                                              *
@@ -116,8 +116,8 @@ native QueryPerformanceCounter(lpPerformanceCount :i64*) -> bool;
 \*===----------------------------------------===*/
 
 // TODO: Will want to replace with comptime values once supported!
-INVALID_HANDLE_VALUE :void* = cast(void*) -1L;
+INVALID_HANDLE_VALUE: void* = cast(void*) -1L;
 
-native CloseHandle(hObject :void*) -> i32;
+native CloseHandle(hObject: void*) -> i32;
 
 #endif

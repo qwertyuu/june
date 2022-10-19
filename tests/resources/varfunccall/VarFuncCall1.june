@@ -8,7 +8,7 @@ f() -> i32 {
 
 main() {
 	
-	y : () -> i32 = &f;
+	y: () -> i32 = &f;
 	res := y();
 
 	Tests.print(res);

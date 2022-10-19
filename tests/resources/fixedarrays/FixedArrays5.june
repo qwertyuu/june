@@ -3,9 +3,9 @@ import Tests;
 // -- Test to make sure that the .length
 //    operator works on sub-arrays.
 main() {
-	a :i32[7][3] = [ [ 253, 23 ], [ 13 ] ];
-	loop i :i32 = 0; i < a.length; ++i {
-		loop j :i32 = 0; j < a[i].length; ++j {
+	a: i32[7][3] = [ [ 253, 23 ], [ 13 ] ];
+	loop i: i32 = 0; i < a.length; ++i {
+		loop j: i32 = 0; j < a[i].length; ++j {
 			Tests.print(a[i][j]);
 			Tests.print(" ");
 		}

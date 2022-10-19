@@ -2,10 +2,10 @@ import std.Sys;
 
 File :: record {
 	
-	path   :c8*;
-	flags  :u32;
+	path:  c8*;
+	flags: u32;
 
-	File(path :c8*, flags :u32) {
+	File(path: c8*, flags: u32) {
 		this.path  = path;
 		this.flags = flags;
 	}

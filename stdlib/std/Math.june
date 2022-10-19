@@ -1,0 +1,4 @@
+
+native sin(delta: f32) -> f32;
+
+native cos(delta: f32) -> f32;

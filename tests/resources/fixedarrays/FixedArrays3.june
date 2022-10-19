@@ -3,10 +3,10 @@ import Tests;
 // -- Test to make sure that non-foldable
 //    array generation works.
 main() {
-	sum :i32 = 0;
-	x0 :i32 = 41; x1 :i32 = 36;
-	a :i32[5] = [ 412, x0 + x1, 121, 45, 56 ];
-	loop i :i32 = 0; i < 5; i++ {
+	sum: i32 = 0;
+	x0: i32 = 41; x1: i32 = 36;
+	a: i32[5] = [ 412, x0 + x1, 121, 45, 56 ];
+	loop i: i32 = 0; i < 5; i++ {
 		Tests.print(a[i]);
 		Tests.print(" ");
 	}

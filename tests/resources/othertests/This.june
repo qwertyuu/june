@@ -1,7 +1,7 @@
 import Tests;
 
 A :: record {
-	i :i32 = 252;
+	i: i32 = 252;
 
 	g() -> i32 {
 		return this.i;
@@ -9,6 +9,6 @@ A :: record {
 }
 
 main() {
-	a :A;
+	a: A;
 	Tests.print(a.g());
 }

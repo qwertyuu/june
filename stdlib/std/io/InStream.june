@@ -8,22 +8,22 @@ import std.Sys;
 InStream :: record {
 
 #if OS_WINDOWS	
-	handle :void*;
+	handle: void*;
 #elif OS_UNIX
-	handle :i32;
+	handle: i32;
 #endif
 
 #if OS_WINDOWS
-	InStream(handle :void*) {
+	InStream(handle: void*) {
 		this.handle = handle;
 	}
 #elif OS_UNIX
-	InStream(handle :i32) {
+	InStream(handle: i32) {
 		this.handle = handle;
 	}
 #endif
 
-	InStream(file :File) {
+	InStream(file: File) {
 
 #if OS_WINDOWS	
 		accessFlags := 0u;
@@ -71,8 +71,8 @@ InStream :: record {
 
 	}
 
-	read(buffer :c8*, len :u32) -> u32 {
-		numberOfBytersRead :u32;
+	read(buffer: c8*, len: u32) -> u32 {
+		numberOfBytersRead: u32;
 #if OS_WINDOWS
 		Win32.ReadFile(handle, buffer, len, &numberOfBytersRead, null);
 #elif OS_UNIX
@@ -82,16 +82,16 @@ InStream :: record {
 	}
 
 	readLine() -> String {
-		buffer :c8[1024];
+		buffer: c8[1024];
 #if OS_WINDOWS
-		amountRead :i32 = read(buffer, buffer.length);
+		amountRead: i32 = read(buffer, buffer.length);
 		// -2 because \r\n
 		return String(buffer, amountRead - 2);
 #elif OS_UNIX
 		// Reading character by character until a new line character
 		// is found.
-		amountRead :i32;
-		ptr :c8* = buffer;
+		amountRead: i32;
+		ptr: c8* = buffer;
 		loop i := 0; i < buffer.length; i++ {
 			if read(ptr, 1) == 0 || *ptr == '\n' {
 				break;

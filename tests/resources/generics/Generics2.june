@@ -1,12 +1,12 @@
 import Tests;
 
-func<T>(a :i32, b :T, c :i32) -> i32 {
+func<T>(a: i32, b: T, c: i32) -> i32 {
 	return a + b + c;
 }
 
 main() {
-	a :i32 = func(1, b = 124, c = 31);
-	b :i32 = func(c = 11, b = 325, a = 66);
+	a: i32 = func(1, b = 124, c = 31);
+	b: i32 = func(c = 11, b = 325, a = 66);
 	Tests.print(a);
 	Tests.print(" ");
 	Tests.print(b);

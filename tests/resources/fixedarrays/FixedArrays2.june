@@ -3,9 +3,9 @@ import Tests;
 // -- Test to make sure that multi-dimensional
 //    fixed arrays work.
 main() {
-	a :i32[3][2] = [ [ 412, 21 ], [ 5, 6 ], [ 4 ] ];
-	loop i :i32 = 0; i < 3; i++ {
-		loop j :i32 = 0; j < 2; j++ {
+	a: i32[3][2] = [ [ 412, 21 ], [ 5, 6 ], [ 4 ] ];
+	loop i: i32 = 0; i < 3; i++ {
+		loop j: i32 = 0; j < 2; j++ {
 			Tests.print(a[i][j]);
 			Tests.print(" ");
 		}

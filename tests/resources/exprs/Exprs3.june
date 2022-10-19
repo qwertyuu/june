@@ -3,8 +3,8 @@ import Tests;
 // -- Test to make sure that binary operaters are
 //    working.
 main() {
-	a :i32 = 22;
-	b :i32 = a << 6;
-	c :i32 = b % 20;
+	a: i32 = 22;
+	b: i32 = a << 6;
+	c: i32 = b % 20;
 	Tests.print(c + (312312 >> 3) ^ 7);
 }

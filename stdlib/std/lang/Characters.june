@@ -5,8 +5,8 @@
  *
  * -1 indicates that the character has no conversion.
  */
-DIGIT_CONVERSION_TABLE :u8[256] = [
-	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+DIGIT_CONVERSION_TABLE: u8[256] = [
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, -1,
     -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -25,8 +25,8 @@ DIGIT_CONVERSION_TABLE :u8[256] = [
  * Converts a character into a subsequent digit for radixes
  * between MIN_RADIX and MAX_RADIX.
  */
-toDigitForRadix(c :c8, radix :i32) -> i32 {
-    digit :i32 = DIGIT_CONVERSION_TABLE[c];
+toDigitForRadix(c: c8, radix: i32) -> i32 {
+    digit: i32 = DIGIT_CONVERSION_TABLE[c];
     return digit >= 0 && digit < radix ?  digit
                                        |> -1;
 }

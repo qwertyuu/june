@@ -5,6 +5,6 @@ main() {
 	Tests.print(func(523));
 }
 
-func(a :i32) -> i32 {
+func(a: i32) -> i32 {
 	return a;
 }

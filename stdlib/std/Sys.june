@@ -14,14 +14,14 @@ stdin := InStream(0);
 #endif
 
 #if OS_WINDOWS
-writeToHandle(handle :void*, msg :c8*, length :u32) {
-	numberOfBytesWritten :u32;
+writeToHandle(handle: void*, msg: c8*, length: u32) {
+	numberOfBytesWritten: u32;
 	Win32.WriteFile(handle, msg, length, &numberOfBytesWritten, null);
 }
 #endif
 
 #if OS_UNIX
-writeToHandle(handle :i32, msg :c8*, length :u32) {
+writeToHandle(handle: i32, msg: c8*, length: u32) {
 	Unix.write(handle, msg, length);
 }
 #endif
@@ -30,7 +30,7 @@ writeToHandle(handle :i32, msg :c8*, length :u32) {
 // Functions for writing to std out.
 //----------------------------------------------
 
-print(msg :c8*, length :u32) {
+print(msg: c8*, length: u32) {
 #if OS_WINDOWS
 	writeToHandle(Win32.GetStdHandle(-11), msg, length);
 #elif OS_UNIX
@@ -38,15 +38,15 @@ print(msg :c8*, length :u32) {
 #endif
 }
 
-print(msg :c8*) {
+print(msg: c8*) {
 	print(msg, Mem.strlen(msg));
 }
 
-print(msg :String) {
+print(msg: String) {
 	print(msg.buffer, msg.length);
 }
 
-print(i :i32) {
+print(i: i32) {
 	print(String.from(i));
 }
 
@@ -55,14 +55,14 @@ println() {
 	print(&ln, 1);
 }
 
-println<T>(v :T) {
+println<T>(v: T) {
 	print(v);
 	println();
 }
 
 // Explicit implementation to prevent
 // array based character templating.
-println(v :c8*) {
+println(v: c8*) {
 	print(v);
 	println();
 }
@@ -81,7 +81,7 @@ initialize() {
 /*
  * Stops the current application from running.
  */
-exit(exitCode :u32) {
+exit(exitCode: u32) {
 #if OS_WINDOWS
 	Win32.ExitProcess(exitCode);
 #elif OS_UNIX
@@ -91,12 +91,12 @@ exit(exitCode :u32) {
 
 // Used to keep track of time
 #if OS_WINDOWS
-performanceFrequency :i64;
+performanceFrequency: i64;
 #endif
 
 currentNanoTime() -> i64 {
 #if OS_WINDOWS
-	current :i64;
+	current: i64;
 	Win32.QueryPerformanceCounter(&current);
 	return cast(i64) ((cast(f64) current/performanceFrequency) * 1E+9);
 #elif OS_UNIX

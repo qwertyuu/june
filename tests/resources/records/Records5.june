@@ -5,12 +5,12 @@ import Tests;
 //    function when declared.
 
 Data :: record {
-	a :i32 = 15;
-	b :i32 = 325;
+	a: i32 = 15;
+	b: i32 = 325;
 }
 
 main() {
-	d1 :Data;
+	d1: Data;
 	Tests.print(d1.a);
 	Tests.print(" ");
 	Tests.print(d1.b); 
